@@ -1,8 +1,24 @@
-/* GLOBAL RESET */
-* {
+/* ===========================
+   GLOBAL RESET & THEME
+=========================== */
+
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+:root {
+  --emerald: #047857;
+  --emerald-dark: #065f46;
+  --emerald-soft: #10b98122;
+  --gold: #f4d03f;
+  --gold-soft: #fef9c3;
+  --bg: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #4b5563;
 }
 
 html,
@@ -11,197 +27,447 @@ body {
   height: 100%;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, sans-serif;
-  background: #ffffff;
-  color: #043c25;
+  background: var(--bg);
+  color: var(--text-main);
   overflow-x: hidden;
 }
 
-/* ===========================
-   HERO SECTION
-=========================== */
-.hero {
-  background: linear-gradient(135deg, #046a38, #08985a);
-  color: #ffffff;
-  padding: 140px 20px 90px;
-  text-align: center;
+body {
+  padding-top: 72px; /* account for sticky header */
 }
 
-.hero h1 {
-  font-size: 2.8rem;
-  font-weight: 700;
-  margin-bottom: 20px;
-}
-
-.hero p {
-  font-size: 1.25rem;
-  max-width: 800px;
-  margin: 0 auto;
+.page-root {
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #ecfdf5 0, #ffffff 55%);
 }
 
 /* ===========================
-   GENERAL SECTIONS
+   STICKY HEADER
 =========================== */
-.section {
-  padding: 70px 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
 
-.section h2 {
-  color: #046a38;
-  font-size: 2rem;
-  margin-bottom: 20px;
-}
-
-/* ===========================
-   CARD STYLES
-=========================== */
-.card {
-  background: #f7fdf9;
-  border: 2px solid #d4af37;
-  border-radius: 12px;
-  padding: 22px;
-  margin-bottom: 18px;
-  animation: fadeInUp 0.6s ease forwards;
-  opacity: 0;
-}
-
-/* ===========================
-   CTA BUTTON
-=========================== */
-.cta {
-  background: #d4af37;
-  color: #000;
-  padding: 16px 32px;
-  border-radius: 999px;
-  text-decoration: none;
-  font-size: 1.2rem;
-  font-weight: 700;
-  display: inline-block;
-}
-
-/* ===========================
-   STICKY HEADER (FULL FIX)
-=========================== */
 .sticky-header {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
-  background: #046a38;
-  padding: 18px 34px;        /* ⬅ more room so text never gets cut */
+  background: linear-gradient(90deg, var(--emerald-dark), var(--emerald));
+  padding: 14px 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 100;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  min-height: 64px;         /* ⬅ ensures full vertical space */
-  gap: 28px;
+  z-index: 40;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.3);
 }
 
 .header-title {
   color: #ffffff;
   font-size: 22px;
   font-weight: 700;
-  white-space: nowrap;       /* ⬅ prevent wrapping */
+  white-space: nowrap;
 }
 
 .header-cta {
   color: #ffffff;
-  font-weight: 700;
-  font-size: 1.1rem;
+  font-weight: 600;
   text-decoration: none;
-  white-space: nowrap;       /* ⬅ prevent cutting */
-  padding: 0 10px;           /* ⬅ gives breathing room */
+  font-size: 1rem;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.header-cta:hover {
+  background: #ffffff;
+  color: var(--emerald-dark);
+  transform: translateY(-1px);
 }
 
 /* ===========================
-   BOTTOM STICKY CTA
+   HERO
 =========================== */
-.bottom-cta {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: #d4af37;
-  padding: 18px;
-  text-align: center;
-  font-size: 1.1rem;
+
+.hero {
+  padding: 80px 20px 60px;
+}
+
+.hero-inner {
+  max-width: 980px;
+  margin: 0 auto;
+  background: radial-gradient(circle at top left, var(--emerald-soft), #ffffff);
+  border-radius: 32px;
+  padding: 40px 28px 44px;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  box-shadow: 0 18px 60px rgba(15, 23, 42, 0.22);
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  background: rgba(15, 23, 42, 0.8);
+  padding: 6px 11px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+
+.hero h1 {
+  font-size: 2.6rem;
+  line-height: 1.1;
+  margin-bottom: 16px;
+  color: var(--text-main);
+}
+
+.hero-sub {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+.hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+/* CTA buttons */
+
+.primary-cta {
+  background: var(--gold);
+  color: #111827;
+  padding: 14px 28px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: 1rem;
   font-weight: 700;
-  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.25);
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(180, 83, 9, 0.4);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.primary-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 40px rgba(180, 83, 9, 0.55);
+}
+
+.secondary-cta {
+  padding: 13px 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-main);
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.2s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.secondary-cta:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}
+
+.hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hero-badge {
+  font-size: 0.82rem;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #e5e7eb;
+}
+
+/* ===========================
+   SECTIONS
+=========================== */
+
+.section {
+  padding: 60px 20px;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.section h2 {
+  font-size: 2rem;
+  color: var(--emerald-dark);
+  margin-bottom: 12px;
+}
+
+.section-lead {
+  font-size: 1rem;
+  color: var(--text-muted);
+  max-width: 720px;
+  margin-bottom: 22px;
 }
 
 /* ===========================
    FORM PLACEHOLDER
 =========================== */
+
 .form-placeholder {
-  background: #f0f0f0;
-  padding: 40px 20px;
-  border-radius: 12px;
+  margin-top: 20px;
+  padding: 32px 20px;
+  border-radius: 16px;
+  border: 2px dashed var(--gold);
+  background: var(--gold-soft);
   text-align: center;
-  border: 2px dashed #d4af37;
 }
 
 /* ===========================
-   ROI MODAL (OLD VERSION)
+   DIAGRAM GRID
 =========================== */
+
+.diagram-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.diagram-column {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 18px 16px 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.diagram-label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--emerald-dark);
+  margin-bottom: 8px;
+}
+
+.diagram-node {
+  background: #ecfdf5;
+  border-radius: 16px;
+  padding: 14px 12px;
+  border: 1px solid rgba(5, 150, 105, 0.35);
+}
+
+.diagram-node h3 {
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.diagram-node p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.diagram-arrow {
+  text-align: center;
+  font-size: 1.2rem;
+  color: var(--emerald-dark);
+  margin: 8px 0;
+}
+
+/* ===========================
+   CARD GRID
+=========================== */
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 18px 16px 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+}
+
+.card h3 {
+  font-size: 1.05rem;
+  margin-bottom: 6px;
+}
+
+.card p {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+/* ===========================
+   PACKAGE CARDS
+=========================== */
+
+.package-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.package-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 18px 16px 20px;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
+.package-card h3 {
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+
+.package-card ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.package-card li {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  padding-left: 16px;
+  position: relative;
+}
+
+.package-card li::before {
+  content: "•";
+  position: absolute;
+  left: 4px;
+  top: 0;
+  color: var(--emerald-dark);
+}
+
+/* ===========================
+   FOOTNOTE & CENTER CTA
+=========================== */
+
+.section-footnote {
+  margin-top: 22px;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.center-cta {
+  text-align: center;
+}
+
+.center-cta p {
+  max-width: 640px;
+  margin: 0 auto 18px;
+  color: var(--text-muted);
+}
+
+/* ===========================
+   BOTTOM STICKY CTA
+=========================== */
+
+.bottom-cta {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: var(--gold);
+  padding: 14px 20px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  box-shadow: 0 -10px 25px rgba(15, 23, 42, 0.3);
+  z-index: 30;
+}
+
+.bottom-cta-link {
+  color: #111827;
+  text-decoration: underline;
+  margin-left: 6px;
+}
+
+/* ===========================
+   ROI MODAL
+=========================== */
+
 .roi-popup-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(15, 23, 42, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: 50;
 }
 
 .roi-popup {
   background: #ffffff;
-  padding: 30px 24px;
-  border-radius: 12px;
-  max-width: 480px;
+  border-radius: 18px;
+  max-width: 460px;
   width: 90%;
+  padding: 26px 20px 22px;
   position: relative;
   max-height: 85vh;
-  overflow-y: auto;          /* ⬅ restores scrolling */
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.55);
 }
 
 .roi-popup h3 {
+  font-size: 1.2rem;
   margin-bottom: 10px;
-  color: #046a38;
+  color: var(--emerald-dark);
 }
 
 .roi-popup label {
   display: block;
+  font-size: 0.9rem;
   margin-top: 10px;
-  font-size: 0.92rem;
+  margin-bottom: 4px;
+  color: var(--text-main);
 }
 
 .roi-popup input {
   width: 100%;
-  padding: 10px;
+  padding: 9px 10px;
   border-radius: 8px;
-  border: 1px solid #ccc;
+  border: 1px solid rgba(148, 163, 184, 0.9);
   font-size: 0.95rem;
 }
 
 .roi-btn {
-  margin-top: 16px;
-  padding: 12px;
-  background: #046a38;
-  color: #ffffff;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  font-weight: 700;
+  margin-top: 14px;
   width: 100%;
+  padding: 11px 0;
+  border-radius: 999px;
+  border: none;
+  background: var(--emerald-dark);
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.98rem;
 }
 
-/* Close button */
+.roi-result {
+  margin-top: 16px;
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+
 .close-btn {
   position: absolute;
-  top: 10px;
-  right: 14px;
+  top: 8px;
+  right: 12px;
   border: none;
   background: transparent;
   font-size: 1.4rem;
@@ -209,98 +475,87 @@ body {
 }
 
 /* ===========================
-   ANIMATIONS
+   3D FADE-IN ANIMATIONS
 =========================== */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
-.fade-in {
-  animation: fadeInUp 0.8s ease forwards;
-}
-
-.slide-up {
-  animation: fadeInUp 0.8s ease forwards;
-}
-
-/* ===========================
-   RESPONSIVE MOBILE
-=========================== */
-@media (max-width: 768px) {
-  .hero h1 {
-    font-size: 2.2rem;
-  }
-  .hero p {
-    font-size: 1rem;
-  }
-  .sticky-header {
-    padding: 18px 20px;
-    min-height: 60px;
-    gap: 14px;
-  }
-  .header-title {
-    font-size: 20px;
-  }
-  .header-cta {
-    font-size: 1rem;
-  }
-}
-/* Fix header clipping */
-.sticky-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 24px;
-  min-width: 100%;
-}
-
-.header-left {
-  font-size: 22px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.header-cta {
-  font-size: 1rem;
-  color: #fff;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-/* Make ROI modal scrollable */
-.roi-popup {
-  max-height: 80vh;
-  overflow-y: auto;
-}
-/* ================================
-   SCROLL FADE-IN 3D ANIMATIONS
-   ================================ */
-
-.fade-3d {
-  opacity: 0;
-  transform: translateY(40px) scale(0.97);
-  transition: opacity 0.8s ease-out, transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.fade-3d.visible {
-  opacity: 1;
-  transform: translateY(0px) scale(1);
-}
-
+.fade-3d,
 .fade-3d-slow {
   opacity: 0;
-  transform: translateY(60px) scale(0.94);
-  transition: opacity 1.1s ease-out, transform 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(36px) scale(0.97);
 }
 
+.fade-3d.visible,
 .fade-3d-slow.visible {
   opacity: 1;
   transform: translateY(0px) scale(1);
+  transition: opacity 0.75s ease-out,
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fade-3d-slow {
+  transform: translateY(52px) scale(0.94);
+}
+
+/* Optional simple fade used earlier */
+.fade-in {
+  animation: fadeIn 0.8s ease forwards;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+/* ===========================
+   RESPONSIVE
+=========================== */
+
+@media (max-width: 900px) {
+  .hero-inner {
+    padding: 28px 20px 30px;
+  }
+
+  .hero h1 {
+    font-size: 2.1rem;
+  }
+
+  .diagram-grid,
+  .card-grid,
+  .package-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    padding-top: 68px;
+  }
+
+  .sticky-header {
+    padding-inline: 16px;
+  }
+
+  .hero h1 {
+    font-size: 1.9rem;
+  }
+
+  .hero-sub {
+    font-size: 0.98rem;
+  }
+
+  .hero-ctas {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .diagram-grid,
+  .card-grid,
+  .package-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-badges {
+    flex-direction: column;
+  }
 }
