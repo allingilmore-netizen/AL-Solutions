@@ -1,36 +1,43 @@
 "use client";
 
 import { useEffect, useState } from "react";
-// Reveal-on-scroll for 3D fade animations
-useEffect(() => {
-  const elements = document.querySelectorAll(".fade-3d, .fade-3d-slow");
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("visible");
-        }
-      });
-    },
-    { threshold: 0.2 }
-  );
-
-  elements.forEach((el) => observer.observe(el));
-  return () => observer.disconnect();
-}, []);
 
 export default function HomePage() {
   const [showBottomCta, setShowBottomCta] = useState(false);
   const [showRoi, setShowRoi] = useState(false);
 
-  // --- Simple ROI calculator (Original Version) ---
+  // ROI fields
   const [leads, setLeads] = useState<number | "">("");
   const [ticket, setTicket] = useState<number | "">("");
   const [missed, setMissed] = useState<number | "">("");
   const [recovery, setRecovery] = useState<number | "">("");
+
   const [monthlyRoi, setMonthlyRoi] = useState<number | null>(null);
   const [annualRoi, setAnnualRoi] = useState<number | null>(null);
 
+  // ================================
+  // 🔥 3D Fade-in Scroll Animation
+  // ================================
+  useEffect(() => {
+    const revealElements = document.querySelectorAll(".fade-3d, .fade-3d-slow");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+          }
+        });
+      },
+      { threshold: 0.25 }
+    );
+
+    revealElements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  // ================================
+  // Sticky CTA Scroll Logic
+  // ================================
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY;
@@ -38,7 +45,7 @@ export default function HomePage() {
       const winHeight = window.innerHeight;
       const nearBottom = y + winHeight > docHeight - 300;
 
-      setShowBottomCta(y > 400 && !nearBottom);
+      setShowBottomCta(y > 450 && !nearBottom);
     };
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
@@ -50,6 +57,9 @@ export default function HomePage() {
   const currency = (n: number | null) =>
     n === null ? "" : `$${n.toLocaleString()}`;
 
+  // ================================
+  // ROI Calculation
+  // ================================
   const calcRoi = () => {
     if (leads === "" || ticket === "" || missed === "" || recovery === "") {
       setMonthlyRoi(null);
@@ -74,74 +84,93 @@ export default function HomePage() {
     <div className="page-root">
       {/* Sticky Header */}
       <header className="sticky-header fade-in">
-        <div className="header-left">All In Digital</div>
-        <a href="#demo" className="header-cta">Book Demo</a>
+        <div className="header-title">All In Digital</div>
+        <a href="#demo" className="header-cta">
+          Book Demo
+        </a>
       </header>
 
       {/* HERO */}
-      <section className="hero">
+      <section className="hero fade-3d">
         <div className="hero-inner">
-          <p className="eyebrow">AI Workforce • Speed to Lead • No Human Bottlenecks</p>
+          <p className="eyebrow">
+            AI Workforce • Speed to Lead • 24/7 Coverage
+          </p>
           <h1>Turn Missed Calls & Slow Follow-Up into a 24/7 AI Workforce</h1>
           <p className="hero-sub">
-            Your AI agents answer instantly, book appointments, recover no-shows, and handle dispatch workloads — so you stop leaking revenue.
+            AI agents answer instantly, book appointments, recover no-shows,
+            handle dispatch, and follow up automatically.
           </p>
 
           <div className="hero-ctas">
-            <a href="#demo" className="primary-cta">Hear the AI in Action</a>
-            <button className="secondary-cta" onClick={openRoi}>Run ROI Calculator</button>
+            <a href="#demo" className="primary-cta">
+              Hear the AI in Action
+            </a>
+            <button className="secondary-cta" onClick={openRoi}>
+              Run ROI Calculator
+            </button>
           </div>
         </div>
       </section>
 
-      {/* SPEED-TO-LEAD DEMO */}
-      <section className="section" id="demo">
+      {/* SPEED TO LEAD */}
+      <section className="section fade-3d" id="demo">
         <h2>⚡ Test Speed to Lead</h2>
-        <p>Embed your Typeform here to trigger an instant AI call-back.</p>
+        <p>Insert your Typeform to trigger an instant AI callback demo.</p>
 
         <div className="form-placeholder">
           <h3>📨 FORM PLACEHOLDER</h3>
-          <p>Paste your <strong>Typeform embed</strong> here.</p>
+          <p>Paste your Typeform embed here.</p>
         </div>
       </section>
 
-      {/* WHAT AGENTS DO */}
-      <section className="section">
+      {/* AGENT CARDS */}
+      <section className="section fade-3d">
         <h2>🚀 What Your AI Agents Do</h2>
+
         <div className="card-grid">
-          <div className="card slide-up"><h3>Answer & Qualify</h3><p>Instant call pickup, clean routing, and intake.</p></div>
-          <div className="card slide-up"><h3>Book Appointments</h3><p>Push good leads into booked revenue time.</p></div>
-          <div className="card slide-up"><h3>Recover No-Shows</h3><p>Reschedules missed appointments 24/7.</p></div>
-          <div className="card slide-up"><h3>Handle Dispatch</h3><p>ETAs, delays, confirmations handled automatically.</p></div>
-          <div className="card slide-up"><h3>Nurture Cold Leads</h3><p>Long-term follow-ups to revive old leads.</p></div>
-          <div className="card slide-up"><h3>24/7 Coverage</h3><p>Never miss a call again.</p></div>
+          <div className="card fade-3d">
+            <h3>Answer & Qualify</h3>
+            <p>Instant pickup. No voicemail.</p>
+          </div>
+          <div className="card fade-3d">
+            <h3>Book Appointments</h3>
+            <p>Push qualified leads onto your calendar.</p>
+          </div>
+          <div className="card fade-3d">
+            <h3>Recover No-Shows</h3>
+            <p>AI sequences call/text until rebooked.</p>
+          </div>
+          <div className="card fade-3d">
+            <h3>Handle Dispatch</h3>
+            <p>ETAs, confirmations & delays automated.</p>
+          </div>
+          <div className="card fade-3d">
+            <h3>Nurture Cold Leads</h3>
+            <p>Revives old leads automatically.</p>
+          </div>
+          <div className="card fade-3d">
+            <h3>24/7 Coverage</h3>
+            <p>Never miss a revenue opportunity.</p>
+          </div>
         </div>
       </section>
 
-      {/* VALUE COMPARISON (NO PRICING) */}
-      <section className="section">
-        <h2>💵 What This Replaces</h2>
-        <div className="card-grid">
-          <div className="card"><h3>Missed Calls</h3><p>Lost jobs & sales from voicemail.</p></div>
-          <div className="card"><h3>Slow Follow-Up</h3><p>Leads drift to competitors.</p></div>
-          <div className="card"><h3>No-Show Waste</h3><p>Empty calendars = lost revenue.</p></div>
-          <div className="card"><h3>Manual Dispatch</h3><p>Hours wasted on phone calls.</p></div>
-          <div className="card"><h3>Human Error</h3><p>Dropped leads, forgotten tasks.</p></div>
-        </div>
-      </section>
-
-      {/* ROI Section */}
-      <section className="section">
+      {/* ROI SECTION */}
+      <section className="section fade-3d">
         <h2>📈 See Your ROI</h2>
         <button className="primary-cta" onClick={openRoi}>
           Open ROI Calculator
         </button>
       </section>
 
-      {/* Bottom CTA */}
+      {/* BOTTOM CTA */}
       {showBottomCta && (
         <div className="bottom-cta">
-          🔥 Ready to Automate? <a href="#demo">Book Your Demo</a>
+          ⚡ Ready to Automate?{" "}
+          <a href="#demo" className="bottom-cta-link">
+            Book Your Demo
+          </a>
         </div>
       )}
 
@@ -149,28 +178,70 @@ export default function HomePage() {
       {showRoi && (
         <div className="roi-popup-overlay" onClick={closeRoi}>
           <div className="roi-popup" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={closeRoi}>×</button>
+            <button className="close-btn" onClick={closeRoi}>
+              ×
+            </button>
 
             <h3>ROI Calculator</h3>
 
             <label>Leads per Month</label>
-            <input type="number" value={leads} onChange={(e) => setLeads(e.target.value || "")} />
+            <input
+              type="number"
+              value={leads}
+              onChange={(e) =>
+                setLeads(
+                  e.target.value === "" ? "" : Number(e.target.value)
+                )
+              }
+            />
 
             <label>Average Ticket ($)</label>
-            <input type="number" value={ticket} onChange={(e) => setTicket(e.target.value || "")} />
+            <input
+              type="number"
+              value={ticket}
+              onChange={(e) =>
+                setTicket(
+                  e.target.value === "" ? "" : Number(e.target.value)
+                )
+              }
+            />
 
             <label>Missed Lead %</label>
-            <input type="number" value={missed} onChange={(e) => setMissed(e.target.value || "")} />
+            <input
+              type="number"
+              value={missed}
+              onChange={(e) =>
+                setMissed(
+                  e.target.value === "" ? "" : Number(e.target.value)
+                )
+              }
+            />
 
             <label>AI Recovery %</label>
-            <input type="number" value={recovery} onChange={(e) => setRecovery(e.target.value || "")} />
+            <input
+              type="number"
+              value={recovery}
+              onChange={(e) =>
+                setRecovery(
+                  e.target.value === "" ? "" : Number(e.target.value)
+                )
+              }
+            />
 
-            <button className="roi-btn" onClick={calcRoi}>Calculate ROI</button>
+            <button className="roi-btn" onClick={calcRoi}>
+              Calculate ROI
+            </button>
 
             {monthlyRoi !== null && (
               <div className="roi-result">
-                <p>📈 Monthly ROI: <strong>{currency(monthlyRoi)}</strong></p>
-                <p>📆 Annual ROI: <strong>{currency(annualRoi)}</strong></p>
+                <p>
+                  📈 Monthly ROI:{" "}
+                  <strong>{currency(monthlyRoi)}</strong>
+                </p>
+                <p>
+                  📆 Annual ROI:{" "}
+                  <strong>{currency(annualRoi)}</strong>
+                </p>
               </div>
             )}
           </div>
