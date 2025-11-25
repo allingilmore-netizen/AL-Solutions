@@ -1,6 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+// Reveal-on-scroll for 3D fade animations
+useEffect(() => {
+  const elements = document.querySelectorAll(".fade-3d, .fade-3d-slow");
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("visible");
+        }
+      });
+    },
+    { threshold: 0.2 }
+  );
+
+  elements.forEach((el) => observer.observe(el));
+  return () => observer.disconnect();
+}, []);
 
 export default function HomePage() {
   const [showBottomCta, setShowBottomCta] = useState(false);
