@@ -252,3 +252,30 @@ body {
     font-size: 1rem;
   }
 }
+/* Fix header clipping */
+.sticky-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  min-width: 100%;
+}
+
+.header-left {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.header-cta {
+  font-size: 1rem;
+  color: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Make ROI modal scrollable */
+.roi-popup {
+  max-height: 80vh;
+  overflow-y: auto;
+}
