@@ -155,3 +155,10 @@ export default function HomePage() {
                 <p>📈 Monthly ROI: <strong>{currency(monthlyRoi)}</strong></p>
                 <p>📆 Annual ROI: <strong>{currency(annualRoi)}</strong></p>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
