@@ -72,6 +72,32 @@ export default function HomePage() {
     setAnnualRoi(annual);
   };
 
+  // React version of your lead form submit logic
+  const handleLeadSubmit = async (e: any) => {
+    e.preventDefault();
+
+    const data = {
+      firstName: e.target.firstName.value,
+      email: e.target.email.value,
+      phone: e.target.phone.value,
+      fccConsent: e.target.fccConsent.checked,
+    };
+
+    try {
+      await fetch("https://api.thoughtly.com/webhook/automation/Oqf6FbI5nD04", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      alert("Thank you! Our team will reach out shortly!");
+      e.target.reset();
+    } catch (err) {
+      console.error("Lead submit failed", err);
+      alert("Something went wrong. Please try again in a moment.");
+    }
+  };
+
   return (
     <div className="page-root">
       {/* Sticky Header */}
@@ -85,11 +111,14 @@ export default function HomePage() {
       {/* HERO */}
       <section className="hero">
         <div className="hero-inner fade-3d">
-          <span className="eyebrow">AI Workforce • Speed to Lead • 24/7 Coverage</span>
+          <span className="eyebrow">
+            AI Workforce • Speed to Lead • 24/7 Coverage
+          </span>
           <h1>Turn Missed Calls & Slow Follow-Up into a 24/7 AI Workforce</h1>
           <p className="hero-sub">
-            Your AI agents answer instantly, qualify leads, book calendars, recover no-shows, and handle dispatch —
-            so you stop bleeding revenue to voicemail, delays, and “we’ll call them later.”
+            Your AI agents answer instantly, qualify leads, book calendars,
+            recover no-shows, and handle dispatch — so you stop bleeding
+            revenue to voicemail, delays, and “we’ll call them later.”
           </p>
 
           <div className="hero-ctas">
@@ -109,20 +138,108 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* SPEED-TO-LEAD DEMO */}
+      {/* SPEED-TO-LEAD DEMO + FORM */}
       <section className="section fade-3d" id="demo">
         <h2>⚡ Test Speed to Lead in Real Time</h2>
         <p className="section-lead">
-          Embed your Typeform here, connect it to Thoughtly, and let prospects experience what “instant response”
-          really feels like when AI calls back within seconds.
+          Fill out the form below and let your AI agent call back. This is
+          exactly how your prospects would experience “instant response.”
         </p>
 
         <div className="form-placeholder">
-          <h3>📨 FORM PLACEHOLDER</h3>
-          <p>
-            Paste your <strong>Typeform embed</strong> here and wire it to your Thoughtly AI phone agent for live
-            speed-to-lead demos.
-          </p>
+          {/* Inline styles for the lead form (your original CSS) */}
+          <style>{`
+            .lead-form {
+              max-width: 420px;
+              padding: 20px;
+              background: #FFFFFF;
+              border: 2px solid #047857;
+              border-radius: 14px;
+              font-family: Arial, sans-serif;
+              color: #0F172A;
+              margin: 0 auto;
+            }
+
+            .lead-form h2 {
+              color: #047857;
+              font-size: 22px;
+              margin-bottom: 12px;
+              text-align: center;
+            }
+
+            .lead-form label {
+              display: block;
+              margin-bottom: 6px;
+              font-weight: bold;
+              color: #047857;
+            }
+
+            .lead-form input[type="text"],
+            .lead-form input[type="email"],
+            .lead-form input[type="tel"] {
+              width: 100%;
+              padding: 10px;
+              border: 1px solid #047857;
+              border-radius: 8px;
+              margin-bottom: 15px;
+              font-size: 15px;
+            }
+
+            .consent-box {
+              display: flex;
+              align-items: flex-start;
+              gap: 10px;
+              margin-bottom: 18px;
+              font-size: 14px;
+              line-height: 1.35;
+            }
+
+            .lead-form button {
+              width: 100%;
+              background-color: #047857;
+              color: #FFFFFF;
+              padding: 12px;
+              border: none;
+              border-radius: 8px;
+              font-size: 17px;
+              font-weight: bold;
+              cursor: pointer;
+            }
+
+            .lead-form button:hover {
+              background-color: #036149;
+            }
+          `}</style>
+
+          <form id="leadForm" className="lead-form" onSubmit={handleLeadSubmit}>
+            <h2>Get Your Free Quote</h2>
+
+            <label htmlFor="firstName">First Name *</label>
+            <input type="text" id="firstName" name="firstName" required />
+
+            <label htmlFor="email">Email *</label>
+            <input type="email" id="email" name="email" required />
+
+            <label htmlFor="phone">Phone *</label>
+            <input type="tel" id="phone" name="phone" required />
+
+            <label className="consent-box">
+              <input
+                type="checkbox"
+                id="fccConsent"
+                name="fccConsent"
+                required
+              />
+              <span>
+                I consent to receive marketing calls and SMS messages, including
+                calls and messages sent by AI systems, to the phone number I
+                provided. Consent is not a condition of purchase. Message and
+                data rates may apply.
+              </span>
+            </label>
+
+            <button type="submit">Submit</button>
+          </form>
         </div>
       </section>
 
@@ -130,8 +247,9 @@ export default function HomePage() {
       <section className="section fade-3d">
         <h2>🧠 Your AI Workforce Flow</h2>
         <p className="section-lead">
-          Think of this like hiring a full small team — booking, recovering, dispatching, and cleaning up your pipeline —
-          but fully AI-driven and always on.
+          Think of this like hiring a full small team — booking, recovering,
+          dispatching, and cleaning up your pipeline — but fully AI-driven and
+          always on.
         </p>
 
         <div className="diagram-grid">
@@ -139,12 +257,18 @@ export default function HomePage() {
             <div className="diagram-label">Top of Funnel</div>
             <div className="diagram-node">
               <h3>Inbound AI Agent</h3>
-              <p>Answers every call, captures name + intent, and routes intelligently.</p>
+              <p>
+                Answers every call, captures name + intent, and routes
+                intelligently.
+              </p>
             </div>
             <div className="diagram-arrow">↓</div>
             <div className="diagram-node">
               <h3>Qualified Booking Agent</h3>
-              <p>Asks a few key questions and books onto your calendar in real time.</p>
+              <p>
+                Asks a few key questions and books onto your calendar in real
+                time.
+              </p>
             </div>
           </div>
 
@@ -152,7 +276,9 @@ export default function HomePage() {
             <div className="diagram-label">Recovery & Nurture</div>
             <div className="diagram-node">
               <h3>No-Show Recovery Agent</h3>
-              <p>Calls & texts missed appointments to reschedule and fill gaps.</p>
+              <p>
+                Calls & texts missed appointments to reschedule and fill gaps.
+              </p>
             </div>
             <div className="diagram-arrow">↓</div>
             <div className="diagram-node">
@@ -165,12 +291,17 @@ export default function HomePage() {
             <div className="diagram-label">Operations</div>
             <div className="diagram-node">
               <h3>Dispatcher Agent</h3>
-              <p>Handles ETAs, delays, and confirmations so field teams keep moving.</p>
+              <p>
+                Handles ETAs, delays, and confirmations so field teams keep
+                moving.
+              </p>
             </div>
             <div className="diagram-arrow">↓</div>
             <div className="diagram-node">
               <h3>Handoff / Finance Agent</h3>
-              <p>Collects payment links, sends agreements, and hands off cleanly.</p>
+              <p>
+                Collects payment links, sends agreements, and hands off cleanly.
+              </p>
             </div>
           </div>
         </div>
@@ -195,11 +326,13 @@ export default function HomePage() {
           </div>
           <div className="card fade-3d">
             <h3>Handle Dispatch Chatter</h3>
-            <p>ETAs, “running late,” and confirmations handled without staff time.</p>
+            <p>ETAs, “running late,” and confirmations handled without staff.</p>
           </div>
           <div className="card fade-3d">
             <h3>Nurture Cold Leads</h3>
-            <p>Follows up over days/weeks so “not yet” doesn’t become “never.”</p>
+            <p>
+              Follows up over days/weeks so “not yet” doesn’t become “never.”
+            </p>
           </div>
           <div className="card fade-3d">
             <h3>24/7 Coverage</h3>
@@ -212,13 +345,16 @@ export default function HomePage() {
       <section className="section fade-3d">
         <h2>💵 What This Quietly Replaces</h2>
         <p className="section-lead">
-          This isn’t “just software.” It’s an AI workforce that plugs the silent leaks already costing you real money.
+          This isn’t “just software.” It’s an AI workforce that plugs the silent
+          leaks already costing you real money.
         </p>
 
         <div className="card-grid">
           <div className="card fade-3d-slow">
             <h3>Missed & Abandoned Calls</h3>
-            <p>Calls that hit voicemail or ring out are often lost deals forever.</p>
+            <p>
+              Calls that hit voicemail or ring out are often lost deals forever.
+            </p>
           </div>
           <div className="card fade-3d-slow">
             <h3>Slow Follow-Up</h3>
@@ -226,21 +362,29 @@ export default function HomePage() {
           </div>
           <div className="card fade-3d-slow">
             <h3>No-Show Waste</h3>
-            <p>Empty appointment slots equal lost production time & ad spend.</p>
+            <p>
+              Empty appointment slots equal lost production time & ad spend.
+            </p>
           </div>
           <div className="card fade-3d-slow">
             <h3>Manual Dispatch Calls</h3>
-            <p>Your team stuck updating clients instead of doing revenue work.</p>
+            <p>
+              Your team stuck updating clients instead of doing revenue work.
+            </p>
           </div>
           <div className="card fade-3d-slow">
             <h3>Human Error</h3>
-            <p>Forgotten follow-ups, misrouted calls, and “I thought someone else had it.”</p>
+            <p>
+              Forgotten follow-ups, misrouted calls, and “I thought someone else
+              had it.”
+            </p>
           </div>
         </div>
 
         <p className="section-footnote">
           Most growing service businesses quietly leak{" "}
-          <strong>hundreds of thousands per year</strong> through these gaps. Your AI workforce exists to quietly plug them.
+          <strong>hundreds of thousands per year</strong> through these gaps.
+          Your AI workforce exists to quietly plug them.
         </p>
       </section>
 
@@ -248,7 +392,8 @@ export default function HomePage() {
       <section className="section fade-3d">
         <h2>📦 How We Roll This Out</h2>
         <p className="section-lead">
-          We don’t throw a random bot at your phones. We phase in an AI workforce that matches where your operation is today.
+          We don’t throw a random bot at your phones. We phase in an AI
+          workforce that matches where your operation is today.
         </p>
 
         <div className="package-grid">
@@ -291,8 +436,8 @@ export default function HomePage() {
       <section className="section fade-3d">
         <h2>📈 See Your Potential ROI</h2>
         <p className="section-lead">
-          Use this quick calculator to estimate what a real AI workforce could be recovering in pure revenue
-          before you even talk pricing.
+          Use this quick calculator to estimate what a real AI workforce could
+          be recovering in pure revenue before you even talk pricing.
         </p>
 
         <button className="primary-cta" onClick={openRoi}>
@@ -304,8 +449,9 @@ export default function HomePage() {
       <section className="section center-cta fade-3d">
         <h2>Ready to Hear Your AI Workforce in Action?</h2>
         <p>
-          Book a live demo and listen to how your inbound calls, booking flow, and no-show recovery could sound —
-          before you plug it into your business.
+          Book a live demo and listen to how your inbound calls, booking flow,
+          and no-show recovery could sound — before you plug it into your
+          business.
         </p>
         <a href="#demo" className="primary-cta">
           Book a Demo
