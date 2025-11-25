@@ -131,7 +131,7 @@ export default function HomePage() {
           </div>
 
           <div className="hero-badges">
-            <div className="hero-badge">Speed-to-Lead under 3 minutes</div>
+            <div className="hero-badge">Speed-to-Lead under 30 SECONDS</div>
             <div className="hero-badge">AI Booking • No-Show Recovery</div>
             <div className="hero-badge">Built for small & mid-sized teams</div>
           </div>
