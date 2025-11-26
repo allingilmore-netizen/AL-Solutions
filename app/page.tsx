@@ -304,88 +304,37 @@ export default function HomePage() {
 
       {/* Industry Selector Section */}
       <section id="industry-selector" className="py-12">
-        <div className="max-w-5xl mx-auto px-6">
-          <h2 className="text-2xl font-bold mb-4 text-gray-900 text-center">
-            Who are you improving results for?
-          </h2>
-          <p className="text-gray-700 text-center mb-8">
-            Choose the option that best matches your business so we can tailor the examples and language to you.
-          </p>
+        <div className="max-w-3xl mx-auto px-6 text-center">
+          <h2 className="text-2xl font-bold mb-3 text-gray-900">Who are you improving results for?</h2>
+          <p className="text-gray-700 mb-6">Select your focus so we can tailor the examples and language to you.</p>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Sales & Appointment-Driven Teams */}
+          <div className="flex items-center justify-center gap-4">
             <button
               type="button"
-              id="btnSalesTrack"
               onClick={() => setIndustryTrack("sales")}
-              className={`flex flex-col items-start p-5 rounded-xl border shadow-sm bg-white hover:shadow-md transition ${
-                industryTrack === "sales" ? "border-emerald-600" : "border-gray-200"
+              className={`px-5 py-2.5 rounded-full text-sm font-semibold border transition shadow-sm hover:shadow-md ${
+                industryTrack === "sales"
+                  ? "bg-emerald-600 text-white border-emerald-700"
+                  : "bg-white text-gray-800 border-gray-300"
               }`}
             >
-              <div className="flex items-center mb-3 gap-3">
-                {/* Simple vector-style icon (chart) */}
-                <svg
-                  width="28"
-                  height="28"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  fill="none"
-                >
-                  <rect x="3" y="11" width="3" height="10" rx="1.5" strokeWidth="1.8" />
-                  <rect x="9" y="7" width="3" height="14" rx="1.5" strokeWidth="1.8" />
-                  <rect x="15" y="3" width="3" height="18" rx="1.5" strokeWidth="1.8" />
-                </svg>
-                <h3 className="text-lg font-semibold text-gray-900">Sales &amp; Appointment-Driven Teams</h3>
-              </div>
-              <p className="text-sm text-gray-700 mb-2">
-                Insurance, solar, roofing, HVAC, SaaS, real estate, agencies, high-ticket offers.
-              </p>
-              <p className="text-sm text-gray-700">
-                Focus on speed-to-lead, qualified booking, show rates, and closing performance.
-              </p>
+              Sales Teams
             </button>
 
-            {/* Local & Service Businesses */}
             <button
               type="button"
-              id="btnServiceTrack"
               onClick={() => setIndustryTrack("service")}
-              className={`flex flex-col items-start p-5 rounded-xl border shadow-sm bg-white hover:shadow-md transition ${
-                industryTrack === "service" ? "border-emerald-600" : "border-gray-200"
+              className={`px-5 py-2.5 rounded-full text-sm font-semibold border transition shadow-sm hover:shadow-md ${
+                industryTrack === "service"
+                  ? "bg-emerald-600 text-white border-emerald-700"
+                  : "bg-white text-gray-800 border-gray-300"
               }`}
             >
-              <div className="flex items-center mb-3 gap-3">
-                {/* Simple vector-style icon (storefront) */}
-                <svg
-                  width="28"
-                  height="28"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  fill="none"
-                >
-                  <path
-                    d="M3 9L5 4h14l2 5"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <rect x="4" y="9" width="16" height="10" rx="1.5" strokeWidth="1.8" />
-                  <path d="M9 19v-5h6v5" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-                <h3 className="text-lg font-semibold text-gray-900">Local &amp; Service Businesses</h3>
-              </div>
-              <p className="text-sm text-gray-700 mb-2">
-                Med spas, dental, chiropractic, home services, retail, e-commerce, clinics, and more.
-              </p>
-              <p className="text-sm text-gray-700">
-                Focus on scheduling efficiency, customer experience, no-show reduction, and 24/7 coverage.
-              </p>
+              Local Businesses
             </button>
           </div>
 
-          <p className="text-xs text-gray-500 mt-4 text-center">
-            (You can still use all features in either track — this just adjusts the examples and emphasis.)
-          </p>
+          <p className="text-xs text-gray-500 mt-3">(All features apply to both — this only adjusts the examples.)</p>
         </div>
       </section>
 
