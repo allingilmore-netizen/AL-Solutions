@@ -873,3 +873,57 @@ function AdvancedSalesPanel() {
     </div>
   );
 }
+</div>
+  );
+}
+
+function AdvancedSalesPanel() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition"
+      >
+        <span className="font-semibold text-gray-900">
+          See how teams are adding 20–40% more conversions on the same lead flow
+        </span>
+        <span className="text-xl leading-none">{open ? "–" : "+"}</span>
+      </button>
+
+      {open && (
+        <div className="mt-3 p-4 border border-gray-200 rounded-lg bg-white text-sm text-gray-800 space-y-3">
+          <p>
+            This private framework is built around a full journey:
+            <strong> marketing → speed-to-lead → quality booking → sales video → consultant call.</strong>
+          </p>
+          <p>When implemented correctly, we&apos;ve seen:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <strong>800%+ lift in booked appointments</strong> vs. slow manual follow-up.
+            </li>
+            <li>
+              <strong>20–40% higher appointment-to-close ratios</strong> by getting buyers ready before they ever
+              arrive on the call.
+            </li>
+            <li>
+              <strong>Up to 60% more show-ups</strong> using simple, consistent phrasing your AI agent never forgets
+              to say.
+            </li>
+          </ul>
+          <p>
+            It works for sales-heavy teams <em>and</em> for service businesses that depend on kept appointments
+            (med spa, dental, home services, clinics, etc.). The details stay off the website — they&apos;re only
+            walked through live.
+          </p>
+          <p className="font-semibold">
+            Ask our Consulting Assistant about the <em>Advanced Sales Performance System</em> during your demo and
+            you&apos;ll get a few free pointers tailored to your business, without us handing over the full playbook.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
