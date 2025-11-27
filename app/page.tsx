@@ -4,6 +4,24 @@ import { useEffect, useState } from "react";
 
 type Track = "generic" | "sales" | "service";
 
+const salesExamples = [
+  "Inbound lead gen, demos, and consultations",
+  "High-ticket programs, SaaS, agencies, and coaching offers",
+  "Teams booking calendars for closers, advisors, or reps",
+];
+
+const serviceExamples = [
+  "Med spa, dental, chiropractic, and other clinics",
+  "Home services, trades, and local retail showrooms",
+  "Any business that lives on scheduled appointments and repeat visits",
+];
+
+function getTrackExamples(track: Track): string[] {
+  if (track === "sales") return salesExamples;
+  if (track === "service") return serviceExamples;
+  return [];
+}
+
 export default function HomePage() {
   const [showBottomCta, setShowBottomCta] = useState(false);
   const [showRoi, setShowRoi] = useState(false);
@@ -26,7 +44,7 @@ export default function HomePage() {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add("visible");
+            (entry.target as HTMLElement).classList.add("visible");
           }
         });
       },
@@ -109,8 +127,7 @@ export default function HomePage() {
   const openRoi = () => setShowRoi(true);
   const closeRoi = () => setShowRoi(false);
 
-  const currency = (n: number | null) =>
-    n === null ? "" : `$${n.toLocaleString()}`;
+  const currency = (n: number | null) => (n === null ? "" : `$${n.toLocaleString()}`);
 
   const calcRoi = () => {
     if (
@@ -140,30 +157,24 @@ export default function HomePage() {
     setAnnualRoi(annual);
   };
 
-  // React version of your lead form submit logic
-  const handleLeadSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  // Lead form submit
+  const handleLeadSubmit = async (e: any) => {
     e.preventDefault();
 
-    const form = e.currentTarget;
+    const form = e.currentTarget as HTMLFormElement;
     const data = {
-      firstName: (form.elements.namedItem("firstName") as HTMLInputElement)
-        ?.value,
+      firstName: (form.elements.namedItem("firstName") as HTMLInputElement)?.value,
       email: (form.elements.namedItem("email") as HTMLInputElement)?.value,
       phone: (form.elements.namedItem("phone") as HTMLInputElement)?.value,
-      fccConsent: (
-        form.elements.namedItem("fccConsent") as HTMLInputElement
-      )?.checked,
+      fccConsent: (form.elements.namedItem("fccConsent") as HTMLInputElement)?.checked,
     };
 
     try {
-      await fetch(
-        "https://api.thoughtly.com/webhook/automation/Oqf6FbI5nD04",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        }
-      );
+      await fetch("https://api.thoughtly.com/webhook/automation/Oqf6FbI5nD04", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
 
       alert("Thank you! Our team will reach out shortly!");
       form.reset();
@@ -172,16 +183,7 @@ export default function HomePage() {
       alert("Something went wrong. Please try again in a moment.");
     }
   };
-
-  // Small helper to tailor copy by track
-  const trackLabel =
-    industryTrack === "sales"
-      ? "sales and appointment-setting teams"
-      : industryTrack === "service"
-      ? "local and service businesses"
-      : "growing teams";
-
-  return (
+return (
     <div className="page-root" data-ai-track={industryTrack}>
       {/* Sticky Header */}
       <header className="sticky-header">
@@ -194,14 +196,11 @@ export default function HomePage() {
       {/* HERO */}
       <section className="hero">
         <div className="hero-inner fade-3d">
-          <span className="eyebrow">
-            AI Workforce • Speed to Lead • 24/7 Coverage
-          </span>
+          <span className="eyebrow">AI Workforce • Speed to Lead • 24/7 Coverage</span>
           <h1>Turn Missed Calls &amp; Slow Follow-Up into a 24/7 AI Workforce</h1>
           <p className="hero-sub">
-            Your AI agents answer instantly, qualify leads, book calendars,
-            recover no-shows, and handle dispatch — so you stop bleeding
-            revenue to voicemail, delays, and “we&apos;ll call them later.”
+            Your AI agents answer instantly, qualify leads, book calendars, recover no-shows, and handle
+            dispatch — so you stop bleeding revenue to voicemail, delays, and “we&apos;ll call them later.”
           </p>
 
           <div className="hero-ctas">
@@ -225,12 +224,12 @@ export default function HomePage() {
       <section className="section fade-3d" id="demo">
         <h2>⚡ Test Speed to Lead in Real Time</h2>
         <p className="section-lead">
-          Fill out the form below and let your AI agent call back. This is
-          exactly how your prospects would experience instant response.
+          Fill out the form below and let your AI agent call back. This is exactly how your prospects would
+          experience instant response.
         </p>
 
         <div className="form-placeholder">
-          {/* Inline styles for the lead form (your original CSS) */}
+          {/* Inline styles for the lead form + selector + reveal */}
           <style>{`
             .lead-form {
               max-width: 420px;
@@ -292,6 +291,107 @@ export default function HomePage() {
             .lead-form button:hover {
               background-color: #036149;
             }
+
+            .selector-section {
+              text-align: center;
+            }
+
+            .selector-heading {
+              font-size: 1.5rem;
+              color: var(--emerald-dark);
+              margin-bottom: 8px;
+            }
+
+            .selector-sub {
+              font-size: 0.95rem;
+              color: var(--text-muted);
+              margin-bottom: 18px;
+            }
+
+            .selector-buttons-row {
+              display: inline-flex;
+              gap: 12px;
+              flex-wrap: wrap;
+              justify-content: center;
+            }
+
+            .selector-button {
+              min-width: 150px;
+              padding: 10px 18px;
+              border-radius: 999px;
+              border: 1px solid rgba(15, 23, 42, 0.18);
+              background: #ffffff;
+              color: var(--text-main);
+              font-size: 0.92rem;
+              font-weight: 600;
+              cursor: pointer;
+              box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+              transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.18s ease, border-color 0.2s ease;
+            }
+
+            .selector-button:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+            }
+
+            .selector-button--active {
+              background: var(--emerald);
+              color: #ffffff;
+              border-color: var(--emerald-dark);
+              box-shadow: 0 12px 32px rgba(5, 150, 105, 0.4);
+            }
+
+            .reveal-panel {
+              opacity: 0;
+              transform: translateY(24px);
+              animation: revealUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            }
+
+            .reveal-intro {
+              text-align: center;
+            }
+
+            .reveal-heading {
+              font-size: 1.4rem;
+              color: var(--emerald-dark);
+              margin-bottom: 6px;
+            }
+
+            .reveal-sub {
+              font-size: 0.98rem;
+              color: var(--text-muted);
+              margin-bottom: 14px;
+            }
+
+            .reveal-example-list {
+              list-style: none;
+              padding-left: 0;
+              max-width: 640px;
+              margin: 0 auto;
+              font-size: 0.95rem;
+              color: var(--text-muted);
+            }
+
+            .reveal-example-list li {
+              margin-bottom: 4px;
+              position: relative;
+              padding-left: 16px;
+            }
+
+            .reveal-example-list li::before {
+              content: "•";
+              position: absolute;
+              left: 4px;
+              top: 0;
+              color: var(--emerald-dark);
+            }
+
+            @keyframes revealUp {
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
           `}</style>
 
           <form id="leadForm" className="lead-form" onSubmit={handleLeadSubmit}>
@@ -309,10 +409,9 @@ export default function HomePage() {
             <label className="consent-box">
               <input type="checkbox" id="fccConsent" name="fccConsent" required />
               <span>
-                I consent to receive marketing calls and SMS messages, including
-                calls and messages sent by AI systems, to the phone number I
-                provided. Consent is not a condition of purchase. Message and
-                data rates may apply.
+                I consent to receive marketing calls and SMS messages, including calls and messages sent by AI
+                systems, to the phone number I provided. Consent is not a condition of purchase. Message and data
+                rates may apply.
               </span>
             </label>
 
@@ -321,364 +420,254 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* INDUSTRY TRACK SELECTOR */}
-      <section id="industry-selector" className="section fade-3d">
-        <h2>What Are You Improving Your Business For?</h2>
-        <p className="section-lead" style={{ marginBottom: "16px" }}>
-          Choose one so the examples below speak directly to your situation.
-        </p>
+      {/* Industry Selector Section */}
+      <section className="section fade-3d selector-section">
+        <h2 className="selector-heading">What are you improving your business for?</h2>
+        <p className="selector-sub">Pick the option closest to your business.</p>
 
-        <div
-          style={{
-            display: "flex",
-            gap: "16px",
-            flexWrap: "wrap",
-            justifyContent: "center",
-          }}
-        >
+        <div className="selector-buttons-row">
           <button
             type="button"
+            className={
+              "selector-button" +
+              (industryTrack === "sales" ? " selector-button--active" : "")
+            }
             onClick={() => setIndustryTrack("sales")}
-            style={{
-              minWidth: "230px",
-              maxWidth: "260px",
-              padding: "14px 16px",
-              borderRadius: "16px",
-              border:
-                industryTrack === "sales"
-                  ? "2px solid #047857"
-                  : "1px solid rgba(15,23,42,0.12)",
-              background:
-                industryTrack === "sales" ? "#ecfdf5" : "#ffffff",
-              boxShadow:
-                industryTrack === "sales"
-                  ? "0 10px 30px rgba(16,185,129,0.35)"
-                  : "0 8px 20px rgba(15,23,42,0.08)",
-              cursor: "pointer",
-              textAlign: "left",
-            }}
           >
-            <div
-              style={{
-                fontWeight: 700,
-                marginBottom: "6px",
-                color: "#0f172a",
-              }}
-            >
-              Sales Teams
-            </div>
-            <ul
-              style={{
-                paddingLeft: "18px",
-                margin: 0,
-                fontSize: "0.9rem",
-                color: "#4b5563",
-              }}
-            >
-              <li>Insurance &amp; financial services</li>
-              <li>Solar, roofing, HVAC</li>
-              <li>SaaS demos &amp; agencies</li>
-              <li>High-ticket consults</li>
-            </ul>
-            {industryTrack === "sales" && (
-              <p
-                style={{
-                  marginTop: "8px",
-                  fontSize: "0.85rem",
-                  color: "#047857",
-                  fontWeight: 600,
-                }}
-              >
-                Focus: speed-to-lead, qualified booking, show rates, and closing
-                performance.
-              </p>
-            )}
+            Sales Teams
           </button>
 
           <button
             type="button"
+            className={
+              "selector-button" +
+              (industryTrack === "service" ? " selector-button--active" : "")
+            }
             onClick={() => setIndustryTrack("service")}
-            style={{
-              minWidth: "230px",
-              maxWidth: "260px",
-              padding: "14px 16px",
-              borderRadius: "16px",
-              border:
-                industryTrack === "service"
-                  ? "2px solid #047857"
-                  : "1px solid rgba(15,23,42,0.12)",
-              background:
-                industryTrack === "service" ? "#ecfdf5" : "#ffffff",
-              boxShadow:
-                industryTrack === "service"
-                  ? "0 10px 30px rgba(16,185,129,0.35)"
-                  : "0 8px 20px rgba(15,23,42,0.08)",
-              cursor: "pointer",
-              textAlign: "left",
-            }}
           >
-            <div
-              style={{
-                fontWeight: 700,
-                marginBottom: "6px",
-                color: "#0f172a",
-              }}
-            >
-              Local Businesses
-            </div>
-            <ul
-              style={{
-                paddingLeft: "18px",
-                margin: 0,
-                fontSize: "0.9rem",
-                color: "#4b5563",
-              }}
-            >
-              <li>Med spa &amp; aesthetics</li>
-              <li>Dental &amp; chiropractic</li>
-              <li>Home services &amp; trades</li>
-              <li>Retail &amp; e-commerce</li>
-            </ul>
-            {industryTrack === "service" && (
-              <p
-                style={{
-                  marginTop: "8px",
-                  fontSize: "0.85rem",
-                  color: "#047857",
-                  fontWeight: 600,
-                }}
-              >
-                Focus: smoother scheduling, fewer no-shows, and a better 24/7
-                customer experience.
-              </p>
-            )}
+            Local Businesses
           </button>
         </div>
-
-        <p
-          style={{
-            marginTop: "10px",
-            fontSize: "0.8rem",
-            color: "#6b7280",
-            textAlign: "center",
-          }}
-        >
-          All features apply to both — this just adjusts how we talk about the
-          benefits.
-        </p>
       </section>
 
+      {/* Reveal + Deep-Dive Sections */}
+      {industryTrack !== "generic" && (
+        <div className="reveal-panel">
+          {/* Track intro + examples */}
+          <section className="section reveal-intro">
+            <h3 className="reveal-heading">
+              You selected{" "}
+              {industryTrack === "sales" ? "Sales Teams" : "Local Businesses"}.
+            </h3>
+            <p className="reveal-sub">
+              Here&apos;s how an AI workforce quietly supports you behind the scenes.
+            </p>
+            <ul className="reveal-example-list">
+              {getTrackExamples(industryTrack).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
 {/* AGENT DIAGRAM — SYSTEM FLOW */}
-      <section className="section fade-3d">
-        <h2>🧠 Your AI Workforce Flow</h2>
-        <p className="section-lead">
-          Think of this like hiring a full small team for {trackLabel} — booking,
-          recovering, dispatching, and cleaning up your pipeline, fully
-          AI-driven and always on.
-        </p>
-
-        <div className="diagram-grid">
-          <div className="diagram-column">
-            <div className="diagram-label">Top of Funnel</div>
-            <div className="diagram-node">
-              <h3>Inbound AI Agent</h3>
-              <p>Answers every call, captures name + intent, and routes intelligently.</p>
-            </div>
-            <div className="diagram-arrow">↓</div>
-            <div className="diagram-node">
-              <h3>Qualified Booking Agent</h3>
-              <p>
-                Asks a few key questions and books onto your calendar in real
-                time.
-              </p>
-            </div>
-          </div>
-
-          <div className="diagram-column">
-            <div className="diagram-label">Recovery &amp; Nurture</div>
-            <div className="diagram-node">
-              <h3>No-Show Recovery Agent</h3>
-              <p>Calls &amp; texts missed appointments to reschedule and fill gaps.</p>
-            </div>
-            <div className="diagram-arrow">↓</div>
-            <div className="diagram-node">
-              <h3>Follow-Up &amp; Nurture Agent</h3>
-              <p>Reaches back out to “not now,” “call later,” and cold leads.</p>
-            </div>
-          </div>
-
-          <div className="diagram-column">
-            <div className="diagram-label">Operations</div>
-            <div className="diagram-node">
-              <h3>Dispatcher Agent</h3>
-              <p>Handles ETAs, delays, and confirmations so field teams keep moving.</p>
-            </div>
-            <div className="diagram-arrow">↓</div>
-            <div className="diagram-node">
-              <h3>Handoff / Finance Agent</h3>
-              <p>Collects payment links, sends agreements, and hands off cleanly.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* WHAT AGENTS DO — FEATURE GRID */}
-      <section className="section fade-3d">
-        <h2>🚀 What Your AI Workforce Actually Does</h2>
-
-        <div className="card-grid">
-          <div className="card fade-3d">
-            <h3>Answer &amp; Qualify</h3>
-            <p>Instant call pickup, natural questions, and clear routing.</p>
-          </div>
-          <div className="card fade-3d">
-            <h3>Book Revenue Time</h3>
-            <p>
-              Pushes serious prospects directly into booked calendar slots
-              instead of “we&apos;ll get back to you.”
+          <section className="section fade-3d">
+            <h2>🧠 Your AI Workforce Flow</h2>
+            <p className="section-lead">
+              Think of this like hiring a full small team — booking, recovering, dispatching, and cleaning up your
+              pipeline — but fully AI-driven and always on.
             </p>
-          </div>
-          <div className="card fade-3d">
-            <h3>Recover No-Shows</h3>
-            <p>Automated call + SMS sequences designed to rebook missed slots.</p>
-          </div>
-          <div className="card fade-3d">
-            <h3>Handle Dispatch Chatter</h3>
-            <p>ETAs, “running late,” and confirmations handled without staff.</p>
-          </div>
-          <div className="card fade-3d">
-            <h3>Nurture Cold Leads</h3>
-            <p>Follows up over days/weeks so “not yet” doesn&apos;t become “never.”</p>
-          </div>
-          <div className="card fade-3d">
-            <h3>24/7 Coverage</h3>
-            <p>Late nights, weekends, and after-hours inquiries never get lost.</p>
-          </div>
-        </div>
-      </section>
 
-      {/* VALUE COMPARISON — NO PRICES */}
-      <section className="section fade-3d">
-        <h2>💵 What This Quietly Replaces</h2>
-        <p className="section-lead">
-          This isn&apos;t “just software.” It&apos;s an AI workforce that plugs the
-          silent leaks already costing {trackLabel} real money.
-        </p>
+            <div className="diagram-grid">
+              <div className="diagram-column">
+                <div className="diagram-label">Top of Funnel</div>
+                <div className="diagram-node">
+                  <h3>Inbound AI Agent</h3>
+                  <p>Answers every call, captures name + intent, and routes intelligently.</p>
+                </div>
+                <div className="diagram-arrow">↓</div>
+                <div className="diagram-node">
+                  <h3>Qualified Booking Agent</h3>
+                  <p>Asks a few key questions and books onto your calendar in real time.</p>
+                </div>
+              </div>
 
-        <div className="card-grid">
-          <div className="card fade-3d-slow">
-            <h3>Missed &amp; Abandoned Calls</h3>
-            <p>Calls that hit voicemail or ring out are often lost deals forever.</p>
-          </div>
-          <div className="card fade-3d-slow">
-            <h3>Slow Follow-Up</h3>
-            <p>Leads that wait hours or days drift to whoever answers first.</p>
-          </div>
-          <div className="card fade-3d-slow">
-            <h3>No-Show Waste</h3>
-            <p>Empty appointment slots equal lost production time &amp; ad spend.</p>
-          </div>
-          <div className="card fade-3d-slow">
-            <h3>Manual Dispatch Calls</h3>
-            <p>Your team stuck updating clients instead of doing revenue work.</p>
-          </div>
-          <div className="card fade-3d-slow">
-            <h3>Human Error</h3>
-            <p>
-              Forgotten follow-ups, misrouted calls, and “I thought someone else had
-              it.”
+              <div className="diagram-column">
+                <div className="diagram-label">Recovery &amp; Nurture</div>
+                <div className="diagram-node">
+                  <h3>No-Show Recovery Agent</h3>
+                  <p>Calls &amp; texts missed appointments to reschedule and fill gaps.</p>
+                </div>
+                <div className="diagram-arrow">↓</div>
+                <div className="diagram-node">
+                  <h3>Follow-Up &amp; Nurture Agent</h3>
+                  <p>Reaches back out to “not now,” “call later,” and cold leads.</p>
+                </div>
+              </div>
+
+              <div className="diagram-column">
+                <div className="diagram-label">Operations</div>
+                <div className="diagram-node">
+                  <h3>Dispatcher Agent</h3>
+                  <p>Handles ETAs, delays, and confirmations so field teams keep moving.</p>
+                </div>
+                <div className="diagram-arrow">↓</div>
+                <div className="diagram-node">
+                  <h3>Handoff / Finance Agent</h3>
+                  <p>Collects payment links, sends agreements, and hands off cleanly.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* WHAT AGENTS DO — FEATURE GRID */}
+          <section className="section fade-3d">
+            <h2>🚀 What Your AI Workforce Actually Does</h2>
+
+            <div className="card-grid">
+              <div className="card fade-3d">
+                <h3>Answer &amp; Qualify</h3>
+                <p>Instant call pickup, natural questions, and clear routing.</p>
+              </div>
+              <div className="card fade-3d">
+                <h3>Book Revenue Time</h3>
+                <p>Pushes serious prospects directly into booked calendar slots.</p>
+              </div>
+              <div className="card fade-3d">
+                <h3>Recover No-Shows</h3>
+                <p>Automated call + SMS sequences designed to rebook missed slots.</p>
+              </div>
+              <div className="card fade-3d">
+                <h3>Handle Dispatch Chatter</h3>
+                <p>ETAs, “running late,” and confirmations handled without staff.</p>
+              </div>
+              <div className="card fade-3d">
+                <h3>Nurture Cold Leads</h3>
+                <p>Follows up over days/weeks so “not yet” doesn&apos;t become “never.”</p>
+              </div>
+              <div className="card fade-3d">
+                <h3>24/7 Coverage</h3>
+                <p>Late nights, weekends, and after-hours inquiries never get lost.</p>
+              </div>
+            </div>
+          </section>
+
+          {/* VALUE COMPARISON — NO PRICES */}
+          <section className="section fade-3d">
+            <h2>💵 What This Quietly Replaces</h2>
+            <p className="section-lead">
+              This isn&apos;t “just software.” It&apos;s an AI workforce that plugs the silent leaks already costing you
+              real money.
             </p>
-          </div>
+
+            <div className="card-grid">
+              <div className="card fade-3d-slow">
+                <h3>Missed &amp; Abandoned Calls</h3>
+                <p>Calls that hit voicemail or ring out are often lost deals forever.</p>
+              </div>
+              <div className="card fade-3d-slow">
+                <h3>Slow Follow-Up</h3>
+                <p>Leads that wait hours or days drift to whoever answers first.</p>
+              </div>
+              <div className="card fade-3d-slow">
+                <h3>No-Show Waste</h3>
+                <p>Empty appointment slots equal lost production time &amp; ad spend.</p>
+              </div>
+              <div className="card fade-3d-slow">
+                <h3>Manual Dispatch Calls</h3>
+                <p>Your team stuck updating clients instead of doing revenue work.</p>
+              </div>
+              <div className="card fade-3d-slow">
+                <h3>Human Error</h3>
+                <p>Forgotten follow-ups, misrouted calls, and “I thought someone else had it.”</p>
+              </div>
+            </div>
+
+            <p className="section-footnote">
+              Most growing service businesses quietly leak <strong>hundreds of thousands per year</strong> through
+              these gaps. Your AI workforce exists to quietly plug them.
+            </p>
+          </section>
+
+          {/* PHASE OVERVIEW — NO PRICES */}
+          <section className="section fade-3d">
+            <h2>📦 How We Roll This Out</h2>
+            <p className="section-lead">
+              We don&apos;t throw a random bot at your phones. We phase in an AI workforce that matches where your
+              operation is today.
+            </p>
+
+            <div className="package-grid">
+              <div className="package-card fade-3d">
+                <h3>Phase 1 — Core Inbound &amp; Booking</h3>
+                <ul>
+                  <li>Inbound agent answering calls 24/7</li>
+                  <li>FAQ + intake scripting tuned to your offers</li>
+                  <li>Calendar connection &amp; booking flows</li>
+                  <li>Live transfer path to you or your team</li>
+                  <li>Basic reporting on calls &amp; bookings</li>
+                </ul>
+              </div>
+
+              <div className="package-card fade-3d">
+                <h3>Phase 2 — Recovery &amp; Nurture Stack</h3>
+                <ul>
+                  <li>No-show recovery agent (call + SMS)</li>
+                  <li>Multi-step nurture for “not now” and slow leads</li>
+                  <li>Multi-agent coordination logic behind the scenes</li>
+                  <li>Deeper qualification flows &amp; routing</li>
+                  <li>Improvements driven by real call &amp; booking data</li>
+                </ul>
+              </div>
+
+              <div className="package-card fade-3d">
+                <h3>Phase 3 — Operational AI Workforce</h3>
+                <ul>
+                  <li>Dispatcher agent wired into your operations</li>
+                  <li>Lead → booking → job → follow-up pipelines</li>
+                  <li>Industry-specific workflows (home services, med spa, etc.)</li>
+                  <li>Review, reactivation, and rebooking logic</li>
+                  <li>Foundation for AI sales agents when you&apos;re ready</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          {/* ROI SECTION */}
+          <section className="section fade-3d">
+            <h2>📈 See Your Potential ROI</h2>
+            <p className="section-lead">
+              Use this quick calculator to estimate what a real AI workforce could be recovering in pure revenue
+              before you even talk pricing.
+            </p>
+
+            <button className="primary-cta" onClick={openRoi}>
+              Open ROI Calculator
+            </button>
+          </section>
+
+          {/* Advanced Sales Performance (Expandable) */}
+          <section className="section fade-3d">
+            <h2>Want Even Higher Sales Performance?</h2>
+            <p className="section-lead">
+              For teams that run structured demos, consults, or sales calls, we also offer an optional advanced system
+              that sits on top of your AI workforce.
+            </p>
+
+            <AdvancedSalesPanel />
+          </section>
+
+          {/* CENTER CTA */}
+          <section className="section center-cta fade-3d">
+            <h2>Ready to Hear Your AI Workforce in Action?</h2>
+            <p>
+              Book a live demo and listen to how your inbound calls, booking flow, and no-show recovery could sound
+              — before you plug it into your business.
+            </p>
+            <a href="#demo" className="primary-cta">
+              Book a Demo
+            </a>
+          </section>
         </div>
-
-        <p className="section-footnote">
-          Most growing service businesses quietly leak{" "}
-          <strong>hundreds of thousands per year</strong> through these gaps. Your
-          AI workforce exists to quietly plug them.
-        </p>
-      </section>
-
-      {/* PHASE OVERVIEW — NO PRICES */}
-      <section className="section fade-3d">
-        <h2>📦 How We Roll This Out</h2>
-        <p className="section-lead">
-          We don&apos;t throw a random bot at your phones. We phase in an AI
-          workforce that matches where your operation is today.
-        </p>
-
-        <div className="package-grid">
-          <div className="package-card fade-3d">
-            <h3>Phase 1 — Core Inbound &amp; Booking</h3>
-            <ul>
-              <li>Inbound agent answering calls 24/7</li>
-              <li>FAQ + intake scripting tuned to your offers</li>
-              <li>Calendar connection &amp; booking flows</li>
-              <li>Live transfer path to you or your team</li>
-              <li>Basic reporting on calls &amp; bookings</li>
-            </ul>
-          </div>
-
-          <div className="package-card fade-3d">
-            <h3>Phase 2 — Recovery &amp; Nurture Stack</h3>
-            <ul>
-              <li>No-show recovery agent (call + SMS)</li>
-              <li>Multi-step nurture for “not now” and slow leads</li>
-              <li>Multi-agent coordination logic behind the scenes</li>
-              <li>Deeper qualification flows &amp; routing</li>
-              <li>Improvements driven by real call &amp; booking data</li>
-            </ul>
-          </div>
-
-          <div className="package-card fade-3d">
-            <h3>Phase 3 — Operational AI Workforce</h3>
-            <ul>
-              <li>Dispatcher agent wired into your operations</li>
-              <li>Lead → booking → job → follow-up pipelines</li>
-              <li>Industry-specific workflows (home services, med spa, etc.)</li>
-              <li>Review, reactivation, and rebooking logic</li>
-              <li>Foundation for AI sales agents when you&apos;re ready</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* ROI SECTION */}
-      <section className="section fade-3d">
-        <h2>📈 See Your Potential ROI</h2>
-        <p className="section-lead">
-          Use this quick calculator to estimate what a real AI workforce could
-          be recovering in pure revenue before you even talk pricing.
-        </p>
-
-        <button className="primary-cta" onClick={openRoi}>
-          Open ROI Calculator
-        </button>
-      </section>
-
-      {/* Advanced Sales Performance (Expandable) */}
-      <section className="section fade-3d">
-        <h2>Want Even Higher Sales Performance?</h2>
-        <p className="section-lead">
-          For teams that run structured demos, consults, or sales calls, we also
-          offer an optional advanced system that sits on top of your AI
-          workforce.
-        </p>
-
-        <AdvancedSalesPanel />
-      </section>
-
-      {/* CENTER CTA */}
-      <section className="section center-cta fade-3d">
-        <h2>Ready to Hear Your AI Workforce in Action?</h2>
-        <p>
-          Book a live demo and listen to how your inbound calls, booking flow,
-          and no-show recovery could sound — before you plug it into your
-          business.
-        </p>
-        <a href="#demo" className="primary-cta">
-          Book a Demo
-        </a>
-      </section>
+      )}
 
       {/* Bottom Sticky CTA */}
       {showBottomCta && (
@@ -693,10 +682,7 @@ export default function HomePage() {
       {/* ROI POPUP */}
       {showRoi && (
         <div className="roi-popup-overlay" onClick={closeRoi}>
-          <div
-            className="roi-popup"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="roi-popup" onClick={(e) => e.stopPropagation()}>
             <button className="close-btn" onClick={closeRoi}>
               ×
             </button>
@@ -707,49 +693,35 @@ export default function HomePage() {
             <input
               type="number"
               value={leads}
-              onChange={(e) =>
-                setLeads(e.target.value === "" ? "" : Number(e.target.value))
-              }
+              onChange={(e) => setLeads(e.target.value === "" ? "" : Number(e.target.value))}
             />
 
             <label>Average Ticket ($)</label>
             <input
               type="number"
               value={ticket}
-              onChange={(e) =>
-                setTicket(e.target.value === "" ? "" : Number(e.target.value))
-              }
+              onChange={(e) => setTicket(e.target.value === "" ? "" : Number(e.target.value))}
             />
 
             <label>Missed Lead % (slow or no follow-up)</label>
             <input
               type="number"
               value={missed}
-              onChange={(e) =>
-                setMissed(e.target.value === "" ? "" : Number(e.target.value))
-              }
+              onChange={(e) => setMissed(e.target.value === "" ? "" : Number(e.target.value))}
             />
 
             <label>AI Recovery % of Those Missed Leads</label>
             <input
               type="number"
               value={recovery}
-              onChange={(e) =>
-                setRecovery(
-                  e.target.value === "" ? "" : Number(e.target.value)
-                )
-              }
+              onChange={(e) => setRecovery(e.target.value === "" ? "" : Number(e.target.value))}
             />
 
             <label>Appointment-to-Close %</label>
             <input
               type="number"
               value={closeRate}
-              onChange={(e) =>
-                setCloseRate(
-                  e.target.value === "" ? "" : Number(e.target.value)
-                )
-              }
+              onChange={(e) => setCloseRate(e.target.value === "" ? "" : Number(e.target.value))}
             />
 
             <button className="roi-btn" onClick={calcRoi}>
@@ -766,12 +738,10 @@ export default function HomePage() {
                   📅 Estimated Annual Revenue Recovered:{" "}
                   <strong>{currency(annualRoi)}</strong>
                 </p>
-                <p className="section-footnote">
-                  This assumes your current appointment-to-close rate stays the
-                  same. Our advanced performance system often adds another{" "}
-                  <strong>20–40%</strong> lift in close rate and up to{" "}
-                  <strong>60%</strong> higher show rates — ask our Consulting
-                  Assistant about it during your demo.
+                <p className="roi-footnote">
+                  This assumes your current appointment-to-close rate stays the same. Our advanced performance system
+                  often adds another <strong>20–40%</strong> lift in close rate and up to
+                  <strong> 60%</strong> higher show rates — ask our Consulting Assistant about it during your demo.
                 </p>
               </div>
             )}
@@ -783,61 +753,64 @@ export default function HomePage() {
       {showExitModal && (
         <div
           id="exitModal"
-          className="roi-popup-overlay"
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
           onClick={() => setShowExitModal(false)}
         >
           <div
-            className="roi-popup"
+            className="bg-white max-w-md w-full mx-4 rounded-2xl shadow-xl p-6 relative"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
-              className="close-btn"
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl"
               aria-label="Close"
               onClick={() => setShowExitModal(false)}
             >
               ×
             </button>
 
-            <h3>Before you go — want to see AI speed-to-lead in action?</h3>
-            <p className="section-lead" style={{ marginBottom: "14px" }}>
-              Enter your number and we&apos;ll have your AI agent call you back
-              so you can experience instant response from a prospect&apos;s
-              point of view.
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              Before you go — want to see AI speed-to-lead in action?
+            </h3>
+            <p className="text-gray-700 mb-4 text-sm">
+              Enter your number and we&apos;ll have your AI agent call you back so you can experience instant
+              response from a prospect&apos;s point of view.
             </p>
 
             <form
               id="exitDemoForm"
+              className="space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 alert("Got it! This will be wired to your AI demo trigger.");
                 setShowExitModal(false);
               }}
             >
-              <label>Name</label>
-              <input
-                type="text"
-                name="exitName"
-                placeholder="First name"
-              />
-              <label style={{ marginTop: "10px" }}>Mobile Number</label>
-              <input
-                type="tel"
-                name="exitPhone"
-                placeholder="555-555-5555"
-              />
-              <p
-                style={{
-                  fontSize: "0.8rem",
-                  color: "#6b7280",
-                  marginTop: "8px",
-                  marginBottom: "10px",
-                }}
-              >
-                By submitting, you consent to receive an AI demo call and SMS.
-                Message and data rates may apply.
+              <div>
+                <label className="block text-sm font-medium text-gray-800 mb-1">Name</label>
+                <input
+                  type="text"
+                  name="exitName"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="First name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-800 mb-1">Mobile Number</label>
+                <input
+                  type="tel"
+                  name="exitPhone"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="555-555-5555"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                By submitting, you consent to receive an AI demo call and SMS. Message and data rates may apply.
               </p>
-              <button type="submit" className="roi-btn">
+              <button
+                type="submit"
+                className="w-full mt-1 py-2.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition"
+              >
                 Send Me the AI Demo Call
               </button>
             </form>
@@ -846,163 +819,54 @@ export default function HomePage() {
       )}
     </div>
   );
-
+}
 function AdvancedSalesPanel() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="form-placeholder" style={{ borderStyle: "solid" }}>
+    <div className="max-w-3xl mx-auto">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        style={{
-          width: "100%",
-          padding: "10px 14px",
-          borderRadius: "999px",
-          border: "1px solid rgba(15,23,42,0.15)",
-          background: "#ffffff",
-          fontWeight: 600,
-          cursor: "pointer",
-          textAlign: "left",
-        }}
+        className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition"
       >
-        {open
-          ? "– Hide Advanced Sales Performance System"
-          : "See how teams are adding 20–40% more conversions on the same lead flow"}
+        <span className="font-semibold text-gray-900">
+          See how teams are adding 20–40% more conversions on the same lead flow
+        </span>
+        <span className="text-xl leading-none">{open ? "–" : "+"}</span>
       </button>
 
       {open && (
-        <div
-          style={{
-            marginTop: "14px",
-            textAlign: "left",
-            fontSize: "0.95rem",
-            color: "#111827",
-          }}
-        >
+        <div className="mt-3 p-4 border border-gray-200 rounded-lg bg-white text-sm text-gray-800 space-y-3">
           <p>
             This private framework is built around a full journey:
-            <strong>
-              {" "}
-              marketing → speed-to-lead → quality booking → sales video →
-              consultant call.
-            </strong>
+            <strong> marketing → speed-to-lead → quality booking → sales video → consultant call.</strong>
           </p>
-          <p style={{ marginTop: "8px" }}>When implemented correctly, we&apos;ve seen:</p>
-          <ul style={{ marginLeft: "18px", marginTop: "4px", marginBottom: "8px" }}>
+          <p>When implemented correctly, we&apos;ve seen:</p>
+          <ul className="list-disc pl-5 space-y-1">
             <li>
-              <strong>800%+ lift in booked appointments</strong> vs. slow manual
-              follow-up.
+              <strong>800%+ lift in booked appointments</strong> vs. slow manual follow-up.
             </li>
             <li>
-              <strong>20–40% higher appointment-to-close ratios</strong> by
-              getting buyers ready before they ever arrive on the call.
+              <strong>20–40% higher appointment-to-close ratios</strong> by getting buyers ready before they ever
+              arrive on the call.
             </li>
             <li>
-              <strong>Up to 60% more show-ups</strong> using simple, consistent
-              phrasing your AI agent never forgets to say.
+              <strong>Up to 60% more show-ups</strong> using simple, consistent phrasing your AI agent never forgets
+              to say.
             </li>
           </ul>
           <p>
-            It works for sales-heavy teams <em>and</em> for service businesses
-            that depend on kept appointments (med spa, dental, home services,
-            clinics, etc.). The details stay off the website — they&apos;re only
+            It works for sales-heavy teams <em>and</em> for service businesses that depend on kept appointments
+            (med spa, dental, home services, clinics, etc.). The details stay off the website — they&apos;re only
             walked through live.
           </p>
-          <p style={{ marginTop: "8px", fontWeight: 600 }}>
-            Ask our Consulting Assistant about the{" "}
-            <em>Advanced Sales Performance System</em> during your demo and
-            you&apos;ll get a few free pointers tailored to your business,
-            without us handing over the full playbook.
+          <p className="font-semibold">
+            Ask our Consulting Assistant about the <em>Advanced Sales Performance System</em> during your demo and
+            you&apos;ll get a few free pointers tailored to your business, without us handing over the full playbook.
           </p>
         </div>
       )}
     </div>
   );
 }
-)}
-    </div>
-  );
-} // ← closes HomePage component
-
-// =========================
-// ADVANCED SALES PANEL
-// =========================
-function AdvancedSalesPanel() {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="form-placeholder" style={{ borderStyle: "solid" }}>
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        style={{
-          width: "100%",
-          padding: "10px 14px",
-          borderRadius: "999px",
-          border: "1px solid rgba(15,23,42,0.15)",
-          background: "#ffffff",
-          fontWeight: 600,
-          cursor: "pointer",
-          textAlign: "left",
-        }}
-      >
-        {open
-          ? "– Hide Advanced Sales Performance System"
-          : "See how teams are adding 20–40% more conversions on the same lead flow"}
-      </button>
-
-      {open && (
-        <div
-          style={{
-            marginTop: "14px",
-            textAlign: "left",
-            fontSize: "0.95rem",
-            color: "#111827",
-          }}
-        >
-          <p>
-            This private framework is built around a full journey:
-            <strong>
-              {" "}
-              marketing → speed-to-lead → quality booking → sales video →
-              consultant call.
-            </strong>
-          </p>
-
-          <p style={{ marginTop: "8px" }}>When implemented correctly, we’ve seen:</p>
-
-          <ul
-            style={{
-              marginLeft: "18px",
-              marginTop: "4px",
-              marginBottom: "8px",
-            }}
-          >
-            <li>
-              <strong>800%+ lift in booked appointments</strong> vs. slow follow-up.
-            </li>
-            <li>
-              <strong>20–40% higher appointment-to-close ratios</strong> by getting
-              buyers ready *before* they arrive on the call.
-            </li>
-            <li>
-              <strong>Up to 60% more show-ups</strong> using consistent phrasing your
-              AI agent never forgets to say.
-            </li>
-          </ul>
-
-          <p>
-            Works for sales-heavy teams <em>and</em> service businesses that depend on
-            kept appointments. The details stay off the website — only shown live.
-          </p>
-
-          <p style={{ marginTop: "8px", fontWeight: 600 }}>
-            Ask our Consulting Assistant about the{" "}
-            <em>Advanced Sales Performance System</em> during your demo.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-} // ← closes AdvancedSalesPanel component
