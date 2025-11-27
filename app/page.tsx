@@ -183,7 +183,8 @@ export default function HomePage() {
       alert("Something went wrong. Please try again in a moment.");
     }
   };
-return (
+
+  return (
     <div className="page-root" data-ai-track={industryTrack}>
       {/* Sticky Header */}
       <header className="sticky-header">
@@ -468,7 +469,8 @@ return (
               ))}
             </ul>
           </section>
-{/* AGENT DIAGRAM — SYSTEM FLOW */}
+
+          {/* AGENT DIAGRAM — SYSTEM FLOW */}
           <section className="section fade-3d">
             <h2>🧠 Your AI Workforce Flow</h2>
             <p className="section-lead">
@@ -820,6 +822,7 @@ return (
     </div>
   );
 }
+
 function AdvancedSalesPanel() {
   const [open, setOpen] = useState(false);
 
