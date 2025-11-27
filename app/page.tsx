@@ -920,3 +920,89 @@ function AdvancedSalesPanel() {
     </div>
   );
 }
+)}
+    </div>
+  );
+} // ← closes HomePage component
+
+// =========================
+// ADVANCED SALES PANEL
+// =========================
+function AdvancedSalesPanel() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="form-placeholder" style={{ borderStyle: "solid" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        style={{
+          width: "100%",
+          padding: "10px 14px",
+          borderRadius: "999px",
+          border: "1px solid rgba(15,23,42,0.15)",
+          background: "#ffffff",
+          fontWeight: 600,
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        {open
+          ? "– Hide Advanced Sales Performance System"
+          : "See how teams are adding 20–40% more conversions on the same lead flow"}
+      </button>
+
+      {open && (
+        <div
+          style={{
+            marginTop: "14px",
+            textAlign: "left",
+            fontSize: "0.95rem",
+            color: "#111827",
+          }}
+        >
+          <p>
+            This private framework is built around a full journey:
+            <strong>
+              {" "}
+              marketing → speed-to-lead → quality booking → sales video →
+              consultant call.
+            </strong>
+          </p>
+
+          <p style={{ marginTop: "8px" }}>When implemented correctly, we’ve seen:</p>
+
+          <ul
+            style={{
+              marginLeft: "18px",
+              marginTop: "4px",
+              marginBottom: "8px",
+            }}
+          >
+            <li>
+              <strong>800%+ lift in booked appointments</strong> vs. slow follow-up.
+            </li>
+            <li>
+              <strong>20–40% higher appointment-to-close ratios</strong> by getting
+              buyers ready *before* they arrive on the call.
+            </li>
+            <li>
+              <strong>Up to 60% more show-ups</strong> using consistent phrasing your
+              AI agent never forgets to say.
+            </li>
+          </ul>
+
+          <p>
+            Works for sales-heavy teams <em>and</em> service businesses that depend on
+            kept appointments. The details stay off the website — only shown live.
+          </p>
+
+          <p style={{ marginTop: "8px", fontWeight: 600 }}>
+            Ask our Consulting Assistant about the{" "}
+            <em>Advanced Sales Performance System</em> during your demo.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+} // ← closes AdvancedSalesPanel component
