@@ -182,7 +182,7 @@ export default function Page() {
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
           background: radial-gradient(circle at top, #022c22 0, #020617 55%, #000000 100%);
           color: #E5E7EB;
-          font-size: 19px; /* bumped up for 10–20% larger type */
+          font-size: 23px; /* noticeably larger base type (≈20–25% over previous) */
         }
 
         .aid-page {
@@ -225,20 +225,20 @@ export default function Page() {
         .brand-name {
           font-weight: 700;
           letter-spacing: 0.09em;
-          font-size: 0.95rem;
+          font-size: 0.98rem;
           text-transform: uppercase;
         }
 
         .brand-tagline {
-          font-size: 0.82rem;
+          font-size: 0.86rem;
           color: var(--text-muted);
         }
 
         .header-pill {
           border-radius: 999px;
           border: 1px solid rgba(148, 163, 184, 0.6);
-          padding: 7px 16px;
-          font-size: 0.86rem;
+          padding: 8px 18px;
+          font-size: 0.9rem;
           display: inline-flex;
           align-items: center;
           gap: 8px;
@@ -286,29 +286,29 @@ export default function Page() {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 5px 12px;
+          padding: 6px 14px;
           border-radius: 999px;
           background: rgba(15, 23, 42, 0.8);
           border: 1px solid rgba(148, 163, 184, 0.5);
-          font-size: 0.84rem;
+          font-size: 0.9rem;
           color: var(--text-muted);
           margin-bottom: 16px;
         }
 
         .hero-eyebrow span {
-          padding: 2px 8px;
+          padding: 2px 9px;
           border-radius: 999px;
           background: rgba(4, 120, 87, 0.18);
           color: #A7F3D0;
           font-weight: 600;
-          font-size: 0.8rem;
+          font-size: 0.85rem;
         }
 
         .hero-title {
-          font-size: clamp(2.1rem, 3.4vw, 2.8rem);
+          font-size: clamp(2.3rem, 3.6vw, 3.1rem);
           line-height: 1.08;
           letter-spacing: -0.04em;
-          margin: 0 0 14px;
+          margin: 0 0 16px;
         }
 
         .hero-highlight {
@@ -319,11 +319,11 @@ export default function Page() {
         }
 
         .hero-subtitle {
-          font-size: 1.02rem;
-          line-height: 1.6;
+          font-size: 1.1rem;
+          line-height: 1.65;
           color: #CBD5F5;
-          max-width: 540px;
-          margin-bottom: 20px;
+          max-width: 560px;
+          margin-bottom: 22px;
         }
 
         .hero-ctas {
@@ -340,8 +340,8 @@ export default function Page() {
           border: none;
           cursor: pointer;
           font-weight: 600;
-          font-size: 0.95rem;
-          padding: 10px 18px;
+          font-size: 1rem;
+          padding: 11px 20px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -376,11 +376,11 @@ export default function Page() {
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
-          font-size: 0.82rem;
+          font-size: 0.9rem;
         }
 
         .hero-badge {
-          padding: 4px 10px;
+          padding: 5px 11px;
           border-radius: 999px;
           background: rgba(15, 23, 42, 0.85);
           border: 1px solid rgba(148, 163, 184, 0.5);
@@ -389,7 +389,7 @@ export default function Page() {
 
         .hero-note {
           margin-top: 10px;
-          font-size: 0.8rem;
+          font-size: 0.86rem;
           color: var(--text-muted);
         }
 
@@ -407,7 +407,7 @@ export default function Page() {
         .lead-form {
           background: #FFFFFF;
           border-radius: 18px;
-          padding: 18px 18px 16px;
+          padding: 20px 18px 18px;
           color: #0F172A;
           box-shadow:
             0 20px 60px rgba(15, 23, 42, 0.45),
@@ -416,7 +416,7 @@ export default function Page() {
 
         .lead-form h2 {
           margin: 0 0 6px;
-          font-size: 1.1rem;
+          font-size: 1.2rem;
           letter-spacing: 0.06em;
           text-transform: uppercase;
           color: #111827;
@@ -424,13 +424,13 @@ export default function Page() {
 
         .lead-form p {
           margin: 0 0 12px;
-          font-size: 0.88rem;
+          font-size: 0.96rem;
           color: #4B5563;
         }
 
         .lead-form label {
           display: block;
-          font-size: 0.82rem;
+          font-size: 0.9rem;
           font-weight: 500;
           margin-bottom: 3px;
         }
@@ -438,11 +438,11 @@ export default function Page() {
         .lead-form input,
         .lead-form select {
           width: 100%;
-          padding: 8px 9px;
+          padding: 9px 10px;
           border-radius: 9px;
           border: 1px solid #D1D5DB;
-          font-size: 0.88rem;
-          margin-bottom: 8px;
+          font-size: 0.96rem;
+          margin-bottom: 10px;
           outline: none;
           transition: border-color 0.14s ease, box-shadow 0.14s ease;
         }
@@ -461,12 +461,12 @@ export default function Page() {
         }
 
         .lead-form .consent-row input[type="checkbox"] {
-          margin-top: 3px;
+          margin-top: 4px;
           width: auto;
         }
 
         .lead-form .consent-row span {
-          font-size: 0.76rem;
+          font-size: 0.82rem;
           color: #4B5563;
         }
 
@@ -474,8 +474,8 @@ export default function Page() {
           width: 100%;
           border-radius: 999px;
           border: none;
-          padding: 9px 12px;
-          font-size: 0.92rem;
+          padding: 10px 12px;
+          font-size: 0.98rem;
           font-weight: 600;
           cursor: pointer;
           background: linear-gradient(135deg, #047857, #059669);
@@ -492,7 +492,7 @@ export default function Page() {
 
         .lead-thankyou {
           margin-top: 8px;
-          font-size: 0.8rem;
+          font-size: 0.86rem;
           color: #047857;
           font-weight: 500;
         }
@@ -500,18 +500,18 @@ export default function Page() {
         .selector-card {
           background: rgba(15, 23, 42, 0.98);
           border-radius: 16px;
-          padding: 14px 14px 12px;
+          padding: 16px 15px 13px;
           border: 1px solid rgba(148, 163, 184, 0.55);
         }
 
         .selector-title {
-          font-size: 0.9rem;
+          font-size: 0.96rem;
           font-weight: 600;
           margin-bottom: 4px;
         }
 
         .selector-sub {
-          font-size: 0.82rem;
+          font-size: 0.88rem;
           color: var(--text-muted);
           margin-bottom: 10px;
         }
@@ -528,21 +528,21 @@ export default function Page() {
           border: 1px solid rgba(148, 163, 184, 0.7);
           background: rgba(15, 23, 42, 0.9);
           color: #E5E7EB;
-          padding: 8px 10px;
+          padding: 9px 11px;
           text-align: left;
-          font-size: 0.82rem;
+          font-size: 0.9rem;
           cursor: pointer;
           transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
         }
 
         .selector-button strong {
           display: block;
-          font-size: 0.86rem;
-          margin-bottom: 2px;
+          font-size: 0.94rem;
+          margin-bottom: 3px;
         }
 
         .selector-button span {
-          font-size: 0.78rem;
+          font-size: 0.82rem;
           color: var(--text-muted);
         }
 
@@ -562,8 +562,8 @@ export default function Page() {
         .continue-btn {
           border-radius: 999px;
           border: none;
-          padding: 8px 14px;
-          font-size: 0.82rem;
+          padding: 9px 15px;
+          font-size: 0.9rem;
           font-weight: 600;
           background: var(--gold);
           color: #111827;
@@ -588,23 +588,23 @@ export default function Page() {
 
         .selector-helper {
           margin-top: 6px;
-          font-size: 0.78rem;
+          font-size: 0.84rem;
           color: var(--text-muted);
         }
 
         /* Reveal block */
 
         .reveal-wrapper {
-          margin-top: 32px;
+          margin-top: 36px;
         }
 
         .reveal-intro {
           text-align: center;
-          margin-bottom: 18px;
+          margin-bottom: 20px;
         }
 
         .reveal-kicker {
-          font-size: 0.84rem;
+          font-size: 0.9rem;
           text-transform: uppercase;
           letter-spacing: 0.16em;
           color: var(--text-muted);
@@ -612,14 +612,14 @@ export default function Page() {
         }
 
         .reveal-heading {
-          font-size: 1.5rem;
-          margin-bottom: 6px;
+          font-size: 1.7rem;
+          margin-bottom: 8px;
         }
 
         .reveal-sub {
-          font-size: 0.96rem;
+          font-size: 1.05rem;
           color: #CBD5F5;
-          max-width: 640px;
+          max-width: 660px;
           margin: 0 auto;
         }
 
@@ -627,10 +627,10 @@ export default function Page() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          padding: 4px 10px;
+          padding: 5px 11px;
           border-radius: 999px;
           border: 1px solid rgba(148, 163, 184, 0.6);
-          font-size: 0.82rem;
+          font-size: 0.88rem;
           color: var(--text-muted);
           margin-bottom: 10px;
         }
@@ -643,7 +643,7 @@ export default function Page() {
         .reveal-grid {
           display: grid;
           grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-          gap: 20px;
+          gap: 22px;
           align-items: flex-start;
         }
 
@@ -655,7 +655,7 @@ export default function Page() {
 
         .panel {
           border-radius: 18px;
-          padding: 16px 16px 14px;
+          padding: 18px 16px 14px;
           background: radial-gradient(circle at top, rgba(15, 118, 110, 0.35), rgba(15, 23, 42, 0.98));
           border: 1px solid rgba(148, 163, 184, 0.55);
           box-shadow: 0 20px 60px rgba(15, 23, 42, 0.75);
@@ -674,24 +674,24 @@ export default function Page() {
         }
 
         .panel-title {
-          font-size: 1rem;
+          font-size: 1.05rem;
           font-weight: 600;
         }
 
         .panel-label {
-          font-size: 0.78rem;
-          padding: 3px 8px;
+          font-size: 0.84rem;
+          padding: 3px 9px;
           border-radius: 999px;
           border: 1px solid rgba(148, 163, 184, 0.55);
           color: var(--text-muted);
         }
 
         .flow-section {
-          margin-bottom: 12px;
+          margin-bottom: 14px;
         }
 
         .flow-section h4 {
-          font-size: 0.88rem;
+          font-size: 0.94rem;
           text-transform: uppercase;
           letter-spacing: 0.14em;
           margin-bottom: 4px;
@@ -700,7 +700,7 @@ export default function Page() {
 
         .flow-section p {
           margin: 0 0 6px;
-          font-size: 0.9rem;
+          font-size: 0.98rem;
           color: #E5E7EB;
         }
 
@@ -711,26 +711,26 @@ export default function Page() {
         }
 
         .flow-step {
-          padding: 8px 10px;
+          padding: 9px 11px;
           border-radius: 12px;
           background: rgba(15, 23, 42, 0.9);
           border: 1px solid rgba(148, 163, 184, 0.5);
         }
 
         .flow-step-title {
-          font-size: 0.9rem;
+          font-size: 0.98rem;
           font-weight: 600;
           margin-bottom: 2px;
         }
 
         .flow-step-desc {
-          font-size: 0.84rem;
+          font-size: 0.9rem;
           color: var(--text-muted);
         }
 
         .arrow-down {
           text-align: center;
-          font-size: 0.82rem;
+          font-size: 0.86rem;
           color: #64748B;
           padding: 2px 0;
         }
@@ -746,7 +746,7 @@ export default function Page() {
         .panel-list li {
           padding-left: 18px;
           position: relative;
-          font-size: 0.9rem;
+          font-size: 0.98rem;
           color: #E5E7EB;
         }
 
@@ -759,10 +759,10 @@ export default function Page() {
         }
 
         .section-row {
-          margin-top: 20px;
+          margin-top: 24px;
           display: grid;
           grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-          gap: 20px;
+          gap: 22px;
           align-items: flex-start;
         }
 
@@ -786,59 +786,59 @@ export default function Page() {
 
         .phase-card {
           border-radius: 16px;
-          padding: 12px 12px 10px;
+          padding: 13px 12px 10px;
           background: rgba(15, 23, 42, 0.96);
           border: 1px solid rgba(148, 163, 184, 0.6);
         }
 
         .phase-title {
-          font-size: 0.94rem;
+          font-size: 1rem;
           font-weight: 600;
           margin-bottom: 4px;
         }
 
         .phase-chip {
-          font-size: 0.78rem;
+          font-size: 0.84rem;
           text-transform: uppercase;
           letter-spacing: 0.14em;
           color: #A5B4FC;
-          margin-bottom: 2px;
+          margin-bottom: 3px;
         }
 
         .phase-list {
           margin: 0;
           padding-left: 18px;
-          font-size: 0.84rem;
+          font-size: 0.9rem;
           color: var(--text-muted);
         }
 
         .phase-list li {
-          margin-bottom: 2px;
+          margin-bottom: 3px;
         }
 
         .roi-card {
           border-radius: 18px;
-          padding: 14px;
+          padding: 16px;
           background: radial-gradient(circle at top, rgba(250, 250, 250, 0.06), rgba(15, 23, 42, 0.96));
           border: 1px solid rgba(148, 163, 184, 0.65);
         }
 
         .roi-card h3 {
           margin: 0 0 4px;
-          font-size: 1rem;
+          font-size: 1.05rem;
         }
 
         .roi-card p {
           margin: 0 0 10px;
-          font-size: 0.86rem;
+          font-size: 0.94rem;
           color: var(--text-muted);
         }
 
         .roi-cta-btn {
           border-radius: 999px;
           border: none;
-          padding: 8px 14px;
-          font-size: 0.88rem;
+          padding: 9px 15px;
+          font-size: 0.96rem;
           font-weight: 600;
           background: var(--gold);
           color: #111827;
@@ -854,7 +854,7 @@ export default function Page() {
 
         .advanced-card {
           border-radius: 18px;
-          padding: 14px;
+          padding: 16px;
           background: radial-gradient(circle at top, rgba(30, 64, 175, 0.3), rgba(15, 23, 42, 0.98));
           border: 1px solid rgba(129, 140, 248, 0.7);
           box-shadow: 0 20px 60px rgba(30, 64, 175, 0.55);
@@ -862,12 +862,12 @@ export default function Page() {
 
         .advanced-card h3 {
           margin: 0 0 6px;
-          font-size: 1rem;
+          font-size: 1.05rem;
         }
 
         .advanced-card p {
           margin: 0 0 8px;
-          font-size: 0.86rem;
+          font-size: 0.94rem;
           color: #E5E7EB;
         }
 
@@ -875,10 +875,10 @@ export default function Page() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          padding: 3px 9px;
+          padding: 4px 10px;
           border-radius: 999px;
           border: 1px solid rgba(129, 140, 248, 0.7);
-          font-size: 0.8rem;
+          font-size: 0.88rem;
           color: #C7D2FE;
           margin-bottom: 8px;
         }
@@ -912,7 +912,7 @@ export default function Page() {
           border-radius: 18px;
           border: 1px solid rgba(148, 163, 184, 0.75);
           box-shadow: 0 28px 80px rgba(15, 23, 42, 0.95);
-          padding: 18px 18px 16px;
+          padding: 20px 18px 16px;
           color: #E5E7EB;
         }
 
@@ -926,7 +926,7 @@ export default function Page() {
 
         .modal-header h2 {
           margin: 0;
-          font-size: 1.06rem;
+          font-size: 1.14rem;
         }
 
         .modal-close {
@@ -935,12 +935,12 @@ export default function Page() {
           background: transparent;
           color: #9CA3AF;
           padding: 4px 10px;
-          font-size: 0.78rem;
+          font-size: 0.82rem;
           cursor: pointer;
         }
 
         .modal-body {
-          font-size: 0.86rem;
+          font-size: 0.94rem;
         }
 
         .modal-grid {
@@ -958,19 +958,19 @@ export default function Page() {
 
         .modal-field label {
           display: block;
-          font-size: 0.8rem;
+          font-size: 0.88rem;
           margin-bottom: 3px;
           color: #CBD5F5;
         }
 
         .modal-field input {
           width: 100%;
-          padding: 6px 8px;
+          padding: 7px 9px;
           border-radius: 8px;
           border: 1px solid rgba(148, 163, 184, 0.7);
           background: rgba(15, 23, 42, 0.9);
           color: #E5E7EB;
-          font-size: 0.84rem;
+          font-size: 0.9rem;
           outline: none;
         }
 
@@ -981,22 +981,22 @@ export default function Page() {
 
         .modal-metric {
           margin-top: 10px;
-          padding: 8px 10px;
+          padding: 9px 11px;
           border-radius: 10px;
           background: rgba(15, 23, 42, 0.96);
           border: 1px solid rgba(148, 163, 184, 0.65);
-          font-size: 0.84rem;
+          font-size: 0.9rem;
         }
 
         .modal-metric strong {
-          font-size: 1.02rem;
+          font-size: 1.08rem;
           display: block;
           margin-top: 2px;
         }
 
         .modal-footnote {
           margin-top: 8px;
-          font-size: 0.78rem;
+          font-size: 0.86rem;
           color: var(--text-muted);
         }
 
@@ -1026,7 +1026,7 @@ export default function Page() {
           background: rgba(15, 23, 42, 0.96);
           border: 1px solid rgba(148, 163, 184, 0.7);
           box-shadow: 0 -10px 40px rgba(15, 23, 42, 0.85);
-          padding: 8px 12px;
+          padding: 9px 13px;
           display: flex;
           align-items: center;
           gap: 10px;
@@ -1034,7 +1034,7 @@ export default function Page() {
         }
 
         .sticky-text {
-          font-size: 0.84rem;
+          font-size: 0.9rem;
           color: #E5E7EB;
         }
 
@@ -1046,8 +1046,8 @@ export default function Page() {
         .sticky-btn {
           border-radius: 999px;
           border: none;
-          padding: 7px 14px;
-          font-size: 0.86rem;
+          padding: 8px 15px;
+          font-size: 0.96rem;
           font-weight: 600;
           background: linear-gradient(135deg, #047857, #22C55E);
           color: #ECFDF5;
@@ -1472,7 +1472,7 @@ export default function Page() {
                   </div>
                   <p
                     style={{
-                      fontSize: "0.9rem",
+                      fontSize: "0.98rem",
                       color: "#CBD5F5",
                       marginBottom: 10,
                     }}
@@ -1534,7 +1534,7 @@ export default function Page() {
                   For teams that run structured demos, consults, or sales calls, we also
                   offer an optional advanced system that sits on top of your AI workforce.
                 </p>
-                <p style={{ fontSize: "0.86rem", color: "#C4B5FD" }}>
+                <p style={{ fontSize: "0.94rem", color: "#C4B5FD" }}>
                   See how teams are adding 20–40% more conversions on the same lead flow —
                   before touching ad spend.
                 </p>
