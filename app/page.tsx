@@ -24,6 +24,16 @@ export default function Page() {
   const isExitOpenRef = useRef(false);
   const lastScrollYRef = useRef(0);
 
+  // Helper: smooth scroll to an element with offset (better on mobile)
+  const scrollToElement = (id: string, offset = 96) => {
+    if (typeof window === "undefined") return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const y = rect.top + window.scrollY - offset;
+    window.scrollTo({ top: y < 0 ? 0 : y, behavior: "smooth" });
+  };
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -127,10 +137,7 @@ export default function Page() {
 
     // Allow React to render the block, then scroll smoothly into view
     requestAnimationFrame(() => {
-      const el = document.getElementById("ai-workforce-block");
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      scrollToElement("ai-workforce-block", 88);
     });
   };
 
@@ -182,7 +189,7 @@ export default function Page() {
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
           background: radial-gradient(circle at top, #022c22 0, #020617 55%, #000000 100%);
           color: #E5E7EB;
-          font-size: 23px; /* noticeably larger base type (≈20–25% over previous) */
+          font-size: 23px; /* larger base type for readability */
         }
 
         .aid-page {
@@ -412,6 +419,7 @@ export default function Page() {
           box-shadow:
             0 20px 60px rgba(15, 23, 42, 0.45),
             0 0 0 1px rgba(148, 163, 184, 0.35);
+          scroll-margin-top: 120px;
         }
 
         .lead-form h2 {
@@ -533,6 +541,8 @@ export default function Page() {
           font-size: 0.9rem;
           cursor: pointer;
           transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
+          display: flex;
+          flex-direction: column;
         }
 
         .selector-button strong {
@@ -546,10 +556,30 @@ export default function Page() {
           color: var(--text-muted);
         }
 
+        .selector-button::after {
+          content: "Tap to select";
+          margin-top: 4px;
+          font-size: 0.76rem;
+          color: var(--text-muted);
+          opacity: 0.9;
+        }
+
         .selector-button--active {
           border-color: #F4D03F;
           background: linear-gradient(135deg, rgba(4, 120, 87, 0.9), rgba(15, 23, 42, 0.98));
           box-shadow: 0 14px 36px rgba(4, 120, 87, 0.5);
+          transform: translateY(-1px);
+        }
+
+        .selector-button--active::after {
+          content: "Selected";
+          color: #F4D03F;
+          font-weight: 600;
+        }
+
+        .selector-button:hover {
+          box-shadow: 0 10px 26px rgba(15, 23, 42, 0.9);
+          transform: translateY(-1px);
         }
 
         .selector-continue {
@@ -596,6 +626,7 @@ export default function Page() {
 
         .reveal-wrapper {
           margin-top: 36px;
+          scroll-margin-top: 120px;
         }
 
         .reveal-intro {
@@ -1140,10 +1171,7 @@ export default function Page() {
                 <button
                   className="primary-cta"
                   onClick={() => {
-                    const el = document.getElementById("leadForm");
-                    if (el) {
-                      el.scrollIntoView({ behavior: "smooth", block: "center" });
-                    }
+                    scrollToElement("leadForm", 120);
                   }}
                 >
                   Hear the AI in Action
@@ -1249,7 +1277,7 @@ export default function Page() {
                   <div className="selector-helper">
                     {industryTrack
                       ? `Great — we’ll show you how an AI workforce fits a ${selectedLabel.toLowerCase()}.`
-                      : "Pick an option above to continue."}
+                      : "Tap a box above to select your type, then continue."}
                   </div>
                   {industryTrack && (
                     <button
@@ -1664,10 +1692,7 @@ export default function Page() {
                   className="secondary-cta"
                   onClick={() => {
                     closeExitIntent();
-                    const el = document.getElementById("leadForm");
-                    if (el) {
-                      el.scrollIntoView({ behavior: "smooth", block: "center" });
-                    }
+                    scrollToElement("leadForm", 120);
                   }}
                 >
                   Book my live AI call
@@ -1689,10 +1714,7 @@ export default function Page() {
             className="sticky-btn"
             type="button"
             onClick={() => {
-              const el = document.getElementById("leadForm");
-              if (el) {
-                el.scrollIntoView({ behavior: "smooth", block: "center" });
-              }
+              scrollToElement("leadForm", 120);
             }}
           >
             Get a live AI call demo
