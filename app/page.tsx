@@ -1,976 +1,1665 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
-type Track = "generic" | "sales" | "service";
+type IndustryTrack = "sales" | "local" | null;
 
-const salesExamples = [
-  "Inbound lead gen, demos, and consultations",
-  "High-ticket programs, SaaS, agencies, and coaching offers",
-  "Teams booking calendars for closers, advisors, or reps",
-];
-
-const serviceExamples = [
-  "Med spa, dental, chiropractic, and other clinics",
-  "Home services, trades, and local retail showrooms",
-  "Any business that lives on scheduled appointments and repeat visits",
-];
-
-function getTrackExamples(track: Track): string[] {
-  if (track === "sales") return salesExamples;
-  if (track === "service") return serviceExamples;
-  return [];
-}
-
-function getTrackDescriptor(track: Track): string {
-  if (track === "sales") return "sales & appointment-driven teams";
-  if (track === "service") return "local & service businesses";
-  return "growing teams";
-}
-
-export default function HomePage() {
-  const [showBottomCta, setShowBottomCta] = useState(false);
-  const [showRoi, setShowRoi] = useState(false);
-  const [showExitModal, setShowExitModal] = useState(false);
-  const [industryTrack, setIndustryTrack] = useState<Track>("generic");
-  const [showDeepContent, setShowDeepContent] = useState(false);
+export default function Page() {
+  const [industryTrack, setIndustryTrack] = useState<IndustryTrack>(null);
+  const [hasContinued, setHasContinued] = useState(false);
+  const [isRoiOpen, setIsRoiOpen] = useState(false);
+  const [isExitIntentOpen, setIsExitIntentOpen] = useState(false);
+  const [hasExitIntentShown, setHasExitIntentShown] = useState(false);
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
   // Simple ROI state
-  const [leads, setLeads] = useState<number | "">("");
-  const [ticket, setTicket] = useState<number | "">("");
-  const [missed, setMissed] = useState<number | "">("");
-  const [recovery, setRecovery] = useState<number | "">("");
-  const [closeRate, setCloseRate] = useState<number | "">("");
-  const [monthlyRoi, setMonthlyRoi] = useState<number | null>(null);
-  const [annualRoi, setAnnualRoi] = useState<number | null>(null);
+  const [monthlyLeads, setMonthlyLeads] = useState("200");
+  const [closeRate, setCloseRate] = useState("25");
+  const [avgDealSize, setAvgDealSize] = useState("1500");
+  const [liftPercent, setLiftPercent] = useState("20");
 
-  // 3D fade-in on scroll
+  // Refs for exit-intent logic
+  const hasEngagedRef = useRef(false);
+  const hasExitIntentRef = useRef(false);
+  const isExitOpenRef = useRef(false);
+  const lastScrollYRef = useRef(0);
+
   useEffect(() => {
-    const revealElements = document.querySelectorAll(".fade-3d, .fade-3d-slow");
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            (entry.target as HTMLElement).classList.add("visible");
-          }
-        });
-      },
-      { threshold: 0.18 }
-    );
+    if (typeof window === "undefined") return;
 
-    revealElements.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
+    // Engagement threshold: 7 seconds OR scroll 250px
+    const engagementTimer = window.setTimeout(() => {
+      if (!hasEngagedRef.current) {
+        hasEngagedRef.current = true;
+      }
+    }, 7000);
 
-  // Bottom sticky CTA logic
-  useEffect(() => {
-    const onScroll = () => {
-      const y = window.scrollY;
-      const docHeight = document.documentElement.scrollHeight;
-      const winHeight = window.innerHeight;
-      const nearBottom = y + winHeight > docHeight - 350;
-      setShowBottomCta(y > 500 && !nearBottom);
+    const handleScroll = () => {
+      const y = window.scrollY || window.pageYOffset || 0;
+
+      if (!hasEngagedRef.current && y > 250) {
+        hasEngagedRef.current = true;
+      }
+
+      const previousY = lastScrollYRef.current;
+      const delta = previousY - y;
+      const goingUpQuickly = delta > 40;
+      const nearTop = y < 120;
+      const isMobile = window.innerWidth < 1024;
+
+      // Mobile exit-intent: sharp scroll up near top, after engagement threshold
+      if (
+        isMobile &&
+        hasEngagedRef.current &&
+        goingUpQuickly &&
+        nearTop &&
+        !hasExitIntentRef.current &&
+        !isExitOpenRef.current
+      ) {
+        hasExitIntentRef.current = true;
+        isExitOpenRef.current = true;
+        setHasExitIntentShown(true);
+        setIsExitIntentOpen(true);
+      }
+
+      lastScrollYRef.current = y;
     };
 
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // Exit-intent logic (desktop + mobile)
-  useEffect(() => {
-    let hasShownModal = false;
-    let exitReady = false;
-
-    const enableExit = () => {
-      exitReady = true;
-    };
-
-    const showModal = () => {
-      if (hasShownModal || !exitReady) return;
-      hasShownModal = true;
-      setShowExitModal(true);
-    };
-
-    // Time-based readiness
-    const timer = window.setTimeout(enableExit, 7000);
-
-    // Scroll-based readiness (user has engaged a bit)
-    const onEngagementScroll = () => {
-      if (window.scrollY > 250) exitReady = true;
-    };
-
-    window.addEventListener("scroll", onEngagementScroll);
-
-    // Desktop: mouse leaves top of viewport
-    const onMouseOut = (e: MouseEvent) => {
-      const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-      if (isMobile) return; // desktop-only handler
-
-      if (!exitReady || hasShownModal) return;
-      if (e.clientY <= 0) {
-        showModal();
+    const handleMouseLeave = (event: MouseEvent) => {
+      const isDesktop = window.innerWidth >= 1024;
+      // Desktop exit-intent: mouse leaving viewport at top, after engagement threshold
+      if (
+        isDesktop &&
+        event.clientY <= 0 &&
+        hasEngagedRef.current &&
+        !hasExitIntentRef.current &&
+        !isExitOpenRef.current
+      ) {
+        hasExitIntentRef.current = true;
+        isExitOpenRef.current = true;
+        setHasExitIntentShown(true);
+        setIsExitIntentOpen(true);
       }
     };
 
-    document.addEventListener("mouseout", onMouseOut);
-
-    // Mobile: fast upward scroll near top
-    let lastScroll = window.scrollY;
-    const onMobileScroll = () => {
-      const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-      if (!isMobile) return;
-
-      const current = window.scrollY;
-      const delta = lastScroll - current;
-      lastScroll = current;
-
-      if (!exitReady || hasShownModal) return;
-      if (delta > 40 && current < 120) {
-        showModal();
-      }
-    };
-
-    window.addEventListener("scroll", onMobileScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    document.addEventListener("mouseleave", handleMouseLeave);
 
     return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("scroll", onEngagementScroll);
-      document.removeEventListener("mouseout", onMouseOut);
-      window.removeEventListener("scroll", onMobileScroll);
+      window.clearTimeout(engagementTimer);
+      window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("mouseleave", handleMouseLeave);
     };
   }, []);
 
-  const openRoi = () => setShowRoi(true);
-  const closeRoi = () => setShowRoi(false);
-
-  const currency = (n: number | null) => (n === null ? "" : `$${n.toLocaleString()}`);
-
-  const calcRoi = () => {
-    if (
-      leads === "" ||
-      ticket === "" ||
-      missed === "" ||
-      recovery === "" ||
-      closeRate === ""
-    ) {
-      setMonthlyRoi(null);
-      setAnnualRoi(null);
-      return;
-    }
-
-    const L = Number(leads);
-    const T = Number(ticket);
-    const M = Number(missed) / 100; // missed %
-    const R = Number(recovery) / 100; // AI recovery of missed
-    const C = Number(closeRate) / 100; // appointment-to-close %
-
-    const recoveredLeads = L * M * R;
-    const closedDeals = recoveredLeads * C;
-    const monthly = closedDeals * T;
-    const annual = monthly * 12;
-
-    setMonthlyRoi(monthly);
-    setAnnualRoi(annual);
-  };
-
-  // Lead form submit
-  const handleLeadSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const form = e.currentTarget;
-    const data = {
-      firstName: (form.elements.namedItem("firstName") as HTMLInputElement)?.value,
-      email: (form.elements.namedItem("email") as HTMLInputElement)?.value,
-      phone: (form.elements.namedItem("phone") as HTMLInputElement)?.value,
-      fccConsent: (form.elements.namedItem("fccConsent") as HTMLInputElement)?.checked,
-    };
-
-    try {
-      await fetch("https://api.thoughtly.com/webhook/automation/Oqf6FbI5nD04", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      alert("Thank you! Our team will reach out shortly!");
-      form.reset();
-    } catch (err) {
-      console.error("Lead submit failed", err);
-      alert("Something went wrong. Please try again in a moment.");
-    }
-  };
-
-  const handleTrackSelect = (track: Track) => {
+  const handleTrackSelect = (track: IndustryTrack) => {
     setIndustryTrack(track);
-    setShowDeepContent(false);
+    // Continue button appears once an option is selected.
+    // Full block only reveals after clicking Continue.
   };
 
   const handleContinue = () => {
-    if (industryTrack !== "sales" && industryTrack !== "service") return;
-    setShowDeepContent(true);
+    if (!industryTrack) return;
+    setHasContinued(true);
 
-    // Smooth scroll to the deep-content section
-    setTimeout(() => {
-      if (typeof window === "undefined") return;
-      const el = document.getElementById("ai-details");
+    // Scroll smoothly to the reveal block
+    if (typeof window !== "undefined") {
+      const el = document.getElementById("ai-workforce-block");
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }, 80);
+    }
   };
 
-  const trackDescriptor = getTrackDescriptor(industryTrack);
+  const handleLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    // You can wire this to an API / webhook here
+    setFormSubmitted(true);
+  };
+
+  const openRoi = () => setIsRoiOpen(true);
+  const closeRoi = () => setIsRoiOpen(false);
+
+  const closeExitIntent = () => {
+    setIsExitIntentOpen(false);
+    isExitOpenRef.current = false;
+  };
+
+  const selectedLabel =
+    industryTrack === "sales"
+      ? "Sales Teams"
+      : industryTrack === "local"
+      ? "Local Businesses"
+      : "";
+
+  const isSales = industryTrack === "sales";
+
+  const parsedMonthlyLeads = Number(monthlyLeads) || 0;
+  const parsedCloseRate = Number(closeRate) || 0;
+  const parsedAvgDealSize = Number(avgDealSize) || 0;
+  const parsedLiftPercent = Number(liftPercent) || 0;
+
+  const baselineClosed = parsedMonthlyLeads * (parsedCloseRate / 100);
+  const extraClosed = baselineClosed * (parsedLiftPercent / 100);
+  const extraRevenue = extraClosed * parsedAvgDealSize;
 
   return (
-    <div className="page-root" data-ai-track={industryTrack}>
-      {/* Sticky Header */}
-      <header className="sticky-header">
-        <div className="header-title">All In Digital</div>
-        <a href="#demo" className="header-cta">
-          Book Demo
-        </a>
-      </header>
+    <main className="aid-page">
+      <style>{`
+        :root {
+          --emerald: #047857;
+          --emerald-dark: #065f46;
+          --gold: #F4D03F;
+          --charcoal: #0F172A;
+          --offwhite: #F9FAFB;
+          --text-muted: #9CA3AF;
+        }
 
-      {/* HERO */}
-      <section className="hero">
-        <div className="hero-inner fade-3d">
-          <span className="eyebrow">AI Workforce • Speed to Lead • 24/7 Coverage</span>
-          <h1>Turn Missed Calls &amp; Slow Follow-Up into a 24/7 AI Workforce</h1>
-          <p className="hero-sub">
-            Your AI agents answer instantly, qualify leads, book calendars, recover no-shows, and handle
-            dispatch — so you stop bleeding revenue to voicemail, delays, and “we’ll call them later.”
-          </p>
+        body {
+          margin: 0;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+          background: radial-gradient(circle at top, #022c22 0, #020617 55%, #000000 100%);
+          color: #E5E7EB;
+        }
 
-          <div className="hero-ctas">
-            <a href="#demo" className="primary-cta">
-              Hear the AI in Action
-            </a>
-            <button className="secondary-cta" onClick={openRoi}>
-              Run ROI Calculator
-            </button>
-          </div>
+        .aid-page {
+          min-height: 100vh;
+        }
 
-          <div className="hero-badges">
-            <div className="hero-badge">Speed-to-Lead under 30 SECONDS</div>
-            <div className="hero-badge">AI Booking • No-Show Recovery</div>
-            <div className="hero-badge">Built for small &amp; mid-sized teams</div>
-          </div>
-        </div>
-      </section>
+        .aid-wrapper {
+          max-width: 1120px;
+          margin: 0 auto;
+          padding: 32px 16px 112px;
+        }
 
-      {/* SPEED-TO-LEAD DEMO + FORM */}
-      <section className="section fade-3d" id="demo">
-        <h2>⚡ Test Speed to Lead in Real Time</h2>
-        <p className="section-lead">
-          Fill out the form below and let your AI agent call back. This is exactly how your prospects would
-          experience instant response.
-        </p>
+        .page-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 32px;
+        }
 
-        <div className="form-placeholder">
-          {/* Inline styles for the lead form + selector + reveal */}
-          <style>{`
-            .lead-form {
-              max-width: 420px;
-              padding: 20px;
-              background: #FFFFFF;
-              border: 2px solid #047857;
-              border-radius: 14px;
-              font-family: Arial, sans-serif;
-              color: #0F172A;
-              margin: 0 auto 26px;
-            }
+        .brand-mark {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+        }
 
-            .lead-form h2 {
-              color: #047857;
-              font-size: 22px;
-              margin-bottom: 12px;
-              text-align: center;
-            }
+        .brand-logo {
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
+          background: radial-gradient(circle at 30% 20%, #6EE7B7 0, #047857 45%, #022c22 100%);
+          box-shadow: 0 12px 28px rgba(5, 150, 105, 0.45);
+        }
 
-            .lead-form label {
-              display: block;
-              margin-bottom: 6px;
-              font-weight: bold;
-              color: #047857;
-            }
+        .brand-text {
+          display: flex;
+          flex-direction: column;
+        }
 
-            .lead-form input[type="text"],
-            .lead-form input[type="email"],
-            .lead-form input[type="tel"] {
-              width: 100%;
-              padding: 10px;
-              border: 1px solid #047857;
-              border-radius: 8px;
-              margin-bottom: 15px;
-              font-size: 15px;
-            }
+        .brand-name {
+          font-weight: 700;
+          letter-spacing: 0.09em;
+          font-size: 0.9rem;
+          text-transform: uppercase;
+        }
 
-            .consent-box {
-              display: flex;
-              align-items: flex-start;
-              gap: 10px;
-              margin-bottom: 18px;
-              font-size: 14px;
-              line-height: 1.35;
-            }
+        .brand-tagline {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+        }
 
-            .lead-form button {
-              width: 100%;
-              background-color: #047857;
-              color: #FFFFFF;
-              padding: 12px;
-              border: none;
-              border-radius: 8px;
-              font-size: 17px;
-              font-weight: bold;
-              cursor: pointer;
-            }
+        .header-pill {
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.6);
+          padding: 6px 14px;
+          font-size: 0.8rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(12px);
+          color: #E5E7EB;
+        }
 
-            .lead-form button:hover {
-              background-color: #036149;
-            }
+        .header-pill-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: radial-gradient(circle at 30% 20%, #BBF7D0 0, #22C55E 40%, #166534 100%);
+          box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+        }
 
-            .selector-section-inner {
-              text-align: center;
-              max-width: 720px;
-              margin: 0 auto;
-            }
+        .hero-section {
+          border-radius: 24px;
+          padding: 32px 24px 28px;
+          background: radial-gradient(circle at top left, rgba(4, 120, 87, 0.4), rgba(15, 23, 42, 0.95));
+          border: 1px solid rgba(148, 163, 184, 0.35);
+          box-shadow:
+            0 24px 80px rgba(15, 23, 42, 0.85),
+            0 0 0 1px rgba(15, 23, 42, 0.7);
+        }
 
-            .selector-heading {
-              font-size: 1.5rem;
-              color: var(--emerald-dark);
-              margin-bottom: 8px;
-            }
+        .aid-grid {
+          display: grid;
+          grid-template-columns: 1.15fr 0.95fr;
+          gap: 32px;
+          align-items: flex-start;
+        }
 
-            .selector-sub {
-              font-size: 0.95rem;
-              color: var(--text-muted);
-              margin-bottom: 18px;
-            }
+        @media (max-width: 900px) {
+          .aid-grid {
+            grid-template-columns: 1fr;
+          }
 
-            .selector-buttons-row {
-              display: inline-flex;
-              gap: 12px;
-              flex-wrap: wrap;
-              justify-content: center;
-              margin-bottom: 10px;
-            }
+          .hero-section {
+            padding: 24px 18px 22px;
+          }
+        }
 
-            .selector-button {
-              min-width: 150px;
-              padding: 10px 18px;
-              border-radius: 999px;
-              border: 1px solid rgba(15, 23, 42, 0.18);
-              background: #ffffff;
-              color: var(--text-main);
-              font-size: 0.92rem;
-              font-weight: 600;
-              cursor: pointer;
-              box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-              transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.18s ease, border-color 0.2s ease;
-            }
+        .hero-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: rgba(15, 23, 42, 0.8);
+          border: 1px solid rgba(148, 163, 184, 0.5);
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          margin-bottom: 16px;
+        }
 
-            .selector-button:hover {
-              transform: translateY(-1px);
-              box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-            }
+        .hero-eyebrow span {
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: rgba(4, 120, 87, 0.18);
+          color: #A7F3D0;
+          font-weight: 600;
+          font-size: 0.75rem;
+        }
 
-            .selector-button--active {
-              background: var(--emerald);
-              color: #ffffff;
-              border-color: var(--emerald-dark);
-              box-shadow: 0 12px 32px rgba(5, 150, 105, 0.4);
-            }
+        .hero-title {
+          font-size: clamp(2rem, 3.1vw, 2.6rem);
+          line-height: 1.07;
+          letter-spacing: -0.04em;
+          margin: 0 0 12px;
+        }
 
-            .reveal-panel {
-              opacity: 0;
-              transform: translateY(24px);
-              animation: revealUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-            }
+        .hero-highlight {
+          background: linear-gradient(120deg, #F4D03F, #F9A826);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
 
-            .reveal-intro {
-              text-align: center;
-            }
+        .hero-subtitle {
+          font-size: 0.98rem;
+          line-height: 1.5;
+          color: #CBD5F5;
+          max-width: 520px;
+          margin-bottom: 18px;
+        }
 
-            .reveal-heading {
-              font-size: 1.4rem;
-              color: var(--emerald-dark);
-              margin-bottom: 6px;
-            }
+        .hero-ctas {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+          align-items: center;
+          margin-bottom: 18px;
+        }
 
-            .reveal-sub {
-              font-size: 0.98rem;
-              color: var(--text-muted);
-              margin-bottom: 14px;
-            }
+        .primary-cta,
+        .secondary-cta {
+          border-radius: 999px;
+          border: none;
+          cursor: pointer;
+          font-weight: 600;
+          font-size: 0.9rem;
+          padding: 10px 18px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          text-decoration: none;
+          transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+        }
 
-            .reveal-example-list {
-              list-style: none;
-              padding-left: 0;
-              max-width: 640px;
-              margin: 0 auto 18px;
-              font-size: 0.95rem;
-              color: var(--text-muted);
-            }
+        .primary-cta {
+          background: linear-gradient(135deg, #047857, #22C55E);
+          color: #ECFDF5;
+          box-shadow: 0 14px 40px rgba(16, 185, 129, 0.45);
+        }
 
-            .reveal-example-list li {
-              margin-bottom: 4px;
-              position: relative;
-              padding-left: 16px;
-            }
+        .primary-cta:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 52px rgba(16, 185, 129, 0.65);
+        }
 
-            .reveal-example-list li::before {
-              content: "•";
-              position: absolute;
-              left: 4px;
-              top: 0;
-              color: var(--emerald-dark);
-            }
+        .secondary-cta {
+          background: rgba(15, 23, 42, 0.8);
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          color: #E5E7EB;
+        }
 
-            .continue-btn {
-              display: inline-flex;
-              align-items: center;
-              justify-content: center;
-              padding: 10px 22px;
-              border-radius: 999px;
-              border: none;
-              font-size: 0.95rem;
-              font-weight: 600;
-              background: var(--gold);
-              color: #111827;
-              cursor: pointer;
-              box-shadow: 0 10px 28px rgba(180, 83, 9, 0.35);
-              transition: transform 0.18s ease, box-shadow 0.18s ease;
-            }
+        .secondary-cta:hover {
+          background: rgba(15, 23, 42, 1);
+          transform: translateY(-1px);
+        }
 
-            .continue-btn:hover {
-              transform: translateY(-1px);
-              box-shadow: 0 16px 36px rgba(180, 83, 9, 0.5);
-            }
+        .hero-badges {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          font-size: 0.75rem;
+        }
 
-            @keyframes revealUp {
-              to {
-                opacity: 1;
-                transform: translateY(0);
-              }
-            }
-          `}</style>
+        .hero-badge {
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: rgba(15, 23, 42, 0.85);
+          border: 1px solid rgba(148, 163, 184, 0.5);
+          color: var(--text-muted);
+        }
 
-          {/* Lead Form */}
-          <form id="leadForm" className="lead-form" onSubmit={handleLeadSubmit}>
-            <h2>FREE LIVE DEMO</h2>
+        .hero-note {
+          margin-top: 10px;
+          font-size: 0.78rem;
+          color: var(--text-muted);
+        }
 
-            <label htmlFor="firstName">First Name *</label>
-            <input type="text" id="firstName" name="firstName" required />
+        .hero-note span {
+          color: #FBBF24;
+          font-weight: 600;
+        }
 
-            <label htmlFor="email">Email *</label>
-            <input type="email" id="email" name="email" required />
+        .hero-side {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
 
-            <label htmlFor="phone">Phone *</label>
-            <input type="tel" id="phone" name="phone" required />
+        .lead-form {
+          background: #FFFFFF;
+          border-radius: 18px;
+          padding: 18px 18px 16px;
+          color: #0F172A;
+          box-shadow:
+            0 20px 60px rgba(15, 23, 42, 0.45),
+            0 0 0 1px rgba(148, 163, 184, 0.35);
+        }
 
-            <label className="consent-box">
-              <input type="checkbox" id="fccConsent" name="fccConsent" required />
-              <span>
-                I consent to receive marketing calls and SMS messages, including calls and messages sent by AI
-                systems, to the phone number I provided. Consent is not a condition of purchase. Message and data
-                rates may apply.
-              </span>
-            </label>
+        .lead-form h2 {
+          margin: 0 0 6px;
+          font-size: 1.05rem;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: #111827;
+        }
 
-            <button type="submit">Submit</button>
-          </form>
+        .lead-form p {
+          margin: 0 0 12px;
+          font-size: 0.8rem;
+          color: #4B5563;
+        }
 
-          {/* Selector + Reveal */}
-          <div className="selector-section-inner">
-            <h3 className="selector-heading">What are you improving your business for?</h3>
-            <p className="selector-sub">Pick the option closest to your business.</p>
+        .lead-form label {
+          display: block;
+          font-size: 0.78rem;
+          font-weight: 500;
+          margin-bottom: 3px;
+        }
 
-            <div className="selector-buttons-row">
-              <button
-                type="button"
-                className={
-                  "selector-button" +
-                  (industryTrack === "sales" ? " selector-button--active" : "")
-                }
-                onClick={() => handleTrackSelect("sales")}
-              >
-                Sales Teams
-              </button>
+        .lead-form input,
+        .lead-form select {
+          width: 100%;
+          padding: 7px 9px;
+          border-radius: 9px;
+          border: 1px solid #D1D5DB;
+          font-size: 0.85rem;
+          margin-bottom: 8px;
+          outline: none;
+          transition: border-color 0.14s ease, box-shadow 0.14s ease;
+        }
 
-              <button
-                type="button"
-                className={
-                  "selector-button" +
-                  (industryTrack === "service" ? " selector-button--active" : "")
-                }
-                onClick={() => handleTrackSelect("service")}
-              >
-                Local Businesses
-              </button>
+        .lead-form input:focus,
+        .lead-form select:focus {
+          border-color: #047857;
+          box-shadow: 0 0 0 1px rgba(4, 120, 87, 0.35);
+        }
+
+        .lead-form .consent-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          margin: 6px 0 10px;
+        }
+
+        .lead-form .consent-row input[type="checkbox"] {
+          margin-top: 3px;
+          width: auto;
+        }
+
+        .lead-form .consent-row span {
+          font-size: 0.7rem;
+          color: #4B5563;
+        }
+
+        .lead-submit-btn {
+          width: 100%;
+          border-radius: 999px;
+          border: none;
+          padding: 9px 12px;
+          font-size: 0.9rem;
+          font-weight: 600;
+          cursor: pointer;
+          background: linear-gradient(135deg, #047857, #059669);
+          color: #ECFDF5;
+          box-shadow: 0 16px 40px rgba(5, 150, 105, 0.4);
+          transition: transform 0.16s ease, box-shadow 0.16s ease;
+          margin-top: 2px;
+        }
+
+        .lead-submit-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 20px 52px rgba(5, 150, 105, 0.55);
+        }
+
+        .lead-thankyou {
+          margin-top: 8px;
+          font-size: 0.78rem;
+          color: #047857;
+          font-weight: 500;
+        }
+
+        .selector-card {
+          background: rgba(15, 23, 42, 0.98);
+          border-radius: 16px;
+          padding: 14px 14px 12px;
+          border: 1px solid rgba(148, 163, 184, 0.55);
+        }
+
+        .selector-title {
+          font-size: 0.85rem;
+          font-weight: 600;
+          margin-bottom: 4px;
+        }
+
+        .selector-sub {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+          margin-bottom: 10px;
+        }
+
+        .selector-buttons {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+
+        .selector-button {
+          border-radius: 12px;
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          background: rgba(15, 23, 42, 0.9);
+          color: #E5E7EB;
+          padding: 8px 10px;
+          text-align: left;
+          font-size: 0.8rem;
+          cursor: pointer;
+          transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
+        }
+
+        .selector-button strong {
+          display: block;
+          font-size: 0.8rem;
+          margin-bottom: 2px;
+        }
+
+        .selector-button span {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+        }
+
+        .selector-button--active {
+          border-color: #F4D03F;
+          background: linear-gradient(135deg, rgba(4, 120, 87, 0.9), rgba(15, 23, 42, 0.98));
+          box-shadow: 0 14px 36px rgba(4, 120, 87, 0.5);
+        }
+
+        .selector-continue {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .continue-btn {
+          border-radius: 999px;
+          border: none;
+          padding: 8px 14px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          background: var(--gold);
+          color: #111827;
+          cursor: pointer;
+          box-shadow: 0 10px 26px rgba(180, 83, 9, 0.45);
+          transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .continue-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 16px 34px rgba(180, 83, 9, 0.65);
+        }
+
+        .continue-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        .selector-helper {
+          margin-top: 6px;
+          font-size: 0.7rem;
+          color: var(--text-muted);
+        }
+
+        /* Reveal block */
+
+        .reveal-wrapper {
+          margin-top: 32px;
+        }
+
+        .reveal-intro {
+          text-align: center;
+          margin-bottom: 18px;
+        }
+
+        .reveal-kicker {
+          font-size: 0.8rem;
+          text-transform: uppercase;
+          letter-spacing: 0.16em;
+          color: var(--text-muted);
+          margin-bottom: 4px;
+        }
+
+        .reveal-heading {
+          font-size: 1.4rem;
+          margin-bottom: 4px;
+        }
+
+        .reveal-sub {
+          font-size: 0.92rem;
+          color: #CBD5F5;
+          max-width: 640px;
+          margin: 0 auto;
+        }
+
+        .pill-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.6);
+          font-size: 0.78rem;
+          color: var(--text-muted);
+          margin-bottom: 10px;
+        }
+
+        .pill-tag span {
+          font-weight: 600;
+          color: #E5E7EB;
+        }
+
+        .reveal-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+          gap: 20px;
+          align-items: flex-start;
+        }
+
+        @media (max-width: 900px) {
+          .reveal-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .panel {
+          border-radius: 18px;
+          padding: 16px 16px 14px;
+          background: radial-gradient(circle at top, rgba(15, 118, 110, 0.35), rgba(15, 23, 42, 0.98));
+          border: 1px solid rgba(148, 163, 184, 0.55);
+          box-shadow: 0 20px 60px rgba(15, 23, 42, 0.75);
+        }
+
+        .panel-alt {
+          background: radial-gradient(circle at top, rgba(24, 24, 27, 0.9), rgba(15, 23, 42, 0.98));
+        }
+
+        .panel-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+
+        .panel-title {
+          font-size: 0.95rem;
+          font-weight: 600;
+        }
+
+        .panel-label {
+          font-size: 0.7rem;
+          padding: 3px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.55);
+          color: var(--text-muted);
+        }
+
+        .flow-section {
+          margin-bottom: 12px;
+        }
+
+        .flow-section h4 {
+          font-size: 0.85rem;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          margin-bottom: 4px;
+          color: #A5B4FC;
+        }
+
+        .flow-section p {
+          margin: 0 0 6px;
+          font-size: 0.88rem;
+          color: #E5E7EB;
+        }
+
+        .flow-steps {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 8px;
+        }
+
+        .flow-step {
+          padding: 8px 10px;
+          border-radius: 12px;
+          background: rgba(15, 23, 42, 0.9);
+          border: 1px solid rgba(148, 163, 184, 0.5);
+        }
+
+        .flow-step-title {
+          font-size: 0.85rem;
+          font-weight: 600;
+          margin-bottom: 2px;
+        }
+
+        .flow-step-desc {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+        }
+
+        .arrow-down {
+          text-align: center;
+          font-size: 0.8rem;
+          color: #64748B;
+          padding: 2px 0;
+        }
+
+        .panel-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: grid;
+          gap: 6px;
+        }
+
+        .panel-list li {
+          padding-left: 18px;
+          position: relative;
+          font-size: 0.85rem;
+          color: #E5E7EB;
+        }
+
+        .panel-list li::before {
+          content: "•";
+          position: absolute;
+          left: 4px;
+          top: 0;
+          color: #F4D03F;
+        }
+
+        .section-row {
+          margin-top: 20px;
+          display: grid;
+          grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+          gap: 20px;
+          align-items: flex-start;
+        }
+
+        @media (max-width: 900px) {
+          .section-row {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .phase-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 14px;
+        }
+
+        @media (max-width: 900px) {
+          .phase-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .phase-card {
+          border-radius: 16px;
+          padding: 12px 12px 10px;
+          background: rgba(15, 23, 42, 0.96);
+          border: 1px solid rgba(148, 163, 184, 0.6);
+        }
+
+        .phase-title {
+          font-size: 0.9rem;
+          font-weight: 600;
+          margin-bottom: 4px;
+        }
+
+        .phase-chip {
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          color: #A5B4FC;
+          margin-bottom: 2px;
+        }
+
+        .phase-list {
+          margin: 0;
+          padding-left: 18px;
+          font-size: 0.8rem;
+          color: var(--text-muted);
+        }
+
+        .phase-list li {
+          margin-bottom: 2px;
+        }
+
+        .roi-card {
+          border-radius: 18px;
+          padding: 14px;
+          background: radial-gradient(circle at top, rgba(250, 250, 250, 0.06), rgba(15, 23, 42, 0.96));
+          border: 1px solid rgba(148, 163, 184, 0.65);
+        }
+
+        .roi-card h3 {
+          margin: 0 0 4px;
+          font-size: 0.95rem;
+        }
+
+        .roi-card p {
+          margin: 0 0 10px;
+          font-size: 0.8rem;
+          color: var(--text-muted);
+        }
+
+        .roi-cta-btn {
+          border-radius: 999px;
+          border: none;
+          padding: 8px 14px;
+          font-size: 0.85rem;
+          font-weight: 600;
+          background: var(--gold);
+          color: #111827;
+          cursor: pointer;
+          box-shadow: 0 12px 32px rgba(180, 83, 9, 0.45);
+          transition: transform 0.16s ease, box-shadow 0.16s ease;
+        }
+
+        .roi-cta-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 40px rgba(180, 83, 9, 0.6);
+        }
+
+        .advanced-card {
+          border-radius: 18px;
+          padding: 14px;
+          background: radial-gradient(circle at top, rgba(30, 64, 175, 0.3), rgba(15, 23, 42, 0.98));
+          border: 1px solid rgba(129, 140, 248, 0.7);
+          box-shadow: 0 20px 60px rgba(30, 64, 175, 0.55);
+        }
+
+        .advanced-card h3 {
+          margin: 0 0 6px;
+          font-size: 0.95rem;
+        }
+
+        .advanced-card p {
+          margin: 0 0 8px;
+          font-size: 0.8rem;
+          color: #E5E7EB;
+        }
+
+        .advanced-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 3px 9px;
+          border-radius: 999px;
+          border: 1px solid rgba(129, 140, 248, 0.7);
+          font-size: 0.75rem;
+          color: #C7D2FE;
+          margin-bottom: 8px;
+        }
+
+        .advanced-chip span {
+          width: 7px;
+          height: 7px;
+          border-radius: 999px;
+          background: #4ADE80;
+          box-shadow: 0 0 10px rgba(74, 222, 128, 0.85);
+        }
+
+        /* Modals */
+
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.86);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 40;
+          backdrop-filter: blur(10px);
+        }
+
+        .modal-card {
+          width: 100%;
+          max-width: 520px;
+          margin: 0 16px;
+          background: #020617;
+          border-radius: 18px;
+          border: 1px solid rgba(148, 163, 184, 0.75);
+          box-shadow: 0 28px 80px rgba(15, 23, 42, 0.95);
+          padding: 18px 18px 16px;
+          color: #E5E7EB;
+        }
+
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+
+        .modal-header h2 {
+          margin: 0;
+          font-size: 1rem;
+        }
+
+        .modal-close {
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          background: transparent;
+          color: #9CA3AF;
+          padding: 4px 10px;
+          font-size: 0.75rem;
+          cursor: pointer;
+        }
+
+        .modal-body {
+          font-size: 0.82rem;
+        }
+
+        .modal-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 12px;
+          margin-top: 12px;
+        }
+
+        @media (max-width: 640px) {
+          .modal-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .modal-field label {
+          display: block;
+          font-size: 0.75rem;
+          margin-bottom: 3px;
+          color: #CBD5F5;
+        }
+
+        .modal-field input {
+          width: 100%;
+          padding: 6px 8px;
+          border-radius: 8px;
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          background: rgba(15, 23, 42, 0.9);
+          color: #E5E7EB;
+          font-size: 0.8rem;
+          outline: none;
+        }
+
+        .modal-field input:focus {
+          border-color: #047857;
+          box-shadow: 0 0 0 1px rgba(4, 120, 87, 0.45);
+        }
+
+        .modal-metric {
+          margin-top: 10px;
+          padding: 8px 10px;
+          border-radius: 10px;
+          background: rgba(15, 23, 42, 0.96);
+          border: 1px solid rgba(148, 163, 184, 0.65);
+          font-size: 0.82rem;
+        }
+
+        .modal-metric strong {
+          font-size: 1rem;
+          display: block;
+          margin-top: 2px;
+        }
+
+        .modal-footnote {
+          margin-top: 8px;
+          font-size: 0.7rem;
+          color: var(--text-muted);
+        }
+
+        .exit-highlight {
+          color: #FBBF24;
+          font-weight: 600;
+        }
+
+        /* Sticky CTA */
+
+        .sticky-cta {
+          position: fixed;
+          inset-inline: 0;
+          bottom: 0;
+          z-index: 30;
+          padding: 10px 16px 12px;
+          display: flex;
+          justify-content: center;
+          pointer-events: none;
+        }
+
+        .sticky-inner {
+          pointer-events: auto;
+          max-width: 840px;
+          width: 100%;
+          border-radius: 999px;
+          background: rgba(15, 23, 42, 0.96);
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          box-shadow: 0 -10px 40px rgba(15, 23, 42, 0.85);
+          padding: 8px 12px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          justify-content: space-between;
+        }
+
+        .sticky-text {
+          font-size: 0.8rem;
+          color: #E5E7EB;
+        }
+
+        .sticky-text span {
+          color: #F4D03F;
+          font-weight: 600;
+        }
+
+        .sticky-btn {
+          border-radius: 999px;
+          border: none;
+          padding: 7px 14px;
+          font-size: 0.82rem;
+          font-weight: 600;
+          background: linear-gradient(135deg, #047857, #22C55E);
+          color: #ECFDF5;
+          cursor: pointer;
+          box-shadow: 0 10px 30px rgba(16, 185, 129, 0.55);
+          white-space: nowrap;
+        }
+
+        @media (max-width: 640px) {
+          .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .sticky-inner {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .sticky-btn {
+            width: 100%;
+            text-align: center;
+            justify-content: center;
+          }
+        }
+
+        /* Simple fade-up animation */
+
+        .fade-up {
+          opacity: 0;
+          transform: translateY(18px);
+          animation: fadeUp 0.6s ease-out forwards;
+        }
+
+        @keyframes fadeUp {
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
+
+      <div className="aid-wrapper">
+        <header className="page-header">
+          <div className="brand-mark">
+            <div className="brand-logo" />
+            <div className="brand-text">
+              <div className="brand-name">ALL IN DIGITAL</div>
+              <div className="brand-tagline">AI Phone &amp; SMS Systems</div>
             </div>
+          </div>
+          <div className="header-pill">
+            <div className="header-pill-dot" />
+            <span>Speed-to-lead, booking, and recovery on autopilot</span>
+          </div>
+        </header>
 
-            {industryTrack !== "generic" && (
-              <div className="reveal-panel">
-                <h4 className="reveal-heading">
-                  You selected {industryTrack === "sales" ? "Sales Teams" : "Local Businesses"}.
-                </h4>
-                <p className="reveal-sub">
-                  Here&apos;s how an AI workforce quietly supports{" "}
-                  {industryTrack === "sales"
-                    ? "your lead flow, calendars, and sales pipeline."
-                    : "your schedule, front desk, and repeat visits."}
-                </p>
-                <ul className="reveal-example-list">
-                  {getTrackExamples(industryTrack).map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
+        <section className="hero-section fade-up">
+          <div className="aid-grid">
+            <div>
+              <div className="hero-eyebrow">
+                <span>Live AI Call Demo</span>
+                <div>Under 60 seconds from form to ringing phone</div>
+              </div>
+              <h1 className="hero-title">
+                Turn missed calls into{" "}
+                <span className="hero-highlight">booked revenue</span>{" "}
+                with always-on AI agents.
+              </h1>
+              <p className="hero-subtitle">
+                Your AI workforce answers every call, qualifies, books calendars,
+                recovers no-shows, and handles dispatch — so you stop bleeding
+                revenue to voicemail, delays, and "we&apos;ll call them later."
+              </p>
 
-                <button type="button" className="continue-btn" onClick={handleContinue}>
-                  Continue
+              <div className="hero-ctas">
+                <button
+                  className="primary-cta"
+                  onClick={() => {
+                    const el = document.getElementById("leadForm");
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                  }}
+                >
+                  Hear the AI in Action
+                </button>
+                <button className="secondary-cta" onClick={openRoi}>
+                  Run ROI Calculator
                 </button>
               </div>
-            )}
-          </div>
-        </div>
-      </section>
 
-      {/* DEEP CONTENT (only after Continue) */}
-      {showDeepContent && (
-        <>
-          {/* AGENT DIAGRAM — SYSTEM FLOW */}
-          <section className="section fade-3d" id="ai-details">
-            <h2>🧠 Your AI Workforce Flow</h2>
-            <p className="section-lead">
-              For {trackDescriptor}, this is like hiring a tight little team that books, recovers, and
-              dispatches — but fully AI-driven and always on.
-            </p>
-
-            <div className="diagram-grid">
-              <div className="diagram-column">
-                <div className="diagram-label">Top of Funnel</div>
-                <div className="diagram-node">
-                  <h3>Inbound AI Agent</h3>
-                  <p>
-                    Answers every call, captures name + intent, and routes intelligently instead of sending people
-                    to voicemail.
-                  </p>
-                </div>
-                <div className="diagram-arrow">↓</div>
-                <div className="diagram-node">
-                  <h3>Qualified Booking Agent</h3>
-                  <p>
-                    Asks a few key questions and books directly onto your calendar in real time — no back-and-forth
-                    or missed chances.
-                  </p>
+              <div className="hero-badges">
+                <div className="hero-badge">Speed-to-lead under 30 seconds</div>
+                <div className="hero-badge">Inbound booking &amp; no-show recovery</div>
+                <div className="hero-badge">
+                  Built for {selectedLabel || "growing teams"} that hate missed calls
                 </div>
               </div>
 
-              <div className="diagram-column">
-                <div className="diagram-label">Recovery &amp; Nurture</div>
-                <div className="diagram-node">
-                  <h3>No-Show Recovery Agent</h3>
-                  <p>
-                    Calls &amp; texts missed appointments to reschedule and refill gaps that would have gone dead.
-                  </p>
-                </div>
-                <div className="diagram-arrow">↓</div>
-                <div className="diagram-node">
-                  <h3>Follow-Up &amp; Nurture Agent</h3>
-                  <p>
-                    Reaches back out to “not now,” “call me later,” and old leads so your pipeline doesn&apos;t go
-                    stale.
-                  </p>
-                </div>
-              </div>
-
-              <div className="diagram-column">
-                <div className="diagram-label">Operations</div>
-                <div className="diagram-node">
-                  <h3>Dispatcher Agent</h3>
-                  <p>
-                    Handles ETAs, delays, and confirmations so your field or front-line team stays focused on
-                    revenue work.
-                  </p>
-                </div>
-                <div className="diagram-arrow">↓</div>
-                <div className="diagram-node">
-                  <h3>Handoff / Finance Agent</h3>
-                  <p>
-                    Sends agreements, payment links, and clean handoffs back into your CRM or existing tools.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* WHAT AGENTS DO — FEATURE GRID */}
-          <section className="section fade-3d">
-            <h2>🚀 What Your AI Workforce Actually Does</h2>
-
-            <div className="card-grid">
-              <div className="card fade-3d">
-                <h3>Answer &amp; Qualify</h3>
-                <p>
-                  Instant call pickup, natural questions, and clear routing so the right people get through without
-                  chaos.
-                </p>
-              </div>
-              <div className="card fade-3d">
-                <h3>Book Revenue Time</h3>
-                <p>
-                  Pushes serious prospects directly into booked calendar slots — whether that&apos;s a consult,
-                  demo, or appointment.
-                </p>
-              </div>
-              <div className="card fade-3d">
-                <h3>Recover No-Shows</h3>
-                <p>
-                  Automated call + SMS sequences that rebook missed slots instead of letting paid traffic go to
-                  waste.
-                </p>
-              </div>
-              <div className="card fade-3d">
-                <h3>Handle Dispatch Chatter</h3>
-                <p>
-                  ETAs, “running late,” and confirmation calls handled by AI so your people stay on the actual work.
-                </p>
-              </div>
-              <div className="card fade-3d">
-                <h3>Nurture Cold Leads</h3>
-                <p>
-                  Follows up over days and weeks so “not yet” doesn&apos;t quietly turn into “never heard back.”
-                </p>
-              </div>
-              <div className="card fade-3d">
-                <h3>24/7 Coverage</h3>
-                <p>
-                  Nights, weekends, and off-hours inquiries are answered with the same speed and consistency as
-                  daytime.
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* VALUE COMPARISON — NO PRICES */}
-          <section className="section fade-3d">
-            <h2>💵 What This Quietly Replaces</h2>
-            <p className="section-lead">
-              This isn&apos;t “just software.” It&apos;s an AI workforce that plugs the silent leaks already costing{" "}
-              {trackDescriptor} real money.
-            </p>
-
-            <div className="card-grid">
-              <div className="card fade-3d-slow">
-                <h3>Missed &amp; Abandoned Calls</h3>
-                <p>Calls that hit voicemail or ring out are often lost deals or visits forever.</p>
-              </div>
-              <div className="card fade-3d-slow">
-                <h3>Slow Follow-Up</h3>
-                <p>Leads that wait hours or days usually drift to whoever answers first.</p>
-              </div>
-              <div className="card fade-3d-slow">
-                <h3>No-Show Waste</h3>
-                <p>Empty appointment slots equal lost production time and wasted ad spend.</p>
-              </div>
-              <div className="card fade-3d-slow">
-                <h3>Manual Dispatch Calls</h3>
-                <p>Your team stuck updating clients instead of doing revenue-generating work.</p>
-              </div>
-              <div className="card fade-3d-slow">
-                <h3>Human Error</h3>
-                <p>Forgotten follow-ups, misrouted calls, and “I thought someone else had it.”</p>
-              </div>
-            </div>
-
-            <p className="section-footnote">
-              Most growing service businesses quietly leak <strong>hundreds of thousands per year</strong> through
-              these gaps. Your AI workforce exists to quietly plug them.
-            </p>
-          </section>
-
-          {/* PHASE OVERVIEW — NO PRICES */}
-          <section className="section fade-3d">
-            <h2>📦 How We Roll This Out</h2>
-            <p className="section-lead">
-              We don&apos;t throw a random bot at your phones. We phase in an AI workforce that matches where your
-              operation is today.
-            </p>
-
-            <div className="package-grid">
-              <div className="package-card fade-3d">
-                <h3>Phase 1 — Core Inbound &amp; Booking</h3>
-                <ul>
-                  <li>Inbound agent answering calls 24/7</li>
-                  <li>FAQ + intake scripting tuned to your offers</li>
-                  <li>Calendar connection &amp; booking flows</li>
-                  <li>Live transfer path to you or your team</li>
-                  <li>Basic reporting on calls &amp; bookings</li>
-                </ul>
-              </div>
-
-              <div className="package-card fade-3d">
-                <h3>Phase 2 — Recovery &amp; Nurture Stack</h3>
-                <ul>
-                  <li>No-show recovery agent (call + SMS)</li>
-                  <li>Multi-step nurture for “not now” and slow leads</li>
-                  <li>Multi-agent coordination logic behind the scenes</li>
-                  <li>Deeper qualification flows &amp; routing</li>
-                  <li>Improvements driven by real call &amp; booking data</li>
-                </ul>
-              </div>
-
-              <div className="package-card fade-3d">
-                <h3>Phase 3 — Operational AI Workforce</h3>
-                <ul>
-                  <li>Dispatcher agent wired into your operations</li>
-                  <li>Lead → booking → job → follow-up pipelines</li>
-                  <li>Industry-specific workflows (home services, med spa, etc.)</li>
-                  <li>Review, reactivation, and rebooking logic</li>
-                  <li>Foundation for AI sales agents when you&apos;re ready</li>
-                </ul>
-              </div>
-            </div>
-          </section>
-
-          {/* ROI SECTION (inline CTA) */}
-          <section className="section fade-3d">
-            <h2>📈 See Your Potential ROI</h2>
-            <p className="section-lead">
-              Use this quick calculator to estimate what a real AI workforce could be recovering in pure revenue
-              before you even talk pricing.
-            </p>
-
-            <button className="primary-cta" onClick={openRoi}>
-              Open ROI Calculator
-            </button>
-          </section>
-
-          {/* Advanced Sales Performance (Expandable) */}
-          <section className="section fade-3d">
-            <h2>Want Even Higher Sales Performance?</h2>
-            <p className="section-lead">
-              For teams that run structured demos, consults, or sales calls, we also offer an optional advanced
-              system that sits on top of your AI workforce.
-            </p>
-
-            <AdvancedSalesPanel />
-          </section>
-
-          {/* CENTER CTA */}
-          <section className="section center-cta fade-3d">
-            <h2>Ready to Hear Your AI Workforce in Action?</h2>
-            <p>
-              Book a live demo and listen to how your inbound calls, booking flow, and no-show recovery could sound
-              — before you plug it into your business.
-            </p>
-            <a href="#demo" className="primary-cta">
-              Book a Demo
-            </a>
-          </section>
-        </>
-      )}
-
-      {/* Bottom Sticky CTA */}
-      {showBottomCta && (
-        <div className="bottom-cta">
-          ⚡ Ready to Automate?{" "}
-          <a href="#demo" className="bottom-cta-link">
-            Book Your Demo
-          </a>
-        </div>
-      )}
-
-      {/* ROI POPUP */}
-      {showRoi && (
-        <div className="roi-popup-overlay" onClick={closeRoi}>
-          <div className="roi-popup" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={closeRoi}>
-              ×
-            </button>
-
-            <h3>ROI Calculator</h3>
-
-            <label>Leads per Month</label>
-            <input
-              type="number"
-              value={leads}
-              onChange={(e) => setLeads(e.target.value === "" ? "" : Number(e.target.value))}
-            />
-
-            <label>Average Ticket ($)</label>
-            <input
-              type="number"
-              value={ticket}
-              onChange={(e) => setTicket(e.target.value === "" ? "" : Number(e.target.value))}
-            />
-
-            <label>Missed Lead % (slow or no follow-up)</label>
-            <input
-              type="number"
-              value={missed}
-              onChange={(e) => setMissed(e.target.value === "" ? "" : Number(e.target.value))}
-            />
-
-            <label>AI Recovery % of Those Missed Leads</label>
-            <input
-              type="number"
-              value={recovery}
-              onChange={(e) => setRecovery(e.target.value === "" ? "" : Number(e.target.value))}
-            />
-
-            <label>Appointment-to-Close %</label>
-            <input
-              type="number"
-              value={closeRate}
-              onChange={(e) => setCloseRate(e.target.value === "" ? "" : Number(e.target.value))}
-            />
-
-            <button className="roi-btn" onClick={calcRoi}>
-              Calculate ROI
-            </button>
-
-            {monthlyRoi !== null && annualRoi !== null && (
-              <div className="roi-result">
-                <p>
-                  📈 Estimated Monthly Revenue Recovered:{" "}
-                  <strong>{currency(monthlyRoi)}</strong>
-                </p>
-                <p>
-                  📅 Estimated Annual Revenue Recovered:{" "}
-                  <strong>{currency(annualRoi)}</strong>
-                </p>
-                <p className="roi-footnote">
-                  This assumes your current appointment-to-close rate stays the same. Our advanced performance system
-                  often adds another <strong>20–40%</strong> lift in close rate and up to
-                  <strong> 60%</strong> higher show rates — ask our Consulting Assistant about it during your demo.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Exit Intent Modal */}
-      {showExitModal && (
-        <div
-          id="exitModal"
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => setShowExitModal(false)}
-        >
-          <div
-            className="bg-white max-w-md w-full mx-4 rounded-2xl shadow-xl p-6 relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl"
-              aria-label="Close"
-              onClick={() => setShowExitModal(false)}
-            >
-              ×
-            </button>
-
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              Before you go — want to see AI speed-to-lead in action?
-            </h3>
-            <p className="text-gray-700 mb-4 text-sm">
-              Enter your number and we&apos;ll have your AI agent call you back so you can experience instant
-              response from a prospect&apos;s point of view.
-            </p>
-
-            <form
-              id="exitDemoForm"
-              className="space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                alert("Got it! This will be wired to your AI demo trigger.");
-                setShowExitModal(false);
-              }}
-            >
-              <div>
-                <label className="block text-sm font-medium text-gray-800 mb-1">Name</label>
-                <input
-                  type="text"
-                  name="exitName"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="First name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-800 mb-1">Mobile Number</label>
-                <input
-                  type="tel"
-                  name="exitPhone"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="555-555-5555"
-                />
-              </div>
-              <p className="text-xs text-gray-500">
-                By submitting, you consent to receive an AI demo call and SMS. Message and data rates may apply.
+              <p className="hero-note">
+                <span>No lock-in.</span> Start with inbound calls and expand into a full AI
+                workforce as you see it perform.
               </p>
-              <button
-                type="submit"
-                className="w-full mt-1 py-2.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition"
-              >
-                Send Me the AI Demo Call
+            </div>
+
+            <div className="hero-side">
+              <form id="leadForm" className="lead-form" onSubmit={handleLeadSubmit}>
+                <h2>FREE LIVE DEMO CALL</h2>
+                <p>
+                  Drop in your details and we&apos;ll spin up a live AI call demo
+                  tailored to your {selectedLabel || "business"}.
+                </p>
+
+                <label htmlFor="firstName">First Name *</label>
+                <input id="firstName" name="firstName" required />
+
+                <label htmlFor="email">Email *</label>
+                <input id="email" name="email" type="email" required />
+
+                <label htmlFor="phone">Phone *</label>
+                <input id="phone" name="phone" type="tel" required />
+
+                <label htmlFor="companyType">Business / Team Type</label>
+                <input
+                  id="companyType"
+                  name="companyType"
+                  placeholder={selectedLabel || "Med spa, HVAC, inside sales team..."}
+                />
+
+                <div className="consent-row">
+                  <input id="consent" name="consent" type="checkbox" required />
+                  <span>
+                    I consent to receive marketing calls and SMS, including calls and
+                    messages sent by AI systems, from All In Digital at the number and
+                    email above. Consent is not a condition of purchase.
+                  </span>
+                </div>
+
+                <button type="submit" className="lead-submit-btn">
+                  {formSubmitted
+                    ? "Submitted – we’ll be in touch shortly"
+                    : "Get My Live AI Demo"}
+                </button>
+
+                {formSubmitted && (
+                  <div className="lead-thankyou">
+                    Thanks! We&apos;ll confirm by email/text and share a live AI call link.
+                  </div>
+                )}
+              </form>
+
+              <div className="selector-card">
+                <div className="selector-title">Who do you want this built around?</div>
+                <div className="selector-sub">
+                  Choose one so we can tailor the workflow &amp; examples you&apos;re about to
+                  see.
+                </div>
+
+                <div className="selector-buttons">
+                  <button
+                    type="button"
+                    className={
+                      "selector-button" +
+                      (industryTrack === "sales" ? " selector-button--active" : "")
+                    }
+                    onClick={() => handleTrackSelect("sales")}
+                  >
+                    <strong>Sales Teams</strong>
+                    <span>Inbound demos, discovery calls, consults, and pipelines.</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      "selector-button" +
+                      (industryTrack === "local" ? " selector-button--active" : "")
+                    }
+                    onClick={() => handleTrackSelect("local")}
+                  >
+                    <strong>Local Businesses</strong>
+                    <span>Med spa, dental, home services, showrooms, and more.</span>
+                  </button>
+                </div>
+
+                <div className="selector-continue">
+                  <div className="selector-helper">
+                    {industryTrack
+                      ? `Great — we’ll show you how an AI workforce fits a ${selectedLabel.toLowerCase()}.`
+                      : "Pick an option above to continue."}
+                  </div>
+                  {industryTrack && (
+                    <button
+                      type="button"
+                      className="continue-btn"
+                      onClick={handleContinue}
+                    >
+                      Continue
+                      <span>↗</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {hasContinued && (
+          <section id="ai-workforce-block" className="reveal-wrapper fade-up">
+            <div className="reveal-intro">
+              <div className="pill-tag">
+                Built for <span>{selectedLabel || "growing teams"}</span>
+              </div>
+              <div className="reveal-kicker">Your AI Workforce, Not “Just a Bot”</div>
+              <h2 className="reveal-heading">
+                We roll out a small AI team around your{" "}
+                {isSales ? "sales operation" : "front desk & field team"}.
+              </h2>
+              <p className="reveal-sub">
+                Think of this like hiring a full small team — booking, recovering,
+                dispatching, and cleaning up your pipeline — but fully AI-driven and
+                always on for your {isSales ? "closers & reps" : "locations & crews"}.
+              </p>
+            </div>
+
+            <div className="reveal-grid">
+              <div className="panel">
+                <div className="panel-header">
+                  <div className="panel-title">🧠 Your AI Workforce Flow</div>
+                  <div className="panel-label">
+                    {isSales ? "End-to-end lead → meeting" : "End-to-end call → job"}
+                  </div>
+                </div>
+
+                <div className="flow-section">
+                  <h4>Top of Funnel</h4>
+                  <p>
+                    Your AI team greets inbound calls, captures key details, and
+                    routes the right conversations to the right place instantly.
+                  </p>
+                  <div className="flow-steps">
+                    <div className="flow-step">
+                      <div className="flow-step-title">
+                        {isSales ? "Inbound AI SDR" : "Inbound AI Agent"}
+                      </div>
+                      <div className="flow-step-desc">
+                        Answers every call, captures name + intent, and routes intelligently
+                        {isSales ? " to demos, discovery, or support queues." : "."}
+                      </div>
+                    </div>
+                    <div className="arrow-down">↓</div>
+                    <div className="flow-step">
+                      <div className="flow-step-title">
+                        {isSales ? "Qualified Meeting Booker" : "Qualified Booking Agent"}
+                      </div>
+                      <div className="flow-step-desc">
+                        Asks a few key questions and books onto your calendar in real time —
+                        plugged into the tools you already use.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flow-section">
+                  <h4>Recovery &amp; Nurture</h4>
+                  <p>
+                    Most pipelines leak after the first call. Your AI workforce quietly
+                    rescues no-shows and keeps warm leads active.
+                  </p>
+                  <div className="flow-steps">
+                    <div className="flow-step">
+                      <div className="flow-step-title">No-Show Recovery Agent</div>
+                      <div className="flow-step-desc">
+                        Calls &amp; texts missed appointments to reschedule and fill gaps so
+                        your {isSales ? "calendar" : "schedule"} stays full.
+                      </div>
+                    </div>
+                    <div className="arrow-down">↓</div>
+                    <div className="flow-step">
+                      <div className="flow-step-title">Follow-Up &amp; Nurture Agent</div>
+                      <div className="flow-step-desc">
+                        Reaches back out to “not now,” “call later,” and cold leads over
+                        days and weeks so &ldquo;not yet&rdquo; doesn&apos;t become &ldquo;never.&rdquo;
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flow-section">
+                  <h4>Operations</h4>
+                  <p>
+                    The operational chatter that normally eats your team&apos;s time gets
+                    pushed to AI, so humans stay on revenue work.
+                  </p>
+                  <div className="flow-steps">
+                    <div className="flow-step">
+                      <div className="flow-step-title">
+                        {isSales ? "Pipeline &amp; Calendar Coordinator" : "Dispatcher Agent"}
+                      </div>
+                      <div className="flow-step-desc">
+                        Handles ETAs, delays, and confirmations so{" "}
+                        {isSales ? "reps and closers" : "field teams"} keep moving without
+                        constant check-in calls.
+                      </div>
+                    </div>
+                    <div className="arrow-down">↓</div>
+                    <div className="flow-step">
+                      <div className="flow-step-title">Handoff / Finance Agent</div>
+                      <div className="flow-step-desc">
+                        Collects payment links, sends agreements, and hands off cleanly
+                        into your CRM, billing, or onboarding tools.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="panel panel-alt">
+                <div className="panel-header">
+                  <div className="panel-title">🚀 What Your AI Workforce Actually Does</div>
+                  <div className="panel-label">Day-to-day job description</div>
+                </div>
+                <ul className="panel-list">
+                  <li>
+                    <strong>Answer &amp; Qualify.</strong> Instant call pickup, natural
+                    questions, and clear routing so the right calls reach the right humans.
+                  </li>
+                  <li>
+                    <strong>Book Revenue Time.</strong>{" "}
+                    {isSales
+                      ? "Pushes serious prospects directly into booked demos and consults."
+                      : "Pushes serious prospects directly into booked calendar slots."}
+                  </li>
+                  <li>
+                    <strong>Recover No-Shows.</strong> Automated call + SMS sequences
+                    designed to rebook missed slots and keep days full.
+                  </li>
+                  <li>
+                    <strong>Handle Dispatch Chatter.</strong> ETAs, “running late,” and
+                    confirmations handled without staff juggling phones.
+                  </li>
+                  <li>
+                    <strong>Nurture Cold Leads.</strong> Follows up over days/weeks so
+                    “not yet” doesn&apos;t become “never.”
+                  </li>
+                  <li>
+                    <strong>24/7 Coverage.</strong> Late nights, weekends, and after-hours
+                    inquiries never get lost.
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="section-row">
+              <div className="panel panel-alt">
+                <div className="panel-header">
+                  <div className="panel-title">💵 What This Quietly Replaces</div>
+                  <div className="panel-label">Where the hidden ROI lives</div>
+                </div>
+                <ul className="panel-list">
+                  <li>
+                    <strong>Missed &amp; Abandoned Calls.</strong> Calls that hit voicemail
+                    or ring out are often lost deals forever.
+                  </li>
+                  <li>
+                    <strong>Slow Follow-Up.</strong> Leads that wait hours or days drift to
+                    whoever answers first.
+                  </li>
+                  <li>
+                    <strong>No-Show Waste.</strong> Empty appointment slots equal lost
+                    production time &amp; ad spend.
+                  </li>
+                  <li>
+                    <strong>Manual Dispatch Calls.</strong> Your team stuck updating
+                    clients instead of doing revenue work.
+                  </li>
+                  <li>
+                    <strong>Human Error.</strong> Forgotten follow-ups, misrouted calls,
+                    and “I thought someone else had it.”
+                  </li>
+                </ul>
+                <p className="hero-note" style={{ marginTop: 10 }}>
+                  Most growing {isSales ? "sales teams" : "service businesses"} quietly leak
+                  hundreds of thousands per year through these gaps. Your AI workforce exists
+                  to quietly plug them.
+                </p>
+              </div>
+
+              <div className="roi-card">
+                <h3>📈 See Your Potential ROI</h3>
+                <p>
+                  Use this quick calculator to estimate what a real AI workforce could be
+                  recovering in pure revenue before you even talk pricing.
+                </p>
+                <button className="roi-cta-btn" onClick={openRoi}>
+                  Open ROI Calculator
+                </button>
+              </div>
+            </div>
+
+            <div className="section-row">
+              <div>
+                <div className="panel panel-alt">
+                  <div className="panel-header">
+                    <div className="panel-title">📦 How We Roll This Out</div>
+                    <div className="panel-label">Phased, low-risk rollout</div>
+                  </div>
+                  <p
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "#CBD5F5",
+                      marginBottom: 10,
+                    }}
+                  >
+                    We don&apos;t throw a random bot at your phones. We phase in an AI
+                    workforce that matches where your operation is today.
+                  </p>
+                  <div className="phase-grid">
+                    <div className="phase-card">
+                      <div className="phase-chip">Phase 1</div>
+                      <div className="phase-title">Core Inbound &amp; Booking</div>
+                      <ul className="phase-list">
+                        <li>Inbound agent answering calls 24/7.</li>
+                        <li>FAQ + intake scripting tuned to your offers.</li>
+                        <li>Calendar connection &amp; booking flows.</li>
+                        <li>Live transfer path to you or your team.</li>
+                        <li>Basic reporting on calls &amp; bookings.</li>
+                      </ul>
+                    </div>
+                    <div className="phase-card">
+                      <div className="phase-chip">Phase 2</div>
+                      <div className="phase-title">Recovery &amp; Nurture Stack</div>
+                      <ul className="phase-list">
+                        <li>No-show recovery agent (call + SMS).</li>
+                        <li>Multi-step nurture for “not now” and slow leads.</li>
+                        <li>Multi-agent coordination logic behind the scenes.</li>
+                        <li>Deeper qualification flows &amp; routing.</li>
+                        <li>Improvements driven by real call &amp; booking data.</li>
+                      </ul>
+                    </div>
+                    <div className="phase-card">
+                      <div className="phase-chip">Phase 3</div>
+                      <div className="phase-title">Operational AI Workforce</div>
+                      <ul className="phase-list">
+                        <li>Dispatcher agent wired into your operations.</li>
+                        <li>Lead → booking → job → follow-up pipelines.</li>
+                        <li>
+                          Industry-specific workflows (
+                          {isSales
+                            ? "inside sales, high-ticket, SaaS"
+                            : "home services, med spa, etc."}
+                          ).
+                        </li>
+                        <li>Review, reactivation, and rebooking logic.</li>
+                        <li>Foundation for AI sales agents when you&apos;re ready.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="advanced-card">
+                <div className="advanced-chip">
+                  <span />
+                  Advanced sales system (optional)
+                </div>
+                <h3>Want Even Higher Sales Performance?</h3>
+                <p>
+                  For teams that run structured demos, consults, or sales calls, we also
+                  offer an optional advanced system that sits on top of your AI workforce.
+                </p>
+                <p style={{ fontSize: "0.8rem", color: "#C4B5FD" }}>
+                  See how teams are adding 20–40% more conversions on the same lead flow —
+                  before touching ad spend.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* ROI Modal */}
+      {isRoiOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-card fade-up">
+            <div className="modal-header">
+              <h2>ROI Calculator</h2>
+              <button className="modal-close" type="button" onClick={closeRoi}>
+                Close
               </button>
-            </form>
+            </div>
+            <div className="modal-body">
+              <p>
+                Adjust the numbers to match your pipeline. This is a simple back-of-napkin
+                model — we&apos;ll run a deeper version together on a call.
+              </p>
+              <div className="modal-grid">
+                <div className="modal-field">
+                  <label htmlFor="leads">Monthly leads / inbound calls</label>
+                  <input
+                    id="leads"
+                    type="number"
+                    min={0}
+                    value={monthlyLeads}
+                    onChange={(e) => setMonthlyLeads(e.target.value)}
+                  />
+                </div>
+                <div className="modal-field">
+                  <label htmlFor="closeRate">Current close rate (%)</label>
+                  <input
+                    id="closeRate"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={closeRate}
+                    onChange={(e) => setCloseRate(e.target.value)}
+                  />
+                </div>
+                <div className="modal-field">
+                  <label htmlFor="dealSize">Average ticket / deal size ($)</label>
+                  <input
+                    id="dealSize"
+                    type="number"
+                    min={0}
+                    value={avgDealSize}
+                    onChange={(e) => setAvgDealSize(e.target.value)}
+                  />
+                </div>
+                <div className="modal-field">
+                  <label htmlFor="lift">Expected lift with AI workforce (%)</label>
+                  <input
+                    id="lift"
+                    type="number"
+                    min={0}
+                    max={200}
+                    value={liftPercent}
+                    onChange={(e) => setLiftPercent(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-metric">
+                Extra closed deals / month:
+                <strong>{extraClosed.toFixed(1)}</strong>
+                <div style={{ marginTop: 4 }}>
+                  Estimated extra revenue / month:
+                  <strong>
+                    {" "}
+                    $
+                    {extraRevenue.toLocaleString(undefined, {
+                      maximumFractionDigits: 0,
+                    })}
+                  </strong>
+                </div>
+              </div>
+              <div className="modal-footnote">
+                This doesn&apos;t include time saved for your team, higher show rates, or
+                downstream upsells. It&apos;s just the direct revenue from closing more of
+                what you already pay to generate.
+              </div>
+            </div>
           </div>
         </div>
       )}
-    </div>
-  );
-}
 
-function AdvancedSalesPanel() {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="max-w-3xl mx-auto">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition"
-      >
-        <span className="font-semibold text-gray-900">
-          See how teams are adding 20–40% more conversions on the same lead flow
-        </span>
-        <span className="text-xl leading-none">{open ? "–" : "+"}</span>
-      </button>
-
-      {open && (
-        <div className="mt-3 p-4 border border-gray-200 rounded-lg bg-white text-sm text-gray-800 space-y-3">
-          <p>
-            This private framework is built around a full journey:
-            <strong> marketing → speed-to-lead → quality booking → sales video → consultant call.</strong>
-          </p>
-          <p>When implemented correctly, we&apos;ve seen:</p>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>
-              <strong>800%+ lift in booked appointments</strong> vs. slow manual follow-up.
-            </li>
-            <li>
-              <strong>20–40% higher appointment-to-close ratios</strong> by getting buyers ready before they ever
-              arrive on the call.
-            </li>
-            <li>
-              <strong>Up to 60% more show-ups</strong> using simple, consistent phrasing your AI agent never forgets
-              to say.
-            </li>
-          </ul>
-          <p>
-            It works for sales-heavy teams <em>and</em> for service businesses that depend on kept appointments
-            (med spa, dental, home services, clinics, etc.). The details stay off the website — they&apos;re only
-            walked through live.
-          </p>
-          <p className="font-semibold">
-            Ask our Consulting Assistant about the <em>Advanced Sales Performance System</em> during your demo and
-            you&apos;ll get a few free pointers tailored to your business, without us handing over the full playbook.
-          </p>
+      {/* Exit Intent Modal (desktop + mobile) */}
+      {isExitIntentOpen && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-card fade-up">
+            <div className="modal-header">
+              <h2>Before you bounce...</h2>
+              <button className="modal-close" type="button" onClick={closeExitIntent}>
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                Most teams don&apos;t realize how much revenue quietly leaks through
+                voicemail, slow follow-up, and no-shows.
+              </p>
+              <p style={{ marginTop: 8 }}>
+                Want a{" "}
+                <span className="exit-highlight">
+                  quick look at what an AI workforce could recover
+                </span>{" "}
+                for your {selectedLabel || "business"}?
+              </p>
+              <div className="hero-ctas" style={{ marginTop: 12 }}>
+                <button
+                  className="primary-cta"
+                  onClick={() => {
+                    closeExitIntent();
+                    openRoi();
+                  }}
+                >
+                  Run the 2-min ROI check
+                </button>
+                <button
+                  className="secondary-cta"
+                  onClick={() => {
+                    closeExitIntent();
+                    const el = document.getElementById("leadForm");
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                  }}
+                >
+                  Book my live AI call
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+
+      {/* Sticky bottom CTA */}
+      <div className="sticky-cta">
+        <div className="sticky-inner">
+          <div className="sticky-text">
+            Ready to see what an AI workforce could recover for{" "}
+            <span>{selectedLabel || "your business"}</span>?
+          </div>
+          <button
+            className="sticky-btn"
+            type="button"
+            onClick={() => {
+              const el = document.getElementById("leadForm");
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }
+            }}
+          >
+            Get a live AI call demo
+          </button>
+        </div>
+      </div>
+    </main>
   );
 }
