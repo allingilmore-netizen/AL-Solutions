@@ -92,28 +92,50 @@ export default function Page() {
     };
   }, []);
 
+  // Scroll-based fade-in for elements
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const elements = document.querySelectorAll<HTMLElement>(".fade-on-scroll");
+    if (!elements.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const target = entry.target as HTMLElement;
+          if (entry.isIntersecting) {
+            target.classList.add("is-visible");
+            observer.unobserve(target);
+          }
+        });
+      },
+      { threshold: 0.18 }
+    );
+
+    elements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [hasContinued]);
+
   const handleTrackSelect = (track: IndustryTrack) => {
     setIndustryTrack(track);
-    // Continue button appears once an option is selected.
-    // Full block only reveals after clicking Continue.
   };
 
   const handleContinue = () => {
     if (!industryTrack) return;
     setHasContinued(true);
 
-    // Scroll smoothly to the reveal block
-    if (typeof window !== "undefined") {
+    // Allow React to render the block, then scroll smoothly into view
+    requestAnimationFrame(() => {
       const el = document.getElementById("ai-workforce-block");
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }
+    });
   };
 
   const handleLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // You can wire this to an API / webhook here
     setFormSubmitted(true);
   };
 
@@ -160,6 +182,7 @@ export default function Page() {
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
           background: radial-gradient(circle at top, #022c22 0, #020617 55%, #000000 100%);
           color: #E5E7EB;
+          font-size: 17px; /* Slightly larger base for easier reading */
         }
 
         .aid-page {
@@ -187,8 +210,8 @@ export default function Page() {
         }
 
         .brand-logo {
-          width: 32px;
-          height: 32px;
+          width: 34px;
+          height: 34px;
           border-radius: 10px;
           background: radial-gradient(circle at 30% 20%, #6EE7B7 0, #047857 45%, #022c22 100%);
           box-shadow: 0 12px 28px rgba(5, 150, 105, 0.45);
@@ -202,20 +225,20 @@ export default function Page() {
         .brand-name {
           font-weight: 700;
           letter-spacing: 0.09em;
-          font-size: 0.9rem;
+          font-size: 0.95rem;
           text-transform: uppercase;
         }
 
         .brand-tagline {
-          font-size: 0.8rem;
+          font-size: 0.82rem;
           color: var(--text-muted);
         }
 
         .header-pill {
           border-radius: 999px;
           border: 1px solid rgba(148, 163, 184, 0.6);
-          padding: 6px 14px;
-          font-size: 0.8rem;
+          padding: 7px 16px;
+          font-size: 0.86rem;
           display: inline-flex;
           align-items: center;
           gap: 8px;
@@ -225,8 +248,8 @@ export default function Page() {
         }
 
         .header-pill-dot {
-          width: 8px;
-          height: 8px;
+          width: 9px;
+          height: 9px;
           border-radius: 999px;
           background: radial-gradient(circle at 30% 20%, #BBF7D0 0, #22C55E 40%, #166534 100%);
           box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
@@ -263,11 +286,11 @@ export default function Page() {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 4px 10px;
+          padding: 5px 12px;
           border-radius: 999px;
           background: rgba(15, 23, 42, 0.8);
           border: 1px solid rgba(148, 163, 184, 0.5);
-          font-size: 0.8rem;
+          font-size: 0.84rem;
           color: var(--text-muted);
           margin-bottom: 16px;
         }
@@ -278,14 +301,14 @@ export default function Page() {
           background: rgba(4, 120, 87, 0.18);
           color: #A7F3D0;
           font-weight: 600;
-          font-size: 0.75rem;
+          font-size: 0.8rem;
         }
 
         .hero-title {
-          font-size: clamp(2rem, 3.1vw, 2.6rem);
-          line-height: 1.07;
+          font-size: clamp(2.1rem, 3.4vw, 2.8rem);
+          line-height: 1.08;
           letter-spacing: -0.04em;
-          margin: 0 0 12px;
+          margin: 0 0 14px;
         }
 
         .hero-highlight {
@@ -296,11 +319,11 @@ export default function Page() {
         }
 
         .hero-subtitle {
-          font-size: 0.98rem;
-          line-height: 1.5;
+          font-size: 1.02rem;
+          line-height: 1.6;
           color: #CBD5F5;
-          max-width: 520px;
-          margin-bottom: 18px;
+          max-width: 540px;
+          margin-bottom: 20px;
         }
 
         .hero-ctas {
@@ -317,7 +340,7 @@ export default function Page() {
           border: none;
           cursor: pointer;
           font-weight: 600;
-          font-size: 0.9rem;
+          font-size: 0.95rem;
           padding: 10px 18px;
           display: inline-flex;
           align-items: center;
@@ -353,7 +376,7 @@ export default function Page() {
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
-          font-size: 0.75rem;
+          font-size: 0.82rem;
         }
 
         .hero-badge {
@@ -366,7 +389,7 @@ export default function Page() {
 
         .hero-note {
           margin-top: 10px;
-          font-size: 0.78rem;
+          font-size: 0.8rem;
           color: var(--text-muted);
         }
 
@@ -393,21 +416,21 @@ export default function Page() {
 
         .lead-form h2 {
           margin: 0 0 6px;
-          font-size: 1.05rem;
-          letter-spacing: 0.04em;
+          font-size: 1.1rem;
+          letter-spacing: 0.06em;
           text-transform: uppercase;
           color: #111827;
         }
 
         .lead-form p {
           margin: 0 0 12px;
-          font-size: 0.8rem;
+          font-size: 0.88rem;
           color: #4B5563;
         }
 
         .lead-form label {
           display: block;
-          font-size: 0.78rem;
+          font-size: 0.82rem;
           font-weight: 500;
           margin-bottom: 3px;
         }
@@ -415,10 +438,10 @@ export default function Page() {
         .lead-form input,
         .lead-form select {
           width: 100%;
-          padding: 7px 9px;
+          padding: 8px 9px;
           border-radius: 9px;
           border: 1px solid #D1D5DB;
-          font-size: 0.85rem;
+          font-size: 0.88rem;
           margin-bottom: 8px;
           outline: none;
           transition: border-color 0.14s ease, box-shadow 0.14s ease;
@@ -443,7 +466,7 @@ export default function Page() {
         }
 
         .lead-form .consent-row span {
-          font-size: 0.7rem;
+          font-size: 0.76rem;
           color: #4B5563;
         }
 
@@ -452,7 +475,7 @@ export default function Page() {
           border-radius: 999px;
           border: none;
           padding: 9px 12px;
-          font-size: 0.9rem;
+          font-size: 0.92rem;
           font-weight: 600;
           cursor: pointer;
           background: linear-gradient(135deg, #047857, #059669);
@@ -469,7 +492,7 @@ export default function Page() {
 
         .lead-thankyou {
           margin-top: 8px;
-          font-size: 0.78rem;
+          font-size: 0.8rem;
           color: #047857;
           font-weight: 500;
         }
@@ -482,13 +505,13 @@ export default function Page() {
         }
 
         .selector-title {
-          font-size: 0.85rem;
+          font-size: 0.9rem;
           font-weight: 600;
           margin-bottom: 4px;
         }
 
         .selector-sub {
-          font-size: 0.78rem;
+          font-size: 0.82rem;
           color: var(--text-muted);
           margin-bottom: 10px;
         }
@@ -507,19 +530,19 @@ export default function Page() {
           color: #E5E7EB;
           padding: 8px 10px;
           text-align: left;
-          font-size: 0.8rem;
+          font-size: 0.82rem;
           cursor: pointer;
           transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
         }
 
         .selector-button strong {
           display: block;
-          font-size: 0.8rem;
+          font-size: 0.86rem;
           margin-bottom: 2px;
         }
 
         .selector-button span {
-          font-size: 0.75rem;
+          font-size: 0.78rem;
           color: var(--text-muted);
         }
 
@@ -540,7 +563,7 @@ export default function Page() {
           border-radius: 999px;
           border: none;
           padding: 8px 14px;
-          font-size: 0.8rem;
+          font-size: 0.82rem;
           font-weight: 600;
           background: var(--gold);
           color: #111827;
@@ -565,7 +588,7 @@ export default function Page() {
 
         .selector-helper {
           margin-top: 6px;
-          font-size: 0.7rem;
+          font-size: 0.78rem;
           color: var(--text-muted);
         }
 
@@ -581,20 +604,20 @@ export default function Page() {
         }
 
         .reveal-kicker {
-          font-size: 0.8rem;
+          font-size: 0.84rem;
           text-transform: uppercase;
           letter-spacing: 0.16em;
           color: var(--text-muted);
-          margin-bottom: 4px;
+          margin-bottom: 6px;
         }
 
         .reveal-heading {
-          font-size: 1.4rem;
-          margin-bottom: 4px;
+          font-size: 1.5rem;
+          margin-bottom: 6px;
         }
 
         .reveal-sub {
-          font-size: 0.92rem;
+          font-size: 0.96rem;
           color: #CBD5F5;
           max-width: 640px;
           margin: 0 auto;
@@ -607,7 +630,7 @@ export default function Page() {
           padding: 4px 10px;
           border-radius: 999px;
           border: 1px solid rgba(148, 163, 184, 0.6);
-          font-size: 0.78rem;
+          font-size: 0.82rem;
           color: var(--text-muted);
           margin-bottom: 10px;
         }
@@ -651,12 +674,12 @@ export default function Page() {
         }
 
         .panel-title {
-          font-size: 0.95rem;
+          font-size: 1rem;
           font-weight: 600;
         }
 
         .panel-label {
-          font-size: 0.7rem;
+          font-size: 0.78rem;
           padding: 3px 8px;
           border-radius: 999px;
           border: 1px solid rgba(148, 163, 184, 0.55);
@@ -668,7 +691,7 @@ export default function Page() {
         }
 
         .flow-section h4 {
-          font-size: 0.85rem;
+          font-size: 0.88rem;
           text-transform: uppercase;
           letter-spacing: 0.14em;
           margin-bottom: 4px;
@@ -677,7 +700,7 @@ export default function Page() {
 
         .flow-section p {
           margin: 0 0 6px;
-          font-size: 0.88rem;
+          font-size: 0.9rem;
           color: #E5E7EB;
         }
 
@@ -695,19 +718,19 @@ export default function Page() {
         }
 
         .flow-step-title {
-          font-size: 0.85rem;
+          font-size: 0.9rem;
           font-weight: 600;
           margin-bottom: 2px;
         }
 
         .flow-step-desc {
-          font-size: 0.8rem;
+          font-size: 0.84rem;
           color: var(--text-muted);
         }
 
         .arrow-down {
           text-align: center;
-          font-size: 0.8rem;
+          font-size: 0.82rem;
           color: #64748B;
           padding: 2px 0;
         }
@@ -723,7 +746,7 @@ export default function Page() {
         .panel-list li {
           padding-left: 18px;
           position: relative;
-          font-size: 0.85rem;
+          font-size: 0.9rem;
           color: #E5E7EB;
         }
 
@@ -769,13 +792,13 @@ export default function Page() {
         }
 
         .phase-title {
-          font-size: 0.9rem;
+          font-size: 0.94rem;
           font-weight: 600;
           margin-bottom: 4px;
         }
 
         .phase-chip {
-          font-size: 0.7rem;
+          font-size: 0.78rem;
           text-transform: uppercase;
           letter-spacing: 0.14em;
           color: #A5B4FC;
@@ -785,7 +808,7 @@ export default function Page() {
         .phase-list {
           margin: 0;
           padding-left: 18px;
-          font-size: 0.8rem;
+          font-size: 0.84rem;
           color: var(--text-muted);
         }
 
@@ -802,12 +825,12 @@ export default function Page() {
 
         .roi-card h3 {
           margin: 0 0 4px;
-          font-size: 0.95rem;
+          font-size: 1rem;
         }
 
         .roi-card p {
           margin: 0 0 10px;
-          font-size: 0.8rem;
+          font-size: 0.86rem;
           color: var(--text-muted);
         }
 
@@ -815,7 +838,7 @@ export default function Page() {
           border-radius: 999px;
           border: none;
           padding: 8px 14px;
-          font-size: 0.85rem;
+          font-size: 0.88rem;
           font-weight: 600;
           background: var(--gold);
           color: #111827;
@@ -839,12 +862,12 @@ export default function Page() {
 
         .advanced-card h3 {
           margin: 0 0 6px;
-          font-size: 0.95rem;
+          font-size: 1rem;
         }
 
         .advanced-card p {
           margin: 0 0 8px;
-          font-size: 0.8rem;
+          font-size: 0.86rem;
           color: #E5E7EB;
         }
 
@@ -855,7 +878,7 @@ export default function Page() {
           padding: 3px 9px;
           border-radius: 999px;
           border: 1px solid rgba(129, 140, 248, 0.7);
-          font-size: 0.75rem;
+          font-size: 0.8rem;
           color: #C7D2FE;
           margin-bottom: 8px;
         }
@@ -903,7 +926,7 @@ export default function Page() {
 
         .modal-header h2 {
           margin: 0;
-          font-size: 1rem;
+          font-size: 1.06rem;
         }
 
         .modal-close {
@@ -912,12 +935,12 @@ export default function Page() {
           background: transparent;
           color: #9CA3AF;
           padding: 4px 10px;
-          font-size: 0.75rem;
+          font-size: 0.78rem;
           cursor: pointer;
         }
 
         .modal-body {
-          font-size: 0.82rem;
+          font-size: 0.86rem;
         }
 
         .modal-grid {
@@ -935,7 +958,7 @@ export default function Page() {
 
         .modal-field label {
           display: block;
-          font-size: 0.75rem;
+          font-size: 0.8rem;
           margin-bottom: 3px;
           color: #CBD5F5;
         }
@@ -947,7 +970,7 @@ export default function Page() {
           border: 1px solid rgba(148, 163, 184, 0.7);
           background: rgba(15, 23, 42, 0.9);
           color: #E5E7EB;
-          font-size: 0.8rem;
+          font-size: 0.84rem;
           outline: none;
         }
 
@@ -962,18 +985,18 @@ export default function Page() {
           border-radius: 10px;
           background: rgba(15, 23, 42, 0.96);
           border: 1px solid rgba(148, 163, 184, 0.65);
-          font-size: 0.82rem;
+          font-size: 0.84rem;
         }
 
         .modal-metric strong {
-          font-size: 1rem;
+          font-size: 1.02rem;
           display: block;
           margin-top: 2px;
         }
 
         .modal-footnote {
           margin-top: 8px;
-          font-size: 0.7rem;
+          font-size: 0.78rem;
           color: var(--text-muted);
         }
 
@@ -1011,7 +1034,7 @@ export default function Page() {
         }
 
         .sticky-text {
-          font-size: 0.8rem;
+          font-size: 0.84rem;
           color: #E5E7EB;
         }
 
@@ -1024,7 +1047,7 @@ export default function Page() {
           border-radius: 999px;
           border: none;
           padding: 7px 14px;
-          font-size: 0.82rem;
+          font-size: 0.86rem;
           font-weight: 600;
           background: linear-gradient(135deg, #047857, #22C55E);
           color: #ECFDF5;
@@ -1051,7 +1074,7 @@ export default function Page() {
           }
         }
 
-        /* Simple fade-up animation */
+        /* Base fade-up for hero & modals */
 
         .fade-up {
           opacity: 0;
@@ -1065,10 +1088,23 @@ export default function Page() {
             transform: translateY(0);
           }
         }
+
+        /* Scroll-triggered fade */
+
+        .fade-on-scroll {
+          opacity: 0;
+          transform: translateY(18px);
+          transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+
+        .fade-on-scroll.is-visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
       `}</style>
 
       <div className="aid-wrapper">
-        <header className="page-header">
+        <header className="page-header fade-on-scroll">
           <div className="brand-mark">
             <div className="brand-logo" />
             <div className="brand-text">
@@ -1082,9 +1118,9 @@ export default function Page() {
           </div>
         </header>
 
-        <section className="hero-section fade-up">
+        <section className="hero-section fade-up fade-on-scroll">
           <div className="aid-grid">
-            <div>
+            <div className="fade-on-scroll">
               <div className="hero-eyebrow">
                 <span>Live AI Call Demo</span>
                 <div>Under 60 seconds from form to ringing phone</div>
@@ -1097,7 +1133,7 @@ export default function Page() {
               <p className="hero-subtitle">
                 Your AI workforce answers every call, qualifies, books calendars,
                 recovers no-shows, and handles dispatch — so you stop bleeding
-                revenue to voicemail, delays, and "we&apos;ll call them later."
+                revenue to voicemail, delays, and &ldquo;we&apos;ll call them later.&rdquo;
               </p>
 
               <div className="hero-ctas">
@@ -1131,7 +1167,7 @@ export default function Page() {
               </p>
             </div>
 
-            <div className="hero-side">
+            <div className="hero-side fade-on-scroll">
               <form id="leadForm" className="lead-form" onSubmit={handleLeadSubmit}>
                 <h2>FREE LIVE DEMO CALL</h2>
                 <p>
@@ -1232,8 +1268,11 @@ export default function Page() {
         </section>
 
         {hasContinued && (
-          <section id="ai-workforce-block" className="reveal-wrapper fade-up">
-            <div className="reveal-intro">
+          <section
+            id="ai-workforce-block"
+            className="reveal-wrapper fade-on-scroll"
+          >
+            <div className="reveal-intro fade-on-scroll">
               <div className="pill-tag">
                 Built for <span>{selectedLabel || "growing teams"}</span>
               </div>
@@ -1250,7 +1289,7 @@ export default function Page() {
             </div>
 
             <div className="reveal-grid">
-              <div className="panel">
+              <div className="panel fade-on-scroll">
                 <div className="panel-header">
                   <div className="panel-title">🧠 Your AI Workforce Flow</div>
                   <div className="panel-label">
@@ -1341,7 +1380,7 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="panel panel-alt">
+              <div className="panel panel-alt fade-on-scroll">
                 <div className="panel-header">
                   <div className="panel-title">🚀 What Your AI Workforce Actually Does</div>
                   <div className="panel-label">Day-to-day job description</div>
@@ -1378,7 +1417,7 @@ export default function Page() {
             </div>
 
             <div className="section-row">
-              <div className="panel panel-alt">
+              <div className="panel panel-alt fade-on-scroll">
                 <div className="panel-header">
                   <div className="panel-title">💵 What This Quietly Replaces</div>
                   <div className="panel-label">Where the hidden ROI lives</div>
@@ -1412,7 +1451,7 @@ export default function Page() {
                 </p>
               </div>
 
-              <div className="roi-card">
+              <div className="roi-card fade-on-scroll">
                 <h3>📈 See Your Potential ROI</h3>
                 <p>
                   Use this quick calculator to estimate what a real AI workforce could be
@@ -1425,7 +1464,7 @@ export default function Page() {
             </div>
 
             <div className="section-row">
-              <div>
+              <div className="fade-on-scroll">
                 <div className="panel panel-alt">
                   <div className="panel-header">
                     <div className="panel-title">📦 How We Roll This Out</div>
@@ -1433,7 +1472,7 @@ export default function Page() {
                   </div>
                   <p
                     style={{
-                      fontSize: "0.85rem",
+                      fontSize: "0.9rem",
                       color: "#CBD5F5",
                       marginBottom: 10,
                     }}
@@ -1442,7 +1481,7 @@ export default function Page() {
                     workforce that matches where your operation is today.
                   </p>
                   <div className="phase-grid">
-                    <div className="phase-card">
+                    <div className="phase-card fade-on-scroll">
                       <div className="phase-chip">Phase 1</div>
                       <div className="phase-title">Core Inbound &amp; Booking</div>
                       <ul className="phase-list">
@@ -1453,7 +1492,7 @@ export default function Page() {
                         <li>Basic reporting on calls &amp; bookings.</li>
                       </ul>
                     </div>
-                    <div className="phase-card">
+                    <div className="phase-card fade-on-scroll">
                       <div className="phase-chip">Phase 2</div>
                       <div className="phase-title">Recovery &amp; Nurture Stack</div>
                       <ul className="phase-list">
@@ -1464,7 +1503,7 @@ export default function Page() {
                         <li>Improvements driven by real call &amp; booking data.</li>
                       </ul>
                     </div>
-                    <div className="phase-card">
+                    <div className="phase-card fade-on-scroll">
                       <div className="phase-chip">Phase 3</div>
                       <div className="phase-title">Operational AI Workforce</div>
                       <ul className="phase-list">
@@ -1485,7 +1524,7 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="advanced-card">
+              <div className="advanced-card fade-on-scroll">
                 <div className="advanced-chip">
                   <span />
                   Advanced sales system (optional)
@@ -1495,7 +1534,7 @@ export default function Page() {
                   For teams that run structured demos, consults, or sales calls, we also
                   offer an optional advanced system that sits on top of your AI workforce.
                 </p>
-                <p style={{ fontSize: "0.8rem", color: "#C4B5FD" }}>
+                <p style={{ fontSize: "0.86rem", color: "#C4B5FD" }}>
                   See how teams are adding 20–40% more conversions on the same lead flow —
                   before touching ad spend.
                 </p>
@@ -1641,7 +1680,7 @@ export default function Page() {
 
       {/* Sticky bottom CTA */}
       <div className="sticky-cta">
-        <div className="sticky-inner">
+        <div className="sticky-inner fade-on-scroll">
           <div className="sticky-text">
             Ready to see what an AI workforce could recover for{" "}
             <span>{selectedLabel || "your business"}</span>?
