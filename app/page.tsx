@@ -182,7 +182,7 @@ export default function Page() {
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
           background: radial-gradient(circle at top, #022c22 0, #020617 55%, #000000 100%);
           color: #E5E7EB;
-          font-size: 17px; /* Slightly larger base for easier reading */
+          font-size: 19px; /* bumped up for 10–20% larger type */
         }
 
         .aid-page {
