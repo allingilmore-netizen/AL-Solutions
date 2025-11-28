@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 
 type Track = "generic" | "sales" | "service";
 
@@ -27,9 +27,7 @@ export default function HomePage() {
   const [showRoi, setShowRoi] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [industryTrack, setIndustryTrack] = useState<Track>("generic");
-  const [showDeepDive, setShowDeepDive] = useState(false);
-
-  const deepDiveRef = useRef<HTMLDivElement | null>(null);
+  const [showDeepContent, setShowDeepContent] = useState(false);
 
   // Simple ROI state
   const [leads, setLeads] = useState<number | "">("");
@@ -76,54 +74,58 @@ export default function HomePage() {
   useEffect(() => {
     let hasShownModal = false;
     let exitReady = false;
+    let lastScrollY = window.scrollY;
 
-    const enableExit = () => {
+    const markReady = () => {
       exitReady = true;
     };
 
-    const showModal = () => {
-      if (hasShownModal || !exitReady) return;
-      hasShownModal = true;
-      setShowExitModal(true);
-    };
+    // Time-based readiness (after 7s)
+    const timer = window.setTimeout(markReady, 7000);
 
-    // Time-based readiness
-    const timer = window.setTimeout(enableExit, 7000);
-
-    // Scroll-based readiness (user has engaged a bit)
+    // Scroll-based readiness (scrolled down a bit)
     const onScroll = () => {
-      if (window.scrollY > 250) exitReady = true;
-    };
-
-    window.addEventListener("scroll", onScroll);
-
-    // Desktop: mouse leaves top of viewport
-    const onMouseOut = (e: MouseEvent) => {
-      if (!exitReady) return;
-      if (e.clientY <= 0) showModal();
-    };
-
-    document.addEventListener("mouseout", onMouseOut);
-
-    // Mobile: fast upward scroll near top
-    let lastScroll = window.scrollY;
-    const onMobileScroll = () => {
       const current = window.scrollY;
-      const delta = lastScroll - current;
-      lastScroll = current;
-      if (!exitReady) return;
-      if (delta > 40 && current < 120) {
-        showModal();
+      if (current > 250) exitReady = true;
+
+      const delta = lastScrollY - current; // upward scroll is positive
+      lastScrollY = current;
+
+      const isTouch =
+        typeof window !== "undefined" &&
+        ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+
+      if (!isTouch) return; // mobile-only behavior here
+      if (!exitReady || hasShownModal) return;
+
+      // Fast upward scroll near top of page
+      if (delta > 40 && current < 80) {
+        hasShownModal = true;
+        setShowExitModal(true);
       }
     };
 
-    window.addEventListener("scroll", onMobileScroll);
+    // Desktop: mouse leaves top of viewport
+    const onMouseLeave = (e: MouseEvent) => {
+      const isTouch =
+        typeof window !== "undefined" &&
+        ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+      if (isTouch) return; // ignore on touch devices
+
+      if (!exitReady || hasShownModal) return;
+      if (e.clientY <= 0) {
+        hasShownModal = true;
+        setShowExitModal(true);
+      }
+    };
+
+    window.addEventListener("scroll", onScroll);
+    document.addEventListener("mouseleave", onMouseLeave);
 
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener("scroll", onScroll);
-      document.removeEventListener("mouseout", onMouseOut);
-      window.removeEventListener("scroll", onMobileScroll);
+      document.removeEventListener("mouseleave", onMouseLeave);
     };
   }, []);
 
@@ -164,19 +166,17 @@ export default function HomePage() {
   // Lead form submit
   const handleLeadSubmit = async (
     e: React.FormEvent<HTMLFormElement>
-  ) => {
+  ): Promise<void> => {
     e.preventDefault();
 
     const form = e.currentTarget;
     const data = {
-      firstName: (form.elements.namedItem(
-        "firstName"
-      ) as HTMLInputElement)?.value,
+      firstName: (form.elements.namedItem("firstName") as HTMLInputElement)
+        ?.value,
       email: (form.elements.namedItem("email") as HTMLInputElement)?.value,
       phone: (form.elements.namedItem("phone") as HTMLInputElement)?.value,
-      fccConsent: (form.elements.namedItem(
-        "fccConsent"
-      ) as HTMLInputElement)?.checked,
+      fccConsent: (form.elements.namedItem("fccConsent") as HTMLInputElement)
+        ?.checked,
     };
 
     try {
@@ -197,265 +197,17 @@ export default function HomePage() {
     }
   };
 
-  const handleContinueClick = () => {
-    if (industryTrack === "generic") return;
-    setShowDeepDive(true);
-    // smooth scroll to deep-dive
-    window.setTimeout(() => {
-      if (deepDiveRef.current) {
-        deepDiveRef.current.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }
-    }, 80);
-  };
+  const trackLabel =
+    industryTrack === "sales"
+      ? "Sales Teams"
+      : industryTrack === "service"
+      ? "Local Businesses"
+      : "";
 
-  const selectedExamples =
-    industryTrack === "generic"
-      ? []
-      : getTrackExamples(industryTrack);
+  const isTrackChosen = industryTrack !== "generic";
 
   return (
     <div className="page-root" data-ai-track={industryTrack}>
-      {/* Extra styles for selector, deep-dive animation, and exit modal */}
-      <style>{`
-        /* Selector + reveal styles */
-        .selector-section {
-          text-align: center;
-        }
-
-        .selector-heading {
-          font-size: 1.6rem;
-          color: var(--emerald-dark);
-          margin-bottom: 8px;
-        }
-
-        .selector-sub {
-          font-size: 0.95rem;
-          color: var(--text-muted);
-          margin-bottom: 18px;
-        }
-
-        .selector-buttons-row {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-          justify-content: center;
-          margin-bottom: 10px;
-        }
-
-        .selector-button {
-          min-width: 150px;
-          padding: 10px 18px;
-          border-radius: 999px;
-          border: 1px solid rgba(15, 23, 42, 0.18);
-          background: #ffffff;
-          color: var(--text-main);
-          font-size: 0.92rem;
-          font-weight: 600;
-          cursor: pointer;
-          box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-          transition:
-            background 0.2s ease,
-            box-shadow 0.2s ease,
-            transform 0.18s ease,
-            border-color 0.2s ease;
-        }
-
-        .selector-button:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-        }
-
-        .selector-button--active {
-          background: var(--emerald);
-          color: #ffffff;
-          border-color: var(--emerald-dark);
-          box-shadow: 0 12px 32px rgba(5, 150, 105, 0.4);
-        }
-
-        .selector-examples {
-          margin-top: 8px;
-          margin-bottom: 14px;
-        }
-
-        .selector-examples-list {
-          list-style: none;
-          padding-left: 0;
-          font-size: 0.9rem;
-          color: var(--text-muted);
-        }
-
-        .selector-examples-list li {
-          margin-bottom: 3px;
-        }
-
-        .selector-continue {
-          margin-top: 10px;
-        }
-
-        .selector-continue-btn {
-          padding: 10px 24px;
-          border-radius: 999px;
-          border: none;
-          font-size: 0.95rem;
-          font-weight: 600;
-          cursor: pointer;
-          background: var(--emerald-dark);
-          color: #ffffff;
-          box-shadow: 0 10px 28px rgba(15, 23, 42, 0.28);
-          transition:
-            background 0.2s ease,
-            box-shadow 0.2s ease,
-            transform 0.18s ease;
-        }
-
-        .selector-continue-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-          box-shadow: none;
-        }
-
-        .selector-continue-btn:not(:disabled):hover {
-          background: var(--emerald);
-          transform: translateY(-1px);
-          box-shadow: 0 14px 40px rgba(15, 23, 42, 0.35);
-        }
-
-        /* Deep-dive slide-up (R2) */
-        .deep-dive-container {
-          opacity: 0;
-          transform: translateY(40px);
-          animation: deepDiveUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-
-        @keyframes deepDiveUp {
-          to {
-            opacity: 1;
-            transform: translateY(0px);
-          }
-        }
-
-        .reveal-intro {
-          text-align: center;
-        }
-
-        .reveal-heading {
-          font-size: 1.4rem;
-          color: var(--emerald-dark);
-          margin-bottom: 6px;
-        }
-
-        .reveal-sub {
-          font-size: 0.98rem;
-          color: var(--text-muted);
-          margin-bottom: 14px;
-        }
-
-        .reveal-example-list {
-          list-style: none;
-          padding-left: 0;
-          max-width: 640px;
-          margin: 0 auto;
-          font-size: 0.95rem;
-          color: var(--text-muted);
-        }
-
-        .reveal-example-list li {
-          margin-bottom: 4px;
-          position: relative;
-          padding-left: 16px;
-        }
-
-        .reveal-example-list li::before {
-          content: "•";
-          position: absolute;
-          left: 4px;
-          top: 0;
-          color: var(--emerald-dark);
-        }
-
-        /* Exit modal (no Tailwind needed) */
-        .exit-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.4);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 50;
-        }
-
-        .exit-modal {
-          background: #ffffff;
-          max-width: 420px;
-          width: 90%;
-          border-radius: 18px;
-          box-shadow: 0 18px 60px rgba(15, 23, 42, 0.45);
-          padding: 20px 18px 18px;
-          position: relative;
-          font-size: 0.95rem;
-          color: var(--text-main);
-        }
-
-        .exit-close-btn {
-          position: absolute;
-          top: 8px;
-          right: 10px;
-          border: none;
-          background: transparent;
-          font-size: 1.4rem;
-          cursor: pointer;
-          color: #6b7280;
-        }
-
-        .exit-field-label {
-          display: block;
-          font-size: 0.85rem;
-          font-weight: 600;
-          margin-bottom: 4px;
-        }
-
-        .exit-input {
-          width: 100%;
-          border-radius: 8px;
-          border: 1px solid #d1d5db;
-          padding: 8px 10px;
-          font-size: 0.9rem;
-          margin-bottom: 8px;
-        }
-
-        .exit-submit-btn {
-          width: 100%;
-          border-radius: 999px;
-          border: none;
-          padding: 10px 0;
-          font-size: 0.95rem;
-          font-weight: 600;
-          background: var(--emerald-dark);
-          color: #ffffff;
-          cursor: pointer;
-          margin-top: 4px;
-        }
-
-        .exit-submit-btn:hover {
-          background: var(--emerald);
-        }
-
-        .exit-footnote {
-          font-size: 0.75rem;
-          color: #6b7280;
-          margin-top: 4px;
-        }
-
-        @media (max-width: 640px) {
-          .selector-heading {
-            font-size: 1.4rem;
-          }
-        }
-      `}</style>
-
       {/* Sticky Header */}
       <header className="sticky-header">
         <div className="header-title">All In Digital</div>
@@ -505,7 +257,7 @@ export default function HomePage() {
         </p>
 
         <div className="form-placeholder">
-          {/* Inline styles for the lead form */}
+          {/* Inline styles for the lead form + selector + reveal */}
           <style>{`
             .lead-form {
               max-width: 420px;
@@ -567,6 +319,107 @@ export default function HomePage() {
             .lead-form button:hover {
               background-color: #036149;
             }
+
+            .selector-section {
+              text-align: center;
+            }
+
+            .selector-heading {
+              font-size: 1.5rem;
+              color: var(--emerald-dark);
+              margin-bottom: 8px;
+            }
+
+            .selector-sub {
+              font-size: 0.95rem;
+              color: var(--text-muted);
+              margin-bottom: 18px;
+            }
+
+            .selector-buttons-row {
+              display: inline-flex;
+              gap: 12px;
+              flex-wrap: wrap;
+              justify-content: center;
+            }
+
+            .selector-button {
+              min-width: 150px;
+              padding: 10px 18px;
+              border-radius: 999px;
+              border: 1px solid rgba(15, 23, 42, 0.18);
+              background: #ffffff;
+              color: var(--text-main);
+              font-size: 0.92rem;
+              font-weight: 600;
+              cursor: pointer;
+              box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+              transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.18s ease, border-color 0.2s ease;
+            }
+
+            .selector-button:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+            }
+
+            .selector-button--active {
+              background: var(--emerald);
+              color: #ffffff;
+              border-color: var(--emerald-dark);
+              box-shadow: 0 12px 32px rgba(5, 150, 105, 0.4);
+            }
+
+            .reveal-panel {
+              opacity: 0;
+              transform: translateY(24px);
+              animation: revealUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            }
+
+            .reveal-intro {
+              text-align: center;
+            }
+
+            .reveal-heading {
+              font-size: 1.4rem;
+              color: var(--emerald-dark);
+              margin-bottom: 6px;
+            }
+
+            .reveal-sub {
+              font-size: 0.98rem;
+              color: var(--text-muted);
+              margin-bottom: 14px;
+            }
+
+            .reveal-example-list {
+              list-style: none;
+              padding-left: 0;
+              max-width: 640px;
+              margin: 0 auto;
+              font-size: 0.95rem;
+              color: var(--text-muted);
+            }
+
+            .reveal-example-list li {
+              margin-bottom: 4px;
+              position: relative;
+              padding-left: 16px;
+            }
+
+            .reveal-example-list li::before {
+              content: "•";
+              position: absolute;
+              left: 4px;
+              top: 0;
+              color: var(--emerald-dark);
+            }
+
+            @keyframes revealUp {
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
           `}</style>
 
           <form id="leadForm" className="lead-form" onSubmit={handleLeadSubmit}>
@@ -615,7 +468,10 @@ export default function HomePage() {
               "selector-button" +
               (industryTrack === "sales" ? " selector-button--active" : "")
             }
-            onClick={() => setIndustryTrack("sales")}
+            onClick={() => {
+              setIndustryTrack("sales");
+              setShowDeepContent(false);
+            }}
           >
             Sales Teams
           </button>
@@ -626,62 +482,54 @@ export default function HomePage() {
               "selector-button" +
               (industryTrack === "service" ? " selector-button--active" : "")
             }
-            onClick={() => setIndustryTrack("service")}
+            onClick={() => {
+              setIndustryTrack("service");
+              setShowDeepContent(false);
+            }}
           >
             Local Businesses
           </button>
         </div>
-
-        {/* Short examples under the selected track */}
-        {selectedExamples.length > 0 && (
-          <div className="selector-examples">
-            <ul className="selector-examples-list">
-              {selectedExamples.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="selector-continue">
-          <button
-            type="button"
-            className="selector-continue-btn"
-            onClick={handleContinueClick}
-            disabled={industryTrack === "generic"}
-          >
-            Continue
-          </button>
-        </div>
       </section>
 
-      {/* Reveal + Deep-Dive Sections */}
-      {showDeepDive && (
-        <div ref={deepDiveRef} className="deep-dive-container">
-          {/* Track intro + examples */}
-          <section className="section reveal-intro">
-            <h3 className="reveal-heading">
-              You selected{" "}
-              {industryTrack === "sales" ? "Sales Teams" : "Local Businesses"}.
-            </h3>
-            <p className="reveal-sub">
-              Here&apos;s how an AI workforce quietly supports you behind the
-              scenes.
-            </p>
-            <ul className="reveal-example-list">
-              {getTrackExamples(industryTrack).map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </section>
+      {/* Track Intro + Examples + Continue */}
+      {isTrackChosen && (
+        <section className="section reveal-intro fade-3d reveal-panel">
+          <h3 className="reveal-heading">You selected {trackLabel}.</h3>
+          <p className="reveal-sub">
+            Here&apos;s how an AI workforce quietly supports you behind the
+            scenes.
+          </p>
+          <ul className="reveal-example-list">
+            {getTrackExamples(industryTrack).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
 
+          {!showDeepContent && (
+            <div style={{ marginTop: "18px" }}>
+              <button
+                type="button"
+                className="primary-cta"
+                onClick={() => setShowDeepContent(true)}
+              >
+                Continue
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Deep Content: only after Continue */}
+      {isTrackChosen && showDeepContent && (
+        <>
           {/* AGENT DIAGRAM — SYSTEM FLOW */}
           <section className="section fade-3d">
             <h2>🧠 Your AI Workforce Flow</h2>
             <p className="section-lead">
-              Think of this like hiring a full small team — booking, recovering,
-              dispatching, and cleaning up your pipeline — but fully AI-driven
-              and always on.
+              {industryTrack === "sales"
+                ? "Think of this like hiring a small inside-sales pod — answering, qualifying, booking, recovering, and following up — but fully AI-driven and always on."
+                : "Think of this like hiring a front-desk and dispatch team — answering, scheduling, updating, and following up — but fully AI-driven and always on."}
             </p>
 
             <div className="diagram-grid">
@@ -690,8 +538,8 @@ export default function HomePage() {
                 <div className="diagram-node">
                   <h3>Inbound AI Agent</h3>
                   <p>
-                    Answers every call, captures name + intent, and routes
-                    intelligently.
+                    Answers every call, captures name + intent, and routes to
+                    the right next step.
                   </p>
                 </div>
                 <div className="diagram-arrow">↓</div>
@@ -717,8 +565,8 @@ export default function HomePage() {
                 <div className="diagram-node">
                   <h3>Follow-Up &amp; Nurture Agent</h3>
                   <p>
-                    Reaches back out to “not now,” “call later,” and cold
-                    leads.
+                    Reaches back out to “not now,” “call later,” and cold leads
+                    on your behalf.
                   </p>
                 </div>
               </div>
@@ -728,16 +576,16 @@ export default function HomePage() {
                 <div className="diagram-node">
                   <h3>Dispatcher Agent</h3>
                   <p>
-                    Handles ETAs, delays, and confirmations so field teams keep
-                    moving.
+                    Handles ETAs, delays, and confirmations so your team keeps
+                    moving instead of answering phones.
                   </p>
                 </div>
                 <div className="diagram-arrow">↓</div>
                 <div className="diagram-node">
                   <h3>Handoff / Finance Agent</h3>
                   <p>
-                    Collects payment links, sends agreements, and hands off
-                    cleanly.
+                    Collects payment links, sends agreements, and hands off with
+                    clean notes.
                   </p>
                 </div>
               </div>
@@ -751,39 +599,44 @@ export default function HomePage() {
             <div className="card-grid">
               <div className="card fade-3d">
                 <h3>Answer &amp; Qualify</h3>
-                <p>Instant call pickup, natural questions, and clear routing.</p>
+                <p>
+                  Instant call pickup, natural questions, and clear routing for
+                  every inquiry.
+                </p>
               </div>
               <div className="card fade-3d">
                 <h3>Book Revenue Time</h3>
                 <p>
-                  Pushes serious prospects directly into booked calendar slots.
+                  Pushes serious prospects directly into booked calendar slots
+                  with the right info.
                 </p>
               </div>
               <div className="card fade-3d">
                 <h3>Recover No-Shows</h3>
                 <p>
                   Automated call + SMS sequences designed to rebook missed
-                  slots.
+                  appointments and demos.
                 </p>
               </div>
               <div className="card fade-3d">
                 <h3>Handle Dispatch Chatter</h3>
                 <p>
-                  ETAs, “running late,” and confirmations handled without staff.
+                  ETAs, “running late,” and confirmations handled without tying
+                  up staff.
                 </p>
               </div>
               <div className="card fade-3d">
                 <h3>Nurture Cold Leads</h3>
                 <p>
-                  Follows up over days/weeks so “not yet” doesn&apos;t become
-                  “never.”
+                  Follows up over days and weeks so “not yet” doesn&apos;t
+                  quietly become “never.”
                 </p>
               </div>
               <div className="card fade-3d">
                 <h3>24/7 Coverage</h3>
                 <p>
                   Late nights, weekends, and after-hours inquiries never get
-                  lost.
+                  lost again.
                 </p>
               </div>
             </div>
@@ -878,7 +731,11 @@ export default function HomePage() {
                   <li>Dispatcher agent wired into your operations</li>
                   <li>Lead → booking → job → follow-up pipelines</li>
                   <li>
-                    Industry-specific workflows (home services, med spa, etc.)
+                    Industry-specific workflows (
+                    {industryTrack === "sales"
+                      ? "inside sales, consultative offers, and demo-driven funnels"
+                      : "home services, med spa, dental, and other clinics"}
+                    )
                   </li>
                   <li>Review, reactivation, and rebooking logic</li>
                   <li>
@@ -926,7 +783,7 @@ export default function HomePage() {
               Book a Demo
             </a>
           </section>
-        </div>
+        </>
       )}
 
       {/* Bottom Sticky CTA */}
@@ -941,7 +798,10 @@ export default function HomePage() {
 
       {/* ROI POPUP */}
       {showRoi && (
-        <div className="roi-popup-overlay" onClick={closeRoi}>
+        <div
+          className="roi-popup-overlay"
+          onClick={closeRoi}
+        >
           <div
             className="roi-popup"
             onClick={(e) => e.stopPropagation()}
@@ -1018,8 +878,8 @@ export default function HomePage() {
                 <p className="roi-footnote">
                   This assumes your current appointment-to-close rate stays the
                   same. Our advanced performance system often adds another{" "}
-                  <strong>20–40%</strong> lift in close rate and up to{" "}
-                  <strong>60%</strong> higher show rates — ask our Consulting
+                  <strong>20–40%</strong> lift in close rate and up to
+                  <strong> 60%</strong> higher show rates — ask our Consulting
                   Assistant about it during your demo.
                 </p>
               </div>
@@ -1031,32 +891,28 @@ export default function HomePage() {
       {/* Exit Intent Modal */}
       {showExitModal && (
         <div
-          className="exit-overlay"
+          id="exitModal"
+          className="roi-popup-overlay"
           onClick={() => setShowExitModal(false)}
         >
           <div
-            className="exit-modal"
+            className="roi-popup"
+            style={{ maxWidth: 420 }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
-              className="exit-close-btn"
+              className="close-btn"
               aria-label="Close"
               onClick={() => setShowExitModal(false)}
             >
               ×
             </button>
 
-            <h3
-              style={{
-                fontSize: "1.1rem",
-                fontWeight: 700,
-                marginBottom: "6px",
-              }}
-            >
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
               Before you go — want to see AI speed-to-lead in action?
             </h3>
-            <p style={{ fontSize: "0.9rem", marginBottom: "10px" }}>
+            <p className="text-gray-700 mb-4 text-sm">
               Enter your number and we&apos;ll have your AI agent call you back
               so you can experience instant response from a prospect&apos;s
               point of view.
@@ -1064,34 +920,45 @@ export default function HomePage() {
 
             <form
               id="exitDemoForm"
+              className="space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                alert("Got it! This will be wired to your AI demo trigger.");
+                alert(
+                  "Got it! This will be wired to your AI demo trigger."
+                );
                 setShowExitModal(false);
               }}
             >
-              <label className="exit-field-label">Name</label>
-              <input
-                type="text"
-                name="exitName"
-                className="exit-input"
-                placeholder="First name"
-              />
-
-              <label className="exit-field-label">Mobile Number</label>
-              <input
-                type="tel"
-                name="exitPhone"
-                className="exit-input"
-                placeholder="555-555-5555"
-              />
-
-              <p className="exit-footnote">
+              <div>
+                <label className="block text-sm font-medium text-gray-800 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  name="exitName"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="First name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-800 mb-1">
+                  Mobile Number
+                </label>
+                <input
+                  type="tel"
+                  name="exitPhone"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="555-555-5555"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
                 By submitting, you consent to receive an AI demo call and SMS.
                 Message and data rates may apply.
               </p>
-
-              <button type="submit" className="exit-submit-btn">
+              <button
+                type="submit"
+                className="w-full mt-1 py-2.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition"
+              >
                 Send Me the AI Demo Call
               </button>
             </form>
@@ -1132,8 +999,8 @@ function AdvancedSalesPanel() {
           <p>When implemented correctly, we&apos;ve seen:</p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
-              <strong>800%+ lift in booked appointments</strong> vs. slow manual
-              follow-up.
+              <strong>800%+ lift in booked appointments</strong> vs. slow
+              manual follow-up.
             </li>
             <li>
               <strong>20–40% higher appointment-to-close ratios</strong> by
