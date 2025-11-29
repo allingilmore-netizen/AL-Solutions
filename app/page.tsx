@@ -24,20 +24,16 @@ export default function Page() {
   const isExitOpenRef = useRef(false);
   const lastScrollYRef = useRef(0);
 
-  // Helper: smooth scroll to an element with offset (more reliable on mobile)
+  // Helper: direct jump to an element with offset (no smooth scrolling)
   const scrollToId = (id: string, offset = 96) => {
     if (typeof window === "undefined") return;
     const el = document.getElementById(id);
     if (!el) return;
 
     const rect = el.getBoundingClientRect();
-    const y = rect.top + (window.pageYOffset || window.scrollY || 0) - offset;
-    const targetY = y < 0 ? 0 : y;
-
-    window.scrollTo({
-      top: targetY,
-      behavior: "smooth",
-    });
+    const baseY = rect.top + (window.pageYOffset || window.scrollY || 0);
+    const targetY = baseY - offset;
+    window.scrollTo(0, targetY < 0 ? 0 : targetY);
   };
 
   useEffect(() => {
@@ -133,17 +129,6 @@ export default function Page() {
     return () => observer.disconnect();
   }, [hasContinued]);
 
-  // When the user hits Continue and we reveal the block, auto scroll them to it
-  useEffect(() => {
-    if (hasContinued) {
-      // Slight delay to make sure layout is ready, helps on mobile Safari
-      const timer = window.setTimeout(() => {
-        scrollToId("ai-workforce-block", 88);
-      }, 120);
-      return () => window.clearTimeout(timer);
-    }
-  }, [hasContinued]);
-
   const handleTrackSelect = (track: IndustryTrack) => {
     setIndustryTrack(track);
   };
@@ -152,11 +137,13 @@ export default function Page() {
     if (!industryTrack) return;
     setHasContinued(true);
 
-    // Extra safety for mobile: also queue a scroll once DOM has likely updated
+    // After React commits the new block, jump to it.
     if (typeof window !== "undefined") {
-      window.setTimeout(() => {
-        scrollToId("ai-workforce-block", 88);
-      }, 180);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToId("ai-workforce-block", 88);
+        });
+      });
     }
   };
 
