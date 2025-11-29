@@ -24,12 +24,20 @@ export default function Page() {
   const isExitOpenRef = useRef(false);
   const lastScrollYRef = useRef(0);
 
-  // Helper: smooth scroll to an element by ID (uses scroll-margin-top on targets)
-  const scrollToId = (id: string) => {
+  // Helper: smooth scroll to an element with offset (more reliable on mobile)
+  const scrollToId = (id: string, offset = 96) => {
     if (typeof window === "undefined") return;
     const el = document.getElementById(id);
-    if (!el || !("scrollIntoView" in el)) return;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    const y = rect.top + (window.pageYOffset || window.scrollY || 0) - offset;
+    const targetY = y < 0 ? 0 : y;
+
+    window.scrollTo({
+      top: targetY,
+      behavior: "smooth",
+    });
   };
 
   useEffect(() => {
@@ -128,7 +136,11 @@ export default function Page() {
   // When the user hits Continue and we reveal the block, auto scroll them to it
   useEffect(() => {
     if (hasContinued) {
-      scrollToId("ai-workforce-block");
+      // Slight delay to make sure layout is ready, helps on mobile Safari
+      const timer = window.setTimeout(() => {
+        scrollToId("ai-workforce-block", 88);
+      }, 120);
+      return () => window.clearTimeout(timer);
     }
   }, [hasContinued]);
 
@@ -139,6 +151,13 @@ export default function Page() {
   const handleContinue = () => {
     if (!industryTrack) return;
     setHasContinued(true);
+
+    // Extra safety for mobile: also queue a scroll once DOM has likely updated
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        scrollToId("ai-workforce-block", 88);
+      }, 180);
+    }
   };
 
   const handleLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -1181,7 +1200,7 @@ export default function Page() {
               <div className="hero-ctas">
                 <button
                   className="primary-cta"
-                  onClick={() => scrollToId("leadForm")}
+                  onClick={() => scrollToId("leadForm", 120)}
                 >
                   Hear the AI in Action
                 </button>
@@ -1701,7 +1720,7 @@ export default function Page() {
                   className="secondary-cta"
                   onClick={() => {
                     closeExitIntent();
-                    scrollToId("leadForm");
+                    scrollToId("leadForm", 120);
                   }}
                 >
                   Book my live AI call
@@ -1722,7 +1741,7 @@ export default function Page() {
           <button
             className="sticky-btn"
             type="button"
-            onClick={() => scrollToId("leadForm")}
+            onClick={() => scrollToId("leadForm", 120)}
           >
             Get a live AI call demo
           </button>
