@@ -24,14 +24,12 @@ export default function Page() {
   const isExitOpenRef = useRef(false);
   const lastScrollYRef = useRef(0);
 
-  // Helper: smooth scroll to an element with offset (better on mobile)
-  const scrollToElement = (id: string, offset = 96) => {
+  // Helper: smooth scroll to an element by ID (uses scroll-margin-top on targets)
+  const scrollToId = (id: string) => {
     if (typeof window === "undefined") return;
     const el = document.getElementById(id);
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const y = rect.top + window.scrollY - offset;
-    window.scrollTo({ top: y < 0 ? 0 : y, behavior: "smooth" });
+    if (!el || !("scrollIntoView" in el)) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   useEffect(() => {
@@ -127,6 +125,13 @@ export default function Page() {
     return () => observer.disconnect();
   }, [hasContinued]);
 
+  // When the user hits Continue and we reveal the block, auto scroll them to it
+  useEffect(() => {
+    if (hasContinued) {
+      scrollToId("ai-workforce-block");
+    }
+  }, [hasContinued]);
+
   const handleTrackSelect = (track: IndustryTrack) => {
     setIndustryTrack(track);
   };
@@ -134,11 +139,6 @@ export default function Page() {
   const handleContinue = () => {
     if (!industryTrack) return;
     setHasContinued(true);
-
-    // Allow React to render the block, then scroll smoothly into view
-    requestAnimationFrame(() => {
-      scrollToElement("ai-workforce-block", 88);
-    });
   };
 
   const handleLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -189,7 +189,7 @@ export default function Page() {
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
           background: radial-gradient(circle at top, #022c22 0, #020617 55%, #000000 100%);
           color: #E5E7EB;
-          font-size: 23px; /* larger base type for readability */
+          font-size: 23px;
         }
 
         .aid-page {
@@ -527,27 +527,33 @@ export default function Page() {
         .selector-buttons {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 8px;
+          gap: 10px;
           margin-bottom: 10px;
         }
 
         .selector-button {
-          border-radius: 12px;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          background: rgba(15, 23, 42, 0.9);
+          position: relative;
+          border-radius: 14px;
+          border: 2px solid rgba(148, 163, 184, 0.7);
+          background: linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.9));
           color: #E5E7EB;
-          padding: 9px 11px;
+          padding: 10px 12px 9px;
           text-align: left;
           font-size: 0.9rem;
           cursor: pointer;
-          transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
+          transition:
+            border-color 0.15s ease,
+            background 0.15s ease,
+            transform 0.12s ease,
+            box-shadow 0.12s ease;
           display: flex;
           flex-direction: column;
+          box-shadow: 0 12px 30px rgba(15, 23, 42, 0.95);
         }
 
         .selector-button strong {
           display: block;
-          font-size: 0.94rem;
+          font-size: 0.96rem;
           margin-bottom: 3px;
         }
 
@@ -566,9 +572,9 @@ export default function Page() {
 
         .selector-button--active {
           border-color: #F4D03F;
-          background: linear-gradient(135deg, rgba(4, 120, 87, 0.9), rgba(15, 23, 42, 0.98));
-          box-shadow: 0 14px 36px rgba(4, 120, 87, 0.5);
-          transform: translateY(-1px);
+          background: linear-gradient(145deg, rgba(4, 120, 87, 1), rgba(15, 23, 42, 0.98));
+          box-shadow: 0 18px 40px rgba(4, 120, 87, 0.7);
+          transform: translateY(-2px);
         }
 
         .selector-button--active::after {
@@ -578,8 +584,13 @@ export default function Page() {
         }
 
         .selector-button:hover {
-          box-shadow: 0 10px 26px rgba(15, 23, 42, 0.9);
+          box-shadow: 0 16px 34px rgba(15, 23, 42, 0.9);
           transform: translateY(-1px);
+        }
+
+        .selector-button:active {
+          transform: translateY(0);
+          box-shadow: 0 8px 16px rgba(15, 23, 42, 0.85);
         }
 
         .selector-continue {
@@ -1170,9 +1181,7 @@ export default function Page() {
               <div className="hero-ctas">
                 <button
                   className="primary-cta"
-                  onClick={() => {
-                    scrollToElement("leadForm", 120);
-                  }}
+                  onClick={() => scrollToId("leadForm")}
                 >
                   Hear the AI in Action
                 </button>
@@ -1692,7 +1701,7 @@ export default function Page() {
                   className="secondary-cta"
                   onClick={() => {
                     closeExitIntent();
-                    scrollToElement("leadForm", 120);
+                    scrollToId("leadForm");
                   }}
                 >
                   Book my live AI call
@@ -1713,9 +1722,7 @@ export default function Page() {
           <button
             className="sticky-btn"
             type="button"
-            onClick={() => {
-              scrollToElement("leadForm", 120);
-            }}
+            onClick={() => scrollToId("leadForm")}
           >
             Get a live AI call demo
           </button>
