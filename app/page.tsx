@@ -24,12 +24,13 @@ export default function Page() {
   const isExitOpenRef = useRef(false);
   const lastScrollYRef = useRef(0);
 
-  // Helper: direct jump to an element with offset (no smooth scrolling)
-  const scrollToId = (id: string, offset = 96) => {
-    if (typeof window === "undefined") return;
-    const el = document.getElementById(id);
-    if (!el) return;
+  // Refs for scroll targets
+  const leadFormRef = useRef<HTMLFormElement | null>(null);
+  const aiWorkforceRef = useRef<HTMLElement | null>(null);
 
+  // Helper: direct jump to a given element with offset
+  const scrollToElement = (el: HTMLElement | null, offset = 96) => {
+    if (typeof window === "undefined" || !el) return;
     const rect = el.getBoundingClientRect();
     const baseY = rect.top + (window.pageYOffset || window.scrollY || 0);
     const targetY = baseY - offset;
@@ -129,22 +130,21 @@ export default function Page() {
     return () => observer.disconnect();
   }, [hasContinued]);
 
+  // When the reveal section is actually mounted, jump to it
+  useEffect(() => {
+    if (hasContinued) {
+      scrollToElement(aiWorkforceRef.current, 88);
+    }
+  }, [hasContinued]);
+
   const handleTrackSelect = (track: IndustryTrack) => {
     setIndustryTrack(track);
   };
 
   const handleContinue = () => {
     if (!industryTrack) return;
+    // This triggers the conditional section to mount; effect above will jump
     setHasContinued(true);
-
-    // After React commits the new block, jump to it.
-    if (typeof window !== "undefined") {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollToId("ai-workforce-block", 88);
-        });
-      });
-    }
   };
 
   const handleLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -1187,7 +1187,7 @@ export default function Page() {
               <div className="hero-ctas">
                 <button
                   className="primary-cta"
-                  onClick={() => scrollToId("leadForm", 120)}
+                  onClick={() => scrollToElement(leadFormRef.current, 120)}
                 >
                   Hear the AI in Action
                 </button>
@@ -1211,7 +1211,12 @@ export default function Page() {
             </div>
 
             <div className="hero-side fade-on-scroll">
-              <form id="leadForm" className="lead-form" onSubmit={handleLeadSubmit}>
+              <form
+                id="leadForm"
+                ref={leadFormRef}
+                className="lead-form"
+                onSubmit={handleLeadSubmit}
+              >
                 <h2>FREE LIVE DEMO CALL</h2>
                 <p>
                   Drop in your details and we&apos;ll spin up a live AI call demo
@@ -1313,6 +1318,7 @@ export default function Page() {
         {hasContinued && (
           <section
             id="ai-workforce-block"
+            ref={aiWorkforceRef}
             className="reveal-wrapper fade-on-scroll"
           >
             <div className="reveal-intro fade-on-scroll">
@@ -1707,7 +1713,7 @@ export default function Page() {
                   className="secondary-cta"
                   onClick={() => {
                     closeExitIntent();
-                    scrollToId("leadForm", 120);
+                    scrollToElement(leadFormRef.current, 120);
                   }}
                 >
                   Book my live AI call
@@ -1728,7 +1734,7 @@ export default function Page() {
           <button
             className="sticky-btn"
             type="button"
-            onClick={() => scrollToId("leadForm", 120)}
+            onClick={() => scrollToElement(leadFormRef.current, 120)}
           >
             Get a live AI call demo
           </button>
