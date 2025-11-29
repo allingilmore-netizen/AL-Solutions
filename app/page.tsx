@@ -11,6 +11,7 @@ export default function Page() {
   const [isExitIntentOpen, setIsExitIntentOpen] = useState(false);
   const [hasExitIntentShown, setHasExitIntentShown] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [exitFormSubmitted, setExitFormSubmitted] = useState(false);
 
   // Simple ROI state
   const [monthlyLeads, setMonthlyLeads] = useState("200");
@@ -18,23 +19,21 @@ export default function Page() {
   const [avgDealSize, setAvgDealSize] = useState("1500");
   const [liftPercent, setLiftPercent] = useState("20");
 
-  // Refs for exit-intent logic
+  // Refs for exit-intent logic (not for scrolling)
   const hasEngagedRef = useRef(false);
   const hasExitIntentRef = useRef(false);
   const isExitOpenRef = useRef(false);
   const lastScrollYRef = useRef(0);
 
-  // Refs for scroll targets
-  const leadFormRef = useRef<HTMLFormElement | null>(null);
-  const aiWorkforceRef = useRef<HTMLElement | null>(null);
-
-  // Helper: direct jump to a given element with offset
-  const scrollToElement = (el: HTMLElement | null, offset = 96) => {
-    if (typeof window === "undefined" || !el) return;
-    const rect = el.getBoundingClientRect();
-    const baseY = rect.top + (window.pageYOffset || window.scrollY || 0);
-    const targetY = baseY - offset;
-    window.scrollTo(0, targetY < 0 ? 0 : targetY);
+  // ==== FIX 1: New, super-simple jump helper using location.hash ====
+  const jumpToId = (id: string) => {
+    if (typeof window === "undefined") return;
+    const hash = `#${id}`;
+    // Force re-trigger even if already on that hash
+    if (window.location.hash === hash) {
+      window.location.hash = "";
+    }
+    window.location.hash = hash;
   };
 
   useEffect(() => {
@@ -56,16 +55,17 @@ export default function Page() {
 
       const previousY = lastScrollYRef.current;
       const delta = previousY - y;
-      const goingUpQuickly = delta > 40;
-      const nearTop = y < 120;
+      const scrollingUp = y < previousY;
       const isMobile = window.innerWidth < 1024;
 
-      // Mobile exit-intent: sharp scroll up near top, after engagement threshold
+      // ==== FIX 5: Looser, more reliable mobile exit-intent ====
+      // On mobile, after engagement: any decent upward scroll (delta > 30) while near-ish top (<300px)
       if (
         isMobile &&
         hasEngagedRef.current &&
-        goingUpQuickly &&
-        nearTop &&
+        scrollingUp &&
+        delta > 30 &&
+        y < 300 &&
         !hasExitIntentRef.current &&
         !isExitOpenRef.current
       ) {
@@ -130,26 +130,29 @@ export default function Page() {
     return () => observer.disconnect();
   }, [hasContinued]);
 
-  // When the reveal section is actually mounted, jump to it
-  useEffect(() => {
-    if (hasContinued) {
-      scrollToElement(aiWorkforceRef.current, 88);
-    }
-  }, [hasContinued]);
-
   const handleTrackSelect = (track: IndustryTrack) => {
     setIndustryTrack(track);
   };
 
+  // ==== FIX 3: Continue now reveals + then jumps via hash ====
   const handleContinue = () => {
     if (!industryTrack) return;
-    // This triggers the conditional section to mount; effect above will jump
     setHasContinued(true);
+    if (typeof window !== "undefined") {
+      setTimeout(() => {
+        jumpToId("ai-workforce-block");
+      }, 80);
+    }
   };
 
   const handleLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormSubmitted(true);
+  };
+
+  const handleExitLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setExitFormSubmitted(true);
   };
 
   const openRoi = () => setIsRoiOpen(true);
@@ -1053,6 +1056,65 @@ export default function Page() {
           font-weight: 600;
         }
 
+        /* Exit-intent inline form */
+
+        .exit-form {
+          margin-top: 14px;
+          padding: 12px 10px 10px;
+          border-radius: 14px;
+          background: rgba(15, 23, 42, 0.96);
+          border: 1px solid rgba(148, 163, 184, 0.7);
+        }
+
+        .exit-form label {
+          display: block;
+          font-size: 0.85rem;
+          margin-bottom: 2px;
+          color: #CBD5F5;
+        }
+
+        .exit-form input {
+          width: 100%;
+          padding: 7px 9px;
+          border-radius: 8px;
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          background: rgba(15, 23, 42, 0.9);
+          color: #E5E7EB;
+          font-size: 0.88rem;
+          margin-bottom: 6px;
+          outline: none;
+        }
+
+        .exit-form input:focus {
+          border-color: #047857;
+          box-shadow: 0 0 0 1px rgba(4, 120, 87, 0.45);
+        }
+
+        .exit-form small {
+          font-size: 0.75rem;
+          color: #9CA3AF;
+        }
+
+        .exit-submit-btn {
+          margin-top: 8px;
+          width: 100%;
+          border-radius: 999px;
+          border: none;
+          padding: 8px 10px;
+          font-size: 0.9rem;
+          font-weight: 600;
+          background: linear-gradient(135deg, #047857, #22C55E);
+          color: #ECFDF5;
+          cursor: pointer;
+          box-shadow: 0 12px 32px rgba(16, 185, 129, 0.55);
+        }
+
+        .exit-thankyou {
+          margin-top: 6px;
+          font-size: 0.8rem;
+          color: #A7F3D0;
+        }
+
         /* Sticky CTA */
 
         .sticky-cta {
@@ -1102,6 +1164,10 @@ export default function Page() {
           cursor: pointer;
           box-shadow: 0 10px 30px rgba(16, 185, 129, 0.55);
           white-space: nowrap;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
 
         @media (max-width: 640px) {
@@ -1185,13 +1251,15 @@ export default function Page() {
               </p>
 
               <div className="hero-ctas">
+                {/* ==== FIX 2a: Hero button uses jumpToId via onClick ==== */}
                 <button
                   className="primary-cta"
-                  onClick={() => scrollToElement(leadFormRef.current, 120)}
+                  type="button"
+                  onClick={() => jumpToId("leadForm")}
                 >
                   Hear the AI in Action
                 </button>
-                <button className="secondary-cta" onClick={openRoi}>
+                <button className="secondary-cta" type="button" onClick={openRoi}>
                   Run ROI Calculator
                 </button>
               </div>
@@ -1211,12 +1279,7 @@ export default function Page() {
             </div>
 
             <div className="hero-side fade-on-scroll">
-              <form
-                id="leadForm"
-                ref={leadFormRef}
-                className="lead-form"
-                onSubmit={handleLeadSubmit}
-              >
+              <form id="leadForm" className="lead-form" onSubmit={handleLeadSubmit}>
                 <h2>FREE LIVE DEMO CALL</h2>
                 <p>
                   Drop in your details and we&apos;ll spin up a live AI call demo
@@ -1318,7 +1381,6 @@ export default function Page() {
         {hasContinued && (
           <section
             id="ai-workforce-block"
-            ref={aiWorkforceRef}
             className="reveal-wrapper fade-on-scroll"
           >
             <div className="reveal-intro fade-on-scroll">
@@ -1506,7 +1568,7 @@ export default function Page() {
                   Use this quick calculator to estimate what a real AI workforce could be
                   recovering in pure revenue before you even talk pricing.
                 </p>
-                <button className="roi-cta-btn" onClick={openRoi}>
+                <button className="roi-cta-btn" type="button" onClick={openRoi}>
                   Open ROI Calculator
                 </button>
               </div>
@@ -1699,26 +1761,31 @@ export default function Page() {
                 </span>{" "}
                 for your {selectedLabel || "business"}?
               </p>
-              <div className="hero-ctas" style={{ marginTop: 12 }}>
-                <button
-                  className="primary-cta"
-                  onClick={() => {
-                    closeExitIntent();
-                    openRoi();
-                  }}
-                >
-                  Run the 2-min ROI check
-                </button>
-                <button
-                  className="secondary-cta"
-                  onClick={() => {
-                    closeExitIntent();
-                    scrollToElement(leadFormRef.current, 120);
-                  }}
-                >
+
+              {/* ==== FIX 4: Inline mini lead form inside the exit popup ==== */}
+              <form className="exit-form" onSubmit={handleExitLeadSubmit}>
+                <label htmlFor="exitName">First name</label>
+                <input id="exitName" name="exitName" required />
+
+                <label htmlFor="exitPhone">Mobile number</label>
+                <input id="exitPhone" name="exitPhone" type="tel" required />
+
+                <small>
+                  We&apos;ll send a quick link to a live AI call demo and a short summary
+                  of what an AI workforce could do for your{" "}
+                  {selectedLabel || "operation"}.
+                </small>
+
+                <button type="submit" className="exit-submit-btn">
                   Book my live AI call
                 </button>
-              </div>
+
+                {exitFormSubmitted && (
+                  <div className="exit-thankyou">
+                    Thanks! We&apos;ll text you a live AI demo link shortly.
+                  </div>
+                )}
+              </form>
             </div>
           </div>
         </div>
@@ -1731,10 +1798,11 @@ export default function Page() {
             Ready to see what an AI workforce could recover for{" "}
             <span>{selectedLabel || "your business"}</span>?
           </div>
+          {/* ==== FIX 2b: Sticky CTA uses jumpToId to reliably go to form ==== */}
           <button
             className="sticky-btn"
             type="button"
-            onClick={() => scrollToElement(leadFormRef.current, 120)}
+            onClick={() => jumpToId("leadForm")}
           >
             Get a live AI call demo
           </button>
