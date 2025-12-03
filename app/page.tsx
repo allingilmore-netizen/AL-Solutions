@@ -145,8 +145,38 @@ export default function Page() {
     }
   };
 
-  const handleLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
+  // === UPDATED: Thoughtly webhook + UI state ===
+  const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+
+    const firstName = String(formData.get("firstName") ?? "");
+    const phone = String(formData.get("phone") ?? "");
+    const email = String(formData.get("email") ?? "");
+    const companyType = String(formData.get("companyType") ?? "");
+
+    try {
+      await fetch(
+        "https://api.thoughtly.com/webhook/automation/Oqf6FbI5nD04",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            firstName,
+            phone,
+            email,
+            companyType,
+            source: "ai-landing-speed-to-lead",
+          }),
+        }
+      );
+    } catch (err) {
+      console.error("Error calling Thoughtly webhook", err);
+    }
+
     setFormSubmitted(true);
   };
 
