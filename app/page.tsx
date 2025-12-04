@@ -1355,7 +1355,7 @@ const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
 
                 {formSubmitted && (
                   <div className="lead-thankyou">
-                    Thanks! We&apos;ll confirm by email/text and share a live AI call link.
+                    Thanks! We&apos;ll be reaching out to you here very shortly.
                   </div>
                 )}
               </form>
