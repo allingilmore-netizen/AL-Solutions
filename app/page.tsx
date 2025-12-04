@@ -1283,7 +1283,7 @@ const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
               <p className="hero-subtitle">
                 We start simple — with a conversion-optimized landing page and a live AI demo
                 agent — then layer in advanced booking, no-show recovery, and full
-                multi-agent systems as you’re ready.;
+                multi-agent systems as you’re ready.
               </p>
 
               <div className="hero-ctas">
