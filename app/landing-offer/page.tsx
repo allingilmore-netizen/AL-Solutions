@@ -1,437 +1,522 @@
-export default function LandingOfferPage() {
+"use client";
+
+export default function Page() {
   return (
-    <main className="offer-page">
-      <style>{`
-        :root {
-          --emerald: #047857;
-          --gold: #F4D03F;
-          --charcoal: #0F172A;
-          --offwhite: #F9FAFB;
-        }
-
-        body {
-          margin: 0;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-          background: radial-gradient(circle at top, #022c22 0, #020617 55%, #000000 100%);
-          color: #E5E7EB;
-        }
-
-        .offer-page {
-          min-height: 100vh;
-        }
-
-        .offer-wrapper {
-          max-width: 960px;
-          margin: 0 auto;
-          padding: 40px 16px 72px;
-        }
-
-        .offer-header {
-          display: flex;
-          justify-content: space-between;
-          gap: 16px;
-          align-items: center;
-          margin-bottom: 28px;
-        }
-
-        .offer-brand {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .offer-logo {
-          width: 34px;
-          height: 34px;
-          border-radius: 10px;
-          background: radial-gradient(circle at 30% 20%, #6EE7B7 0, #047857 45%, #022c22 100%);
-          box-shadow: 0 12px 28px rgba(5, 150, 105, 0.45);
-        }
-
-        .offer-brand-text {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .offer-brand-name {
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          font-size: 0.95rem;
-          text-transform: uppercase;
-        }
-
-        .offer-brand-tagline {
-          font-size: 0.85rem;
-          color: #9CA3AF;
-        }
-
-        .offer-pill {
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          padding: 7px 16px;
-          font-size: 0.86rem;
-          background: rgba(15, 23, 42, 0.8);
-          backdrop-filter: blur(10px);
-        }
-
-        .offer-card {
-          border-radius: 22px;
-          background: radial-gradient(circle at top left, rgba(4, 120, 87, 0.35), rgba(15, 23, 42, 0.96));
-          border: 1px solid rgba(148, 163, 184, 0.4);
-          box-shadow:
-            0 26px 80px rgba(15, 23, 42, 0.9),
-            0 0 0 1px rgba(15, 23, 42, 0.7);
-          padding: 26px 22px 22px;
-        }
-
-        .offer-hero-title {
-          font-size: clamp(2.1rem, 3vw, 2.6rem);
-          line-height: 1.1;
-          letter-spacing: -0.04em;
-          margin: 0 0 10px;
-        }
-
-        .offer-highlight {
-          background: linear-gradient(120deg, #F4D03F, #F9A826);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-        }
-
-        .offer-subtitle {
-          font-size: 1rem;
-          color: #CBD5F5;
-          max-width: 680px;
-          margin-bottom: 18px;
-        }
-
-        .offer-section {
-          margin-top: 18px;
-          padding-top: 14px;
-          border-top: 1px solid rgba(148, 163, 184, 0.35);
-        }
-
-        .offer-section h2 {
-          font-size: 1.1rem;
-          text-transform: uppercase;
-          letter-spacing: 0.18em;
-          color: #9CA3AF;
-          margin: 0 0 6px;
-        }
-
-        .offer-section h3 {
-          font-size: 1.2rem;
-          margin: 0 0 6px;
-          color: #E5E7EB;
-        }
-
-        .offer-section p {
-          font-size: 0.97rem;
-          color: #CBD5F5;
-          margin: 0 0 10px;
-        }
-
-        .offer-columns {
-          display: grid;
-          grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-          gap: 20px;
-          margin-top: 8px;
-        }
-
-        @media (max-width: 840px) {
-          .offer-header {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-
-          .offer-columns {
-            grid-template-columns: 1fr;
-          }
-
-          .offer-card {
-            padding: 20px 18px 18px;
-          }
-        }
-
-        .offer-list {
-          margin: 0;
-          padding-left: 18px;
-          font-size: 0.96rem;
-          color: #E5E7EB;
-        }
-
-        .offer-list li {
-          margin-bottom: 4px;
-        }
-
-        .offer-chip-row {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          margin: 6px 0 10px;
-        }
-
-        .offer-chip {
-          font-size: 0.8rem;
-          border-radius: 999px;
-          padding: 4px 9px;
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          color: #9CA3AF;
-          background: rgba(15, 23, 42, 0.8);
-        }
-
-        .price-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          gap: 10px;
-          margin-top: 10px;
-        }
-
-        @media (max-width: 640px) {
-          .price-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .price-card {
-          border-radius: 14px;
-          padding: 10px 12px 9px;
-          background: rgba(15, 23, 42, 0.98);
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          font-size: 0.94rem;
-        }
-
-        .price-card strong {
-          display: block;
-          font-size: 1rem;
-          margin-bottom: 4px;
-          color: #F4F4F5;
-        }
-
-        .price-note {
-          font-size: 0.84rem;
-          color: #9CA3AF;
-          margin-top: 6px;
-        }
-
-        .callout {
-          margin-top: 12px;
-          padding: 10px 12px;
-          border-radius: 12px;
-          background: rgba(15, 23, 42, 0.9);
-          border: 1px dashed rgba(148, 163, 184, 0.7);
-          font-size: 0.9rem;
-        }
-
-        .callout span {
-          color: #FBBF24;
-          font-weight: 600;
-        }
-
-        .steps-list {
-          margin: 8px 0 0;
-          padding-left: 18px;
-          font-size: 0.95rem;
-        }
-
-        .steps-list li {
-          margin-bottom: 4px;
-        }
-
-        .footer-note {
-          margin-top: 16px;
-          font-size: 0.86rem;
-          color: #9CA3AF;
-        }
-      `}</style>
-
-      <div className="offer-wrapper">
-        <header className="offer-header">
-          <div className="offer-brand">
-            <div className="offer-logo" />
-            <div className="offer-brand-text">
-              <div className="offer-brand-name">ALL IN DIGITAL</div>
-              <div className="offer-brand-tagline">
-                Conversion-Optimized AI Landing & Call Systems
+    <main
+      style={{
+        minHeight: "100vh",
+        background:
+          "radial-gradient(circle at top, #022c22 0, #020617 55%, #000000 100%)",
+        color: "#E5E7EB",
+        fontFamily:
+          'system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 960,
+          margin: "0 auto",
+          padding: "40px 16px 80px",
+        }}
+      >
+        {/* Header */}
+        <header
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                background:
+                  "radial-gradient(circle at 30% 20%, #6EE7B7 0, #047857 45%, #022c22 100%)",
+                boxShadow: "0 12px 28px rgba(5,150,105,0.45)",
+              }}
+            />
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <div
+                style={{
+                  fontWeight: 700,
+                  letterSpacing: "0.09em",
+                  fontSize: "0.9rem",
+                }}
+              >
+                ALL IN DIGITAL
+              </div>
+              <div
+                style={{ fontSize: "0.85rem", color: "#9CA3AF" }}
+              >
+                AI-Ready Landing Systems
               </div>
             </div>
           </div>
-          <div className="offer-pill">
-            Simple landing pages that plug into AI calls, SMS, and your existing marketing.
+          <div
+            style={{
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.6)",
+              padding: "6px 14px",
+              fontSize: "0.9rem",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              background: "rgba(15,23,42,0.7)",
+              backdropFilter: "blur(12px)",
+            }}
+          >
+            <span
+              style={{
+                width: 9,
+                height: 9,
+                borderRadius: 999,
+                background:
+                  "radial-gradient(circle at 30% 20%, #BBF7D0 0, #22C55E 40%, #166534 100%)",
+                boxShadow: "0 0 10px rgba(34,197,94,0.7)",
+              }}
+            />
+            <span>AI-ready, done-for-you landing system</span>
           </div>
         </header>
 
-        <section className="offer-card">
-          {/* Hero */}
-          <h1 className="offer-hero-title">
-            <span className="offer-highlight">
-              Conversion-Optimized AI Landing System
-            </span>
+        {/* Hero */}
+        <section
+          style={{
+            borderRadius: 24,
+            padding: "28px 22px 24px",
+            background:
+              "radial-gradient(circle at top left, rgba(4,120,87,0.4), rgba(15,23,42,0.95))",
+            border: "1px solid rgba(148,163,184,0.35)",
+            boxShadow:
+              "0 24px 80px rgba(15,23,42,0.85), 0 0 0 1px rgba(15,23,42,0.7)",
+            marginBottom: 28,
+          }}
+        >
+          <h1
+            style={{
+              fontSize: "2.1rem",
+              lineHeight: 1.1,
+              letterSpacing: "-0.04em",
+              margin: "0 0 10px",
+            }}
+          >
+            AI-Ready Landing System
           </h1>
-          <p className="offer-subtitle">
-            A done-for-you landing + lead system designed to turn traffic into{" "}
-            booked revenue — with or without AI calling attached on day one.
+          <p
+            style={{
+              fontSize: "1.02rem",
+              color: "#CBD5F5",
+              maxWidth: 640,
+              marginBottom: 8,
+            }}
+          >
+            High-converting pages + instant lead delivery + optional AI call
+            follow-up. You get a small, focused system that turns traffic into
+            clean, usable leads—and can plug directly into AI callers when
+            you&apos;re ready.
           </p>
+          <p
+            style={{
+              fontSize: "0.92rem",
+              color: "#9CA3AF",
+            }}
+          >
+            Built in your brand, using conversion-focused layouts and FCC/TCPA
+            conscious consent language so you can attach AI safely later.
+          </p>
+        </section>
 
-          {/* Section 1 */}
-          <div className="offer-section">
-            <h2>01 · What you get</h2>
-            <h3>
-              A clean, interactive landing page system built for speed-to-lead and bookings.
-            </h3>
-            <div className="offer-columns">
-              <div>
-                <p>
-                  This isn&apos;t a generic website. It&apos;s a focused, conversion-first
-                  landing system built around the way you actually take calls and book
-                  clients.
-                </p>
-                <ul className="offer-list">
-                  <li>Conversion-optimized, mobile-first layout.</li>
-                  <li>Clear, simple copy tailored to your offers.</li>
-                  <li>Interactive elements that encourage engagement (not a dead brochure).</li>
-                  <li>Lead capture form wired into a shared Google Sheet.</li>
-                  <li>Optional demo / explainer section for AI calling.</li>
-                </ul>
-                <p className="price-note">
-                  You can use these pages with your current team, your current follow-up
-                  system, or with AI calling layered in when you&apos;re ready.
-                </p>
-              </div>
-              <div>
-                <div className="callout">
-                  <span>Less noise, more signal.</span>  
-                  Every element on the page exists to do one job: turn traffic into
-                  qualified leads you can actually contact and close.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2 */}
-          <div className="offer-section">
-            <h2>02 · Lead flow & tracking</h2>
-            <h3>Every lead flows into a live, shared Google Sheet.</h3>
-            <div className="offer-columns">
-              <div>
-                <p>
-                  When someone submits the form, their details are captured and routed into
-                  a Google Sheet that we maintain for you.
-                </p>
-                <div className="offer-chip-row">
-                  <div className="offer-chip">Name, email, phone</div>
-                  <div className="offer-chip">Source & timestamp</div>
-                  <div className="offer-chip">Notes / context fields</div>
-                </div>
-                <p>
-                  From there, you or your team can call, text, or drop the lead into your
-                  own CRM or follow-up system.
-                </p>
-              </div>
-              <div>
-                <p><strong>If AI is calling the leads for you:</strong></p>
-                <ul className="offer-list">
-                  <li>
-                    You get the same live Google Sheet, <em>plus</em> outcome updates
-                    (contacted, booked, bad fit, no answer, etc.).
-                  </li>
-                  <li>
-                    That&apos;s part of what the monthly management fee covers when we&apos;re
-                    running the AI side.
-                  </li>
-                </ul>
-                <p className="price-note">
-                  If you only want the landing + leads, you still get the shared sheet — just
-                  without the AI outcome tracking.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3 */}
-          <div className="offer-section">
-            <h2>03 · Investment & options</h2>
-            <h3>Simple pricing that keeps ownership and flexibility in your hands.</h3>
-
-            <div className="price-grid">
-              <div className="price-card">
-                <strong>Landing System Build · $2,600</strong>
-                <ul className="offer-list">
-                  <li>Buy one, get up to three focused landing pages.</li>
-                  <li>Each page tuned for a specific offer, location, or audience.</li>
-                  <li>Designed, built, and wired into your lead sheet.</li>
-                </ul>
-                <p className="price-note">
-                  Perfect if you want a serious upgrade from &quot;generic website&quot; but
-                  don&apos;t want to rebuild your entire brand.
-                </p>
-              </div>
-
-              <div className="price-card">
-                <strong>Hosting & Management · $197 + $98/page monthly</strong>
-                <ul className="offer-list">
-                  <li>Hosting and uptime included.</li>
-                  <li>Minor copy tweaks and adjustments as your offer evolves.</li>
-                  <li>Basic technical maintenance and small layout updates.</li>
-                  <li>
-                    Lead flow monitoring and live Google Sheet access (always up to date).
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <p className="price-note">
-              Want full code ownership later? You can buy out the full codebase for a per-page fee.
-              I&apos;ll package the entire GitHub setup for you when/if that makes sense.
+        {/* Main content */}
+        <section
+          style={{
+            display: "grid",
+            gap: 22,
+          }}
+        >
+          {/* What You Get */}
+          <div
+            style={{
+              borderRadius: 18,
+              padding: 18,
+              background:
+                "radial-gradient(circle at top, rgba(15,118,110,0.35), rgba(15,23,42,0.98))",
+              border: "1px solid rgba(148,163,184,0.55)",
+              boxShadow: "0 20px 60px rgba(15,23,42,0.75)",
+            }}
+          >
+            <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: "1.1rem" }}>
+              What You&apos;re Getting
+            </h2>
+            <p
+              style={{
+                fontSize: "0.96rem",
+                color: "#E5E7EB",
+                marginTop: 0,
+                marginBottom: 10,
+              }}
+            >
+              Each page is built to do one job really well: turn traffic into
+              clean, usable leads you can act on immediately.
             </p>
-
-            <div className="callout">
-              <span>AI calling & SMS are optional upsells.</span>  
-              You can start with landing + leads only, and add AI booking, no-show recovery,
-              or call-back flows once you&apos;ve seen the landing pages perform.
-            </div>
-          </div>
-
-          {/* Section 4 */}
-          <div className="offer-section">
-            <h2>04 · Who this is a fit for</h2>
-            <h3>Owners who care about speed, tracking, and real follow-up.</h3>
-            <p>
-              This system is built for local and service businesses that want clean, simple
-              pages that actually convert — and a clear path to layer in AI when it&apos;s
-              time:
-            </p>
-            <ul className="offer-list">
-              <li>Med spas, dental, and health & wellness.</li>
-              <li>Home services (HVAC, plumbing, electrical, roofing, etc.).</li>
-              <li>Showrooms, retail, and appointment-driven businesses.</li>
-              <li>Teams that already have ad traffic, but need better &quot;catch&quot; on the back end.</li>
+            <ul
+              style={{
+                listStyle: "disc",
+                paddingLeft: 20,
+                fontSize: "0.94rem",
+                color: "#E5E7EB",
+                display: "grid",
+                gap: 6,
+              }}
+            >
+              <li>
+                <strong>Conversion-focused layout</strong> with simple,
+                focused messaging and clear calls-to-action.
+              </li>
+              <li>
+                <strong>Interactive elements</strong> that encourage visitors
+                to engage instead of skim and leave.
+              </li>
+              <li>
+                <strong>FCC/TCPA-conscious consent text</strong> on forms so
+                you&apos;re covered if/when we attach AI calling or SMS.
+              </li>
+              <li>
+                <strong>Speed-to-lead friendly form</strong> that captures
+                name, phone, email, and segmentation fields.
+              </li>
+              <li>
+                <strong>Real-time Google Sheet feed</strong> with every lead,
+                ready for your team—or AI—to follow up.
+              </li>
+              <li>
+                <strong>Hosting &amp; reliability handled for you</strong> so
+                you don&apos;t need to manage servers or SSL.
+              </li>
             </ul>
           </div>
 
-          {/* Section 5 */}
-          <div className="offer-section">
-            <h2>05 · Next steps</h2>
-            <h3>We start simple and build from there.</h3>
-            <p>
-              I don&apos;t push full AI systems on day one. We start with a landing system
-              that you can plug into your existing marketing and follow-up, then layer in AI
-              where it clearly makes financial sense.
+          {/* Pricing & Structure */}
+          <div
+            style={{
+              borderRadius: 18,
+              padding: 18,
+              background:
+                "radial-gradient(circle at top, rgba(24,24,27,0.9), rgba(15,23,42,0.98))",
+              border: "1px solid rgba(148,163,184,0.6)",
+              boxShadow: "0 20px 60px rgba(15,23,42,0.75)",
+            }}
+          >
+            <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: "1.1rem" }}>
+              The Offer: Buy 1, Get 3 Pages
+            </h2>
+            <p
+              style={{
+                fontSize: "0.96rem",
+                color: "#E5E7EB",
+                marginTop: 0,
+                marginBottom: 10,
+              }}
+            >
+              You&apos;re not just buying a single page. You&apos;re getting a
+              small landing system.
             </p>
-            <ol className="steps-list">
-              <li>Quick call to understand your offers, traffic sources, and booking flow.</li>
-              <li>We map your first 1–3 landing pages and the lead sheet fields.</li>
-              <li>I build and host the pages, wire the sheet, and send you a preview.</li>
+            <div
+              style={{
+                borderRadius: 14,
+                padding: 12,
+                background:
+                  "linear-gradient(135deg, rgba(244,208,63,0.12), rgba(4,120,87,0.4))",
+                border: "1px solid rgba(244,208,63,0.5)",
+                marginBottom: 12,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "0.9rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.14em",
+                  color: "#F4D03F",
+                  marginBottom: 4,
+                }}
+              >
+                One-time build fee
+              </div>
+              <div
+                style={{
+                  fontSize: "1.08rem",
+                  fontWeight: 600,
+                  marginBottom: 4,
+                }}
+              >
+                $2,600 total – buy 1, get 3 pages
+              </div>
+              <div style={{ fontSize: "0.9rem", color: "#E5E7EB" }}>
+                Up to three coordinated landing pages for the same brand/offer:
+                a main page, an alternate angle, and/or a retargeting page.
+              </div>
+            </div>
+
+            <div
+              style={{
+                borderRadius: 14,
+                padding: 12,
+                background: "rgba(15,23,42,0.96)",
+                border: "1px solid rgba(148,163,184,0.7)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "0.9rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.14em",
+                  color: "#9CA3AF",
+                  marginBottom: 4,
+                }}
+              >
+                Ongoing support & management
+              </div>
+              <div
+                style={{
+                  fontSize: "0.98rem",
+                  fontWeight: 600,
+                  marginBottom: 4,
+                }}
+              >
+                $197/month for your first page  
+                <br />
+                +$98/month per additional page
+              </div>
+              <div
+                style={{ fontSize: "0.9rem", color: "#E5E7EB" }}
+              >
+                Covers hosting, uptime, minor copy tweaks, technical
+                maintenance, consent language updates, and maintaining your
+                Google Sheet lead feed.
+              </div>
+            </div>
+          </div>
+
+          {/* Option A vs B */}
+          <div
+            style={{
+              display: "grid",
+              gap: 18,
+            }}
+          >
+            <div
+              style={{
+                borderRadius: 18,
+                padding: 16,
+                background: "rgba(15,23,42,0.96)",
+                border: "1px solid rgba(148,163,184,0.7)",
+              }}
+            >
+              <h3
+                style={{
+                  marginTop: 0,
+                  marginBottom: 6,
+                  fontSize: "1.02rem",
+                }}
+              >
+                Option A – Landing System Only
+              </h3>
+              <p
+                style={{
+                  fontSize: "0.94rem",
+                  color: "#E5E7EB",
+                  marginTop: 0,
+                }}
+              >
+                Use your own team and tools to work the leads.
+              </p>
+              <ul
+                style={{
+                  listStyle: "disc",
+                  paddingLeft: 20,
+                  fontSize: "0.9rem",
+                  color: "#E5E7EB",
+                  display: "grid",
+                  gap: 4,
+                }}
+              >
+                <li>
+                  You get the 3-page landing system, live Google Sheet feed, and
+                  full hosting/maintenance.
+                </li>
+                <li>
+                  Your team or existing agency handles calling, texting, and
+                  sales using your current CRM or dialer.
+                </li>
+                <li>No AI minutes or SMS usage required.</li>
+              </ul>
+            </div>
+
+            <div
+              style={{
+                borderRadius: 18,
+                padding: 16,
+                background:
+                  "radial-gradient(circle at top, rgba(30,64,175,0.3), rgba(15,23,42,0.98))",
+                border: "1px solid rgba(129,140,248,0.7)",
+                boxShadow: "0 20px 60px rgba(30,64,175,0.55)",
+              }}
+            >
+              <h3
+                style={{
+                  marginTop: 0,
+                  marginBottom: 6,
+                  fontSize: "1.02rem",
+                }}
+              >
+                Option B – Landing + AI Call System
+              </h3>
+              <p
+                style={{
+                  fontSize: "0.94rem",
+                  color: "#E5E7EB",
+                  marginTop: 0,
+                  marginBottom: 6,
+                }}
+              >
+                Everything in Option A, plus an AI agent that can call or
+                answer leads for you.
+              </p>
+              <ul
+                style={{
+                  listStyle: "disc",
+                  paddingLeft: 20,
+                  fontSize: "0.9rem",
+                  color: "#E5E7EB",
+                  display: "grid",
+                  gap: 4,
+                }}
+              >
+                <li>
+                  AI demo/booking agent (Thoughtly) wired into your landing
+                  system.
+                </li>
+                <li>
+                  Speed-to-lead: new form submissions can trigger outbound AI
+                  calls (once configured).
+                </li>
+                <li>
+                  Google Sheet upgraded with call outcomes: called, no answer,
+                  booked, not qualified, etc.
+                </li>
+                <li>
+                  AI voice minutes & SMS billed separately based on usage
+                  (starter voice & SMS plans available, or connect your own
+                  Twilio/Telnyx).
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Code ownership & next steps */}
+          <div
+            style={{
+              borderRadius: 18,
+              padding: 16,
+              background: "rgba(15,23,42,0.96)",
+              border: "1px solid rgba(148,163,184,0.7)",
+            }}
+          >
+            <h3
+              style={{
+                marginTop: 0,
+                marginBottom: 6,
+                fontSize: "1.02rem",
+              }}
+            >
+              Code Ownership & Next Steps
+            </h3>
+            <p
+              style={{
+                fontSize: "0.9rem",
+                color: "#E5E7EB",
+                marginTop: 0,
+                marginBottom: 6,
+              }}
+            >
+              By default, I host and manage everything for you. If you ever
+              want the full codebase:
+            </p>
+            <ul
+              style={{
+                listStyle: "disc",
+                paddingLeft: 20,
+                fontSize: "0.9rem",
+                color: "#E5E7EB",
+                marginBottom: 8,
+                display: "grid",
+                gap: 4,
+              }}
+            >
+              <li>$1,250 per page for a full code handoff.</li>
               <li>
-                You start sending traffic. When you&apos;re ready, we can discuss AI calling,
-                SMS, and no-show recovery on top.
+                Or $800 per page if you&apos;ve been on the monthly plan for 6+
+                months.
+              </li>
+            </ul>
+            <p
+              style={{
+                fontSize: "0.9rem",
+                color: "#9CA3AF",
+                marginTop: 0,
+              }}
+            >
+              From there you can bring it all in-house or hand it to your own
+              dev team whenever you&apos;re ready.
+            </p>
+          </div>
+
+          <div
+            style={{
+              borderRadius: 18,
+              padding: 16,
+              background:
+                "radial-gradient(circle at top, rgba(4,120,87,0.4), rgba(15,23,42,0.98))",
+              border: "1px solid rgba(148,163,184,0.7)",
+              textAlign: "left",
+            }}
+          >
+            <h3
+              style={{
+                marginTop: 0,
+                marginBottom: 6,
+                fontSize: "1.02rem",
+              }}
+            >
+              What Happens Next
+            </h3>
+            <ol
+              style={{
+                paddingLeft: 20,
+                fontSize: "0.9rem",
+                color: "#E5E7EB",
+                display: "grid",
+                gap: 4,
+              }}
+            >
+              <li>
+                We map your offer, audiences, and what &quot;success&quot;
+                means (bookings, visits, consults, etc.).
+              </li>
+              <li>
+                I build and launch up to three coordinated landing pages, wired
+                into a shared Google Sheet with live test submissions.
+              </li>
+              <li>
+                You choose: keep it as a clean lead engine (Option A) or attach
+                AI calling and no-show recovery when you&apos;re ready
+                (Option B).
               </li>
             </ol>
-            <p className="footer-note">
-              Whether we end up using AI calling or not, you walk away with a clean,
-              conversion-focused landing system and clear visibility on every lead that
-              comes through it.
-            </p>
           </div>
         </section>
       </div>
