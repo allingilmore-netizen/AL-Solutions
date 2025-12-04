@@ -163,8 +163,9 @@ const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // 🔑 Use Authorization: Bearer, NOT x-api-token
-          Authorization: "Bearer gsdehgfexqozs08djra1ah",
+          // 👉 Per Thoughtly docs:
+          "x-api-token": "gsdehgfexqozs08djra1ah",
+          "team_id": "f5dc5067-6cfa-474a-b1ed-3e2301b650d7",
         },
         body: JSON.stringify({
           firstName,
@@ -176,7 +177,9 @@ const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
       }
     );
 
-    console.log("Thoughtly webhook status", res.status);
+    console.log("Thoughtly webhook status:", res.status);
+
+    // Try to read response body for debugging
     const text = await res.text().catch(() => "");
     console.log("Thoughtly webhook response body:", text);
   } catch (err) {
