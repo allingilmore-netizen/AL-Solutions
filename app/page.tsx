@@ -146,39 +146,43 @@ export default function Page() {
   };
 
   // === UPDATED: Thoughtly webhook + UI state ===
-  const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+ const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  event.preventDefault();
 
-    const formData = new FormData(event.currentTarget);
+  const formData = new FormData(event.currentTarget);
 
-    const firstName = String(formData.get("firstName") ?? "");
-    const phone = String(formData.get("phone") ?? "");
-    const email = String(formData.get("email") ?? "");
-    const companyType = String(formData.get("companyType") ?? "");
+  const firstName = String(formData.get("firstName") ?? "");
+  const phone = String(formData.get("phone") ?? "");
+  const email = String(formData.get("email") ?? "");
+  const companyType = String(formData.get("companyType") ?? "");
 
-    try {
-      await fetch(
-        "https://api.thoughtly.com/webhook/automation/Oqf6FbI5nD04",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            firstName,
-            phone,
-            email,
-            companyType,
-            source: "ai-landing-speed-to-lead",
-          }),
-        }
-      );
-    } catch (err) {
-      console.error("Error calling Thoughtly webhook", err);
-    }
+  try {
+    const res = await fetch(
+      "https://api.thoughtly.com/webhook/automation/Oqf6FbI5nD04",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // ⬇️ TEMP: put your real Thoughtly token here for testing
+          "x-api-token": "gsdehgfexqozs08djra1ah",
+        },
+        body: JSON.stringify({
+          firstName,
+          phone,
+          email,
+          companyType,
+          source: "ai-landing-speed-to-lead",
+        }),
+      }
+    );
 
-    setFormSubmitted(true);
-  };
+    console.log("Thoughtly webhook status", res.status);
+  } catch (err) {
+    console.error("Error calling Thoughtly webhook", err);
+  }
+
+  setFormSubmitted(true);
+};
 
   const handleExitLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
