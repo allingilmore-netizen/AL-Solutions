@@ -146,7 +146,7 @@ export default function Page() {
   };
 
   // === UPDATED: Thoughtly webhook + UI state ===
- const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
+const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
   event.preventDefault();
 
   const formData = new FormData(event.currentTarget);
@@ -163,8 +163,8 @@ export default function Page() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // ⬇️ TEMP: put your real Thoughtly token here for testing
-          "x-api-token": "gsdehgfexqozs08djra1ah",
+          // 🔑 Use Authorization: Bearer, NOT x-api-token
+          Authorization: "Bearer gsdehgfexqozs08djra1ah",
         },
         body: JSON.stringify({
           firstName,
@@ -177,6 +177,8 @@ export default function Page() {
     );
 
     console.log("Thoughtly webhook status", res.status);
+    const text = await res.text().catch(() => "");
+    console.log("Thoughtly webhook response body:", text);
   } catch (err) {
     console.error("Error calling Thoughtly webhook", err);
   }
