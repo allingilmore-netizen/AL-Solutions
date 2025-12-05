@@ -1285,6 +1285,27 @@ export default function Page() {
           opacity: 1;
           transform: translateY(0);
         }
+
+        /* Tiny footer legal links */
+        .footer-legal {
+          margin-top: 32px;
+          font-size: 0.7rem;
+          color: #6B7280; /* soft gray */
+          text-align: center;
+          opacity: 0.8;
+        }
+
+        .footer-legal a {
+          color: inherit;
+          text-decoration: none;
+          border-bottom: 1px solid rgba(107, 114, 128, 0.3);
+          padding-bottom: 1px;
+        }
+
+        .footer-legal a:hover {
+          opacity: 1;
+          border-bottom-color: rgba(148, 163, 184, 0.8);
+        }
       `}</style>
 
       <div className="aid-wrapper">
@@ -1315,9 +1336,9 @@ export default function Page() {
                 with always-on AI agents.
               </h1>
               <p className="hero-subtitle">
-                Your AI workforce answers every call, qualifies, books calendars,
-                recovers no-shows, and handles dispatch — so you stop bleeding
-                revenue to voicemail, delays, and &ldquo;we&apos;ll call them later.&rdquo;
+                We start simple — with a conversion-optimized landing page and a live AI demo
+                agent — then layer in advanced booking, no-show recovery, and full
+                multi-agent systems as you’re ready.
               </p>
 
               <div className="hero-ctas">
@@ -1736,6 +1757,17 @@ export default function Page() {
             </div>
           </section>
         )}
+
+        <footer className="footer-legal">
+          <span>© {new Date().getFullYear()} All In Digital. </span>
+          <a href="/terms" target="_blank" rel="noopener noreferrer">
+            Terms of Service
+          </a>
+          {" · "}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer">
+            Privacy Policy
+          </a>
+        </footer>
       </div>
 
       {/* ROI Modal */}
