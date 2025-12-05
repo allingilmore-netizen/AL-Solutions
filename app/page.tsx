@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 type IndustryTrack = "sales" | "local" | null;
 
 /**
- * NEW: Helper to send lead data to your Next.js API route,
+ * Helper to send lead data to your Next.js API route,
  * which then calls Thoughtly.
  */
 async function sendLeadToThoughtly(formData: FormData) {
@@ -14,10 +14,7 @@ async function sendLeadToThoughtly(formData: FormData) {
   const phone = formData.get("phone") as string | null;
 
   const payload = {
-    // Full name field for Thoughtly
-    name: firstName, // later you can do `${firstName} ${lastName || ""}`
-
-    // Also send more structured fields
+    name: firstName,
     firstName,
     email,
     phone,
@@ -39,7 +36,7 @@ async function sendLeadToThoughtly(formData: FormData) {
   try {
     data = await res.json();
   } catch {
-    // If response isn't JSON, just swallow and treat as generic error
+    // response may not be JSON; that's OK
   }
 
   return { ok: res.ok && (data?.ok ?? true), data };
@@ -54,7 +51,7 @@ export default function Page() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [exitFormSubmitted, setExitFormSubmitted] = useState(false);
 
-  // NEW: form UX state for main lead form
+  // Form UX state for main lead form
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -189,32 +186,37 @@ export default function Page() {
 
   /**
    * UPDATED: main lead form submission
+   * - Captures form ref before await
    * - Calls sendLeadToThoughtly (your API route)
    * - Handles loading + error
-   * - Keeps your original "Submitted" UI
    */
   const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    // Grab the form element immediately, BEFORE any await
+    const form = event.currentTarget;
 
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(false);
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(form);
 
     try {
       const result = await sendLeadToThoughtly(formData);
+
       setIsSubmitting(false);
 
       if (!result.ok) {
-        console.error("Webhook failed:", result.data);
+        console.error("Error calling /api/thoughtly-webhook", result.data);
         setSubmitError("Something went wrong. Please try again.");
         return;
       }
 
       setSubmitSuccess(true);
       setFormSubmitted(true);
-      event.currentTarget.reset();
+      // Use the captured form reference, not event.currentTarget
+      form.reset();
     } catch (err) {
       console.error("Error calling /api/thoughtly-webhook", err);
       setIsSubmitting(false);
