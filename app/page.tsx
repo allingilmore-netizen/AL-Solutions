@@ -4,6 +4,37 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 type IndustryTrack = "sales" | "local" | null;
 
+/**
+ * NEW: Helper to send lead data to your Next.js API route,
+ * which then calls Thoughtly.
+ */
+async function sendLeadToThoughtly(formData: FormData) {
+  const payload = {
+    firstName: formData.get("firstName"),
+    email: formData.get("email"),
+    phone: formData.get("phone"),
+    consent: formData.get("consent") === "on",
+    source: "Landing Page – Web Form",
+  };
+
+  const res = await fetch("/api/thoughtly-webhook", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  let data: any = {};
+  try {
+    data = await res.json();
+  } catch {
+    // If response isn't JSON, just swallow and treat as generic error
+  }
+
+  return { ok: res.ok && (data?.ok ?? true), data };
+}
+
 export default function Page() {
   const [industryTrack, setIndustryTrack] = useState<IndustryTrack>(null);
   const [hasContinued, setHasContinued] = useState(false);
@@ -12,6 +43,11 @@ export default function Page() {
   const [hasExitIntentShown, setHasExitIntentShown] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [exitFormSubmitted, setExitFormSubmitted] = useState(false);
+
+  // NEW: form UX state for main lead form
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   // Simple ROI state
   const [monthlyLeads, setMonthlyLeads] = useState("200");
@@ -25,11 +61,10 @@ export default function Page() {
   const isExitOpenRef = useRef(false);
   const lastScrollYRef = useRef(0);
 
-  // ==== FIX 1: New, super-simple jump helper using location.hash ====
+  // Helper: hash jump for scroll-to-section
   const jumpToId = (id: string) => {
     if (typeof window === "undefined") return;
     const hash = `#${id}`;
-    // Force re-trigger even if already on that hash
     if (window.location.hash === hash) {
       window.location.hash = "";
     }
@@ -58,8 +93,7 @@ export default function Page() {
       const scrollingUp = y < previousY;
       const isMobile = window.innerWidth < 1024;
 
-      // ==== FIX 5: Looser, more reliable mobile exit-intent ====
-      // On mobile, after engagement: any decent upward scroll (delta > 30) while near-ish top (<300px)
+      // Mobile exit-intent: upward scroll near top after engagement
       if (
         isMobile &&
         hasEngagedRef.current &&
@@ -80,7 +114,6 @@ export default function Page() {
 
     const handleMouseLeave = (event: MouseEvent) => {
       const isDesktop = window.innerWidth >= 1024;
-      // Desktop exit-intent: mouse leaving viewport at top, after engagement threshold
       if (
         isDesktop &&
         event.clientY <= 0 &&
@@ -134,7 +167,6 @@ export default function Page() {
     setIndustryTrack(track);
   };
 
-  // ==== FIX 3: Continue now reveals + then jumps via hash ====
   const handleContinue = () => {
     if (!industryTrack) return;
     setHasContinued(true);
@@ -145,49 +177,40 @@ export default function Page() {
     }
   };
 
-  // === UPDATED: Thoughtly webhook + UI state ===
-const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
-  event.preventDefault();
+  /**
+   * UPDATED: main lead form submission
+   * - Calls sendLeadToThoughtly (your API route)
+   * - Handles loading + error
+   * - Keeps your original "Submitted" UI
+   */
+  const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-  const formData = new FormData(event.currentTarget);
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
 
-  const firstName = String(formData.get("firstName") ?? "");
-  const phone = String(formData.get("phone") ?? "");
-  const email = String(formData.get("email") ?? "");
-  const companyType = String(formData.get("companyType") ?? "");
+    const formData = new FormData(event.currentTarget);
 
-  try {
-    const res = await fetch(
-      "https://api.thoughtly.com/webhook/automation/Oqf6FbI5nD04",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // 👉 Per Thoughtly docs:
-          "x-api-token": "gsdehgfexqozs08djra1ah",
-          "team_id": "f5dc5067-6cfa-474a-b1ed-3e2301b650d7",
-        },
-        body: JSON.stringify({
-          firstName,
-          phone,
-          email,
-          companyType,
-          source: "ai-landing-speed-to-lead",
-        }),
+    try {
+      const result = await sendLeadToThoughtly(formData);
+      setIsSubmitting(false);
+
+      if (!result.ok) {
+        console.error("Webhook failed:", result.data);
+        setSubmitError("Something went wrong. Please try again.");
+        return;
       }
-    );
 
-    console.log("Thoughtly webhook status:", res.status);
-
-    // Try to read response body for debugging
-    const text = await res.text().catch(() => "");
-    console.log("Thoughtly webhook response body:", text);
-  } catch (err) {
-    console.error("Error calling Thoughtly webhook", err);
-  }
-
-  setFormSubmitted(true);
-};
+      setSubmitSuccess(true);
+      setFormSubmitted(true);
+      event.currentTarget.reset();
+    } catch (err) {
+      console.error("Error calling /api/thoughtly-webhook", err);
+      setIsSubmitting(false);
+      setSubmitError("Something went wrong. Please try again.");
+    }
+  };
 
   const handleExitLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1284,13 +1307,12 @@ const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
                 with always-on AI agents.
               </h1>
               <p className="hero-subtitle">
-                We start simple — with a conversion-optimized landing page and a live AI demo
-                agent — then layer in advanced booking, no-show recovery, and full
-                multi-agent systems as you’re ready.
+                Your AI workforce answers every call, qualifies, books calendars,
+                recovers no-shows, and handles dispatch — so you stop bleeding
+                revenue to voicemail, delays, and &ldquo;we&apos;ll call them later.&rdquo;
               </p>
 
               <div className="hero-ctas">
-                {/* ==== FIX 2a: Hero button uses jumpToId via onClick ==== */}
                 <button
                   className="primary-cta"
                   type="button"
@@ -1350,15 +1372,29 @@ const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
                   </span>
                 </div>
 
-                <button type="submit" className="lead-submit-btn">
-                  {formSubmitted
+                <button type="submit" className="lead-submit-btn" disabled={isSubmitting}>
+                  {isSubmitting
+                    ? "Sending..."
+                    : formSubmitted
                     ? "Submitted – we’ll be in touch shortly"
                     : "Get My Live AI Demo"}
                 </button>
 
+                {submitError && (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: "0.82rem",
+                      color: "#f87171",
+                    }}
+                  >
+                    {submitError}
+                  </div>
+                )}
+
                 {formSubmitted && (
                   <div className="lead-thankyou">
-                    Thanks! We&apos;ll be reaching out to you here very shortly.
+                    Thanks! We&apos;ll confirm by email/text and share a live AI call link.
                   </div>
                 )}
               </form>
@@ -1801,7 +1837,6 @@ const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
                 for your {selectedLabel || "business"}?
               </p>
 
-              {/* ==== FIX 4: Inline mini lead form inside the exit popup ==== */}
               <form className="exit-form" onSubmit={handleExitLeadSubmit}>
                 <label htmlFor="exitName">First name</label>
                 <input id="exitName" name="exitName" required />
@@ -1837,7 +1872,6 @@ const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
             Ready to see what an AI workforce could recover for{" "}
             <span>{selectedLabel || "your business"}</span>?
           </div>
-          {/* ==== FIX 2b: Sticky CTA uses jumpToId to reliably go to form ==== */}
           <button
             className="sticky-btn"
             type="button"
