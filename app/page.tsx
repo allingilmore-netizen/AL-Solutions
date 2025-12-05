@@ -9,13 +9,23 @@ type IndustryTrack = "sales" | "local" | null;
  * which then calls Thoughtly.
  */
 async function sendLeadToThoughtly(formData: FormData) {
+  const firstName = formData.get("firstName") as string | null;
+  const email = formData.get("email") as string | null;
+  const phone = formData.get("phone") as string | null;
+
   const payload = {
-    firstName: formData.get("firstName"),
-    email: formData.get("email"),
-    phone: formData.get("phone"),
+    // Full name field for Thoughtly
+    name: firstName, // later you can do `${firstName} ${lastName || ""}`
+
+    // Also send more structured fields
+    firstName,
+    email,
+    phone,
     consent: formData.get("consent") === "on",
     source: "Landing Page – Web Form",
   };
+
+  console.log("Sending payload to Thoughtly:", payload);
 
   const res = await fetch("/api/thoughtly-webhook", {
     method: "POST",
