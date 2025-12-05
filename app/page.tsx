@@ -186,15 +186,14 @@ export default function Page() {
 
   /**
    * UPDATED: main lead form submission
-   * - Captures form ref before await
+   * - No reset() call at all (prevents null reset error)
    * - Calls sendLeadToThoughtly (your API route)
    * - Handles loading + error
    */
-  const handleLeadSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleLeadSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-    // Grab the form element immediately, BEFORE any await
-    const form = event.currentTarget;
+    const form = e.currentTarget;
 
     setIsSubmitting(true);
     setSubmitError(null);
@@ -205,22 +204,19 @@ export default function Page() {
     try {
       const result = await sendLeadToThoughtly(formData);
 
-      setIsSubmitting(false);
-
       if (!result.ok) {
-        console.error("Error calling /api/thoughtly-webhook", result.data);
+        console.error("Webhook error", result.data);
         setSubmitError("Something went wrong. Please try again.");
-        return;
+      } else {
+        setSubmitSuccess(true);
+        setFormSubmitted(true);
+        // NOTE: no form.reset() here
       }
-
-      setSubmitSuccess(true);
-      setFormSubmitted(true);
-      // Use the captured form reference, not event.currentTarget
-      form.reset();
     } catch (err) {
       console.error("Error calling /api/thoughtly-webhook", err);
-      setIsSubmitting(false);
       setSubmitError("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
