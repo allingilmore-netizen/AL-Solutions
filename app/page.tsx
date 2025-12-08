@@ -1336,9 +1336,9 @@ export default function Page() {
                 with always-on AI agents.
               </h1>
               <p className="hero-subtitle">
-                We start simple — with a conversion-optimized landing page and a live AI demo
-                agent — then layer in advanced booking, no-show recovery, and full
-                multi-agent systems as you’re ready.
+                Your AI workforce answers every call, qualifies, books calendars,
+                recovers no-shows, and handles dispatch — so you stop bleeding
+                revenue to voicemail, delays, and &ldquo;we&apos;ll call them later.&rdquo;
               </p>
 
               <div className="hero-ctas">
@@ -1349,9 +1349,27 @@ export default function Page() {
                 >
                   Hear the AI in Action
                 </button>
+
                 <button className="secondary-cta" type="button" onClick={openRoi}>
                   Run ROI Calculator
                 </button>
+
+                <a
+                  href="tel:+12396880201"
+                  className="secondary-cta"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    textDecoration: "none",
+                    background: "rgba(4,120,87,0.18)",
+                    border: "1px solid rgba(4,120,87,0.45)",
+                    color: "#A7F3D0",
+                    fontWeight: 600,
+                  }}
+                >
+                  📞 Call Now
+                </a>
               </div>
 
               <div className="hero-badges">
