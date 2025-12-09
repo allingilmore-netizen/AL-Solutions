@@ -112,6 +112,11 @@ export default function PricingOsPage() {
   const [inboundAvgTicket, setInboundAvgTicket] = useState("900");
   const [workingDays, setWorkingDays] = useState("22");
 
+  // Copy status for summary button
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
+    "idle"
+  );
+
   // Derived metrics: Calculator 1
   const {
     baseCloses,
@@ -218,6 +223,90 @@ export default function PricingOsPage() {
   ]);
 
   const industryData = INDUSTRY_COPY[industry];
+
+  // Copy ROI summary handler
+  const handleCopySummary = async () => {
+    try {
+      const lines: string[] = [];
+
+      lines.push(`Industry: ${INDUSTRY_LABELS[industry]}`);
+      lines.push("");
+      lines.push("Full Funnel Uplift (Lead → Book → Show → Close)");
+      lines.push(
+        `- Leads / month: ${Number(leadsPerMonth) || 0} (current lead→book: ${
+          Number(leadToBookRate) || 0
+        }%, show: ${Number(showRate) || 0}%, close: ${
+          Number(closeRate) || 0
+        }%)`
+      );
+      lines.push(
+        `- Current revenue / month: $${baseRevenue.toLocaleString(
+          undefined,
+          { maximumFractionDigits: 0 }
+        )} (${baseCloses.toFixed(1)} closes)`
+      );
+      lines.push(
+        `- With full AI SOP: $${sopRevenue.toLocaleString(undefined, {
+          maximumFractionDigits: 0,
+        })} (${sopCloses.toFixed(1)} closes)`
+      );
+      lines.push(
+        `- Extra revenue / month from SOP: $${sopExtraRevenue.toLocaleString(
+          undefined,
+          { maximumFractionDigits: 0 }
+        )}`
+      );
+      lines.push(
+        `- Investment: ~$${implSetupCost || 0} setup + $${
+          implMonthlyFee || 0
+        }/mo`
+      );
+      if (Number.isFinite(paybackMonths) && paybackMonths > 0) {
+        lines.push(
+          `- Rough Year 1 payback period: ~${paybackMonths.toFixed(1)} months`
+        );
+      }
+      lines.push("");
+      lines.push("Missed Call / Voicemail Recovery");
+      lines.push(
+        `- Missed calls / month: ${missedCallsPerMonth.toFixed(
+          0
+        )} (we re-engage ~${aiReached.toFixed(0)})`
+      );
+      lines.push(
+        `- AI books: ~${aiBooked.toFixed(
+          0
+        )} extra slots and completes ~${aiClosed.toFixed(0)} jobs / consults`
+      );
+      lines.push(
+        `- Extra revenue / month just from missed calls: $${aiRecoveredRevenue.toLocaleString(
+          undefined,
+          { maximumFractionDigits: 0 }
+        )}`
+      );
+      lines.push("");
+      lines.push(
+        "This assumes we run the full speed-to-lead + no-show + callback + sales SOP (15–20 calls + 5–10 SMS per lead over 30–60 days) with Slot A/B booking and pre-call video framing."
+      );
+
+      const summary = lines.join("\n");
+
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(summary);
+        setCopyStatus("copied");
+        setTimeout(() => setCopyStatus("idle"), 2000);
+      } else {
+        // Fallback: show text in prompt
+        window.prompt("Copy this ROI summary:", summary);
+        setCopyStatus("copied");
+        setTimeout(() => setCopyStatus("idle"), 2000);
+      }
+    } catch (err) {
+      console.error("Failed to copy summary", err);
+      setCopyStatus("error");
+      setTimeout(() => setCopyStatus("idle"), 2500);
+    }
+  };
 
   return (
     <main className="aid-pricing-page">
@@ -789,7 +878,8 @@ export default function PricingOsPage() {
         }
 
         .cta-btn-primary,
-        .cta-btn-secondary {
+        .cta-btn-secondary,
+        .cta-btn-ghost {
           border-radius: 999px;
           border: none;
           padding: 8px 14px;
@@ -817,6 +907,19 @@ export default function PricingOsPage() {
           background: rgba(15, 23, 42, 0.95);
           border: 1px solid rgba(148, 163, 184, 0.8);
           color: #E5E7EB;
+        }
+
+        .cta-btn-ghost {
+          background: transparent;
+          border: 1px dashed rgba(148, 163, 184, 0.7);
+          color: #E5E7EB;
+          font-size: 0.85rem;
+        }
+
+        .cta-btn-ghost--copied {
+          border-style: solid;
+          border-color: var(--gold);
+          color: var(--gold);
         }
 
         .footer-note {
@@ -1428,13 +1531,27 @@ export default function PricingOsPage() {
             <a href="tel:2396880201" className="cta-btn-secondary">
               Or call 239-688-0201
             </a>
+            <button
+              type="button"
+              onClick={handleCopySummary}
+              className={
+                "cta-btn-ghost" +
+                (copyStatus === "copied" ? " cta-btn-ghost--copied" : "")
+              }
+            >
+              {copyStatus === "copied"
+                ? "ROI summary copied"
+                : copyStatus === "error"
+                ? "Copy failed — try again"
+                : "Copy ROI summary"}
+            </button>
           </div>
         </div>
 
         <div className="footer-note">
           Use this page live on calls to walk prospects through the diagrams and
-          calculators — then let the AI demo and your pre-call video do the
-          heavy lifting.
+          calculators — then hit “Copy ROI summary” and paste it straight into
+          your recap email or proposal.
         </div>
       </div>
     </main>
