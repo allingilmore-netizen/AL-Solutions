@@ -1,11 +1,223 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
-type ViewTab = "overview" | "systems" | "pricing" | "plans";
+type Industry =
+  | "hvac"
+  | "roofing"
+  | "solar"
+  | "medspa"
+  | "dental"
+  | "homeservices"
+  | "contractor"
+  | "agency"
+  | "realestate"
+  | "legal";
 
-export default function PricingPage() {
-  const [tab, setTab] = useState<ViewTab>("overview");
+const INDUSTRY_LABELS: Record<Industry, string> = {
+  hvac: "HVAC",
+  roofing: "Roofing",
+  solar: "Solar",
+  medspa: "Med Spa",
+  dental: "Dental",
+  homeservices: "Home Services",
+  contractor: "Contractors",
+  agency: "Marketing Agencies",
+  realestate: "Real Estate",
+  legal: "Legal / Professional",
+};
+
+const INDUSTRY_COPY: Record<
+  Industry,
+  { headline: string; sub: string; example: string }
+> = {
+  hvac: {
+    headline: "Stop losing AC and furnace jobs to missed calls.",
+    sub: "After-hours calls, weekend emergencies, and “call me back later” leads get handled instantly.",
+    example: "25-ton rooftop unit replacement or full system install.",
+  },
+  roofing: {
+    headline: "Turn storm spikes into booked roof inspections.",
+    sub: "Every call after a storm is a race. Your AI system never lets them go to voicemail.",
+    example: "Full roof replacement or insurance restoration project.",
+  },
+  solar: {
+    headline: "Push more solar consultations to the table.",
+    sub: "Every inbound lead is pre-framed, pre-qualified, and booked with higher show-up intent.",
+    example: "Residential solar consult with finance pre-framing.",
+  },
+  medspa: {
+    headline: "Fill high-ticket med spa appointments consistently.",
+    sub: "Botox, fillers, and package offers with fewer no-shows and tighter rebooking.",
+    example: "Full-face package or recurring membership plan.",
+  },
+  dental: {
+    headline: "Keep your chairs full with better shows.",
+    sub: "Same-day emergencies, hygiene recalls, and high-value cases booked and reminded properly.",
+    example: "Implant case, Invisalign, or full-mouth restoration.",
+  },
+  homeservices: {
+    headline: "Never let a hot service lead hit voicemail.",
+    sub: "Plumbing, electrical, and other urgent calls get answered, booked, and followed up automatically.",
+    example: "Water heater replacement, panel upgrade, or emergency repair.",
+  },
+  contractor: {
+    headline: "More estimates booked, less admin chaos.",
+    sub: "Your AI handles intake, scheduling, and follow-up so your crews stay in the field.",
+    example: "Kitchen remodel or full interior renovation.",
+  },
+  agency: {
+    headline: "Turn inbound interest into real strategy calls.",
+    sub: "Every enquiry gets followed up, booked, and warmed for your closers.",
+    example: "Strategy session or monthly retainer proposal.",
+  },
+  realestate: {
+    headline: "Turn curious leads into calendar-showing appointments.",
+    sub: "Buyers and sellers get nurtured, booked, and reminded automatically.",
+    example: "Buyer consult, listing appointment, or property tour.",
+  },
+  legal: {
+    headline: "Intake calls handled, consults booked, clients prepared.",
+    sub: "Every voicemail and “call later” is a missed case. Your AI intake fixes that.",
+    example: "Initial consultation for high-value legal matter.",
+  },
+};
+
+export default function PricingOsPage() {
+  // Global industry selection
+  const [industry, setIndustry] = useState<Industry>("homeservices");
+
+  // Calculator 1: Lead → Book → Show → Close
+  const [leadsPerMonth, setLeadsPerMonth] = useState("200");
+  const [leadToBookRate, setLeadToBookRate] = useState("35"); // %
+  const [showRate, setShowRate] = useState("60"); // %
+  const [closeRate, setCloseRate] = useState("30"); // %
+  const [avgTicket, setAvgTicket] = useState("2500");
+
+  // Improvements (your SOP impact)
+  const [bookLiftDelta, setBookLiftDelta] = useState("-5"); // % change (can be negative)
+  const [showLift, setShowLift] = useState("30"); // %
+  const [closeLift, setCloseLift] = useState("25"); // %
+
+  // Implementation cost for ROI payback
+  const [implSetupCost, setImplSetupCost] = useState("6200");
+  const [implMonthlyFee, setImplMonthlyFee] = useState("1250");
+
+  // Calculator 2: Inbound Missed Calls → Recovered Revenue
+  const [dailyInboundCalls, setDailyInboundCalls] = useState("40");
+  const [missedRate, setMissedRate] = useState("35"); // %
+  const [aiReachRate, setAiReachRate] = useState("70"); // %
+  const [aiConvertRate, setAiConvertRate] = useState("30"); // %
+  const [inboundCloseRate, setInboundCloseRate] = useState("80"); // %
+  const [inboundAvgTicket, setInboundAvgTicket] = useState("900");
+  const [workingDays, setWorkingDays] = useState("22");
+
+  // Derived metrics: Calculator 1
+  const {
+    baseCloses,
+    baseRevenue,
+    sopCloses,
+    sopRevenue,
+    sopExtraRevenue,
+    paybackMonths,
+  } = useMemo(() => {
+    const leads = Number(leadsPerMonth) || 0;
+    const l2b = (Number(leadToBookRate) || 0) / 100;
+    const show = (Number(showRate) || 0) / 100;
+    const close = (Number(closeRate) || 0) / 100;
+    const ticket = Number(avgTicket) || 0;
+
+    // baseline
+    const booked = leads * l2b;
+    const showed = booked * show;
+    const closed = showed * close;
+    const rev = closed * ticket;
+
+    // improved
+    const bookLift = (Number(bookLiftDelta) || 0) / 100;
+    const showLiftVal = (Number(showLift) || 0) / 100;
+    const closeLiftVal = (Number(closeLift) || 0) / 100;
+
+    const newL2b = Math.max(l2b * (1 + bookLift), 0);
+    const newShow = Math.min(show * (1 + showLiftVal), 1);
+    const newClose = Math.min(close * (1 + closeLiftVal), 1);
+
+    const newBooked = leads * newL2b;
+    const newShowed = newBooked * newShow;
+    const newClosed = newShowed * newClose;
+    const newRev = newClosed * ticket;
+
+    const extra = Math.max(newRev - rev, 0);
+
+    const setup = Number(implSetupCost) || 0;
+    const monthly = Number(implMonthlyFee) || 0;
+    const totalInvestmentYear1 = setup + monthly * 12;
+
+    const payback =
+      extra > 0 ? Math.max(totalInvestmentYear1 / (extra || 1), 0) : Infinity;
+
+    return {
+      baseCloses: closed,
+      baseRevenue: rev,
+      sopCloses: newClosed,
+      sopRevenue: newRev,
+      sopExtraRevenue: extra,
+      paybackMonths: payback,
+    };
+  }, [
+    leadsPerMonth,
+    leadToBookRate,
+    showRate,
+    closeRate,
+    avgTicket,
+    bookLiftDelta,
+    showLift,
+    closeLift,
+    implSetupCost,
+    implMonthlyFee,
+  ]);
+
+  // Derived metrics: Calculator 2
+  const {
+    missedCallsPerMonth,
+    aiReached,
+    aiBooked,
+    aiClosed,
+    aiRecoveredRevenue,
+  } = useMemo(() => {
+    const dailyCalls = Number(dailyInboundCalls) || 0;
+    const missedPct = (Number(missedRate) || 0) / 100;
+    const reachPct = (Number(aiReachRate) || 0) / 100;
+    const convertPct = (Number(aiConvertRate) || 0) / 100;
+    const closePct = (Number(inboundCloseRate) || 0) / 100;
+    const ticket = Number(inboundAvgTicket) || 0;
+    const days = Number(workingDays) || 0;
+
+    const totalCalls = dailyCalls * days;
+    const missed = totalCalls * missedPct;
+    const reached = missed * reachPct;
+    const booked = reached * convertPct;
+    const closed = booked * closePct;
+    const recovered = closed * ticket;
+
+    return {
+      missedCallsPerMonth: missed,
+      aiReached: reached,
+      aiBooked: booked,
+      aiClosed: closed,
+      aiRecoveredRevenue: recovered,
+    };
+  }, [
+    dailyInboundCalls,
+    missedRate,
+    aiReachRate,
+    aiConvertRate,
+    inboundCloseRate,
+    inboundAvgTicket,
+    workingDays,
+  ]);
+
+  const industryData = INDUSTRY_COPY[industry];
 
   return (
     <main className="aid-pricing-page">
@@ -15,14 +227,15 @@ export default function PricingPage() {
           --emerald-dark: #065f46;
           --gold: #F4D03F;
           --charcoal: #0F172A;
+          --offblack: #020617;
           --offwhite: #F9FAFB;
-          --text-muted: #9CA3AF;
+          --muted: #9CA3AF;
         }
 
         body {
           margin: 0;
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-          background: radial-gradient(circle at top, #022c22 0, #020617 55%, #000000 100%);
+          background: radial-gradient(circle at top, #022c22 0, #020617 48%, #000000 100%);
           color: #E5E7EB;
         }
 
@@ -41,7 +254,14 @@ export default function PricingPage() {
           align-items: center;
           justify-content: space-between;
           gap: 16px;
-          margin-bottom: 26px;
+          margin-bottom: 28px;
+        }
+
+        @media (max-width: 720px) {
+          .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
         }
 
         .brand-mark {
@@ -66,33 +286,25 @@ export default function PricingPage() {
         .brand-name {
           font-weight: 700;
           letter-spacing: 0.09em;
-          font-size: 0.98rem;
+          font-size: 0.95rem;
           text-transform: uppercase;
         }
 
         .brand-tagline {
           font-size: 0.86rem;
-          color: var(--text-muted);
-        }
-
-        .header-actions {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-          justify-content: flex-end;
+          color: var(--muted);
         }
 
         .header-pill {
           border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.6);
+          border: 1px solid rgba(148, 163, 184, 0.7);
           padding: 7px 16px;
-          font-size: 0.86rem;
+          font-size: 0.9rem;
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          background: rgba(15, 23, 42, 0.7);
+          background: rgba(15, 23, 42, 0.8);
           backdrop-filter: blur(12px);
-          color: #E5E7EB;
         }
 
         .header-pill-dot {
@@ -100,69 +312,62 @@ export default function PricingPage() {
           height: 9px;
           border-radius: 999px;
           background: radial-gradient(circle at 30% 20%, #BBF7D0 0, #22C55E 40%, #166534 100%);
-          box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+          box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
         }
 
-        .header-call {
-          border-radius: 999px;
-          padding: 7px 14px;
-          font-size: 0.86rem;
-          font-weight: 600;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          background: rgba(15, 23, 42, 0.8);
-          color: #E5E7EB;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .header-call span {
-          font-size: 0.9rem;
-        }
-
-        .hero-card {
+        .hero-section {
           border-radius: 24px;
-          padding: 26px 20px 20px;
-          background: radial-gradient(circle at top left, rgba(4, 120, 87, 0.4), rgba(15, 23, 42, 0.96));
+          padding: 28px 22px 22px;
+          background: radial-gradient(circle at top left, rgba(4, 120, 87, 0.45), rgba(15, 23, 42, 0.98));
           border: 1px solid rgba(148, 163, 184, 0.35);
           box-shadow:
             0 24px 80px rgba(15, 23, 42, 0.9),
-            0 0 0 1px rgba(15, 23, 42, 0.85);
-          margin-bottom: 22px;
+            0 0 0 1px rgba(15, 23, 42, 0.7);
+          margin-bottom: 26px;
         }
 
-        .hero-eyebrow {
+        .hero-top-row {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          gap: 18px;
+          align-items: flex-start;
+        }
+
+        .hero-title-block {
+          max-width: 620px;
+        }
+
+        .hero-kicker {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 5px 13px;
+          padding: 5px 12px;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.85);
           border: 1px solid rgba(148, 163, 184, 0.6);
-          font-size: 0.9rem;
-          color: var(--text-muted);
-          margin-bottom: 14px;
+          font-size: 0.86rem;
+          margin-bottom: 10px;
+          background: rgba(15, 23, 42, 0.9);
         }
 
-        .hero-eyebrow span {
-          padding: 2px 9px;
+        .hero-kicker span {
+          padding: 2px 8px;
           border-radius: 999px;
           background: rgba(4, 120, 87, 0.2);
           color: #A7F3D0;
           font-weight: 600;
-          font-size: 0.82rem;
+          font-size: 0.8rem;
         }
 
         .hero-title {
-          font-size: clamp(2.1rem, 3.2vw, 2.7rem);
-          line-height: 1.05;
+          margin: 0 0 8px;
+          font-size: clamp(2.1rem, 3.3vw, 2.8rem);
           letter-spacing: -0.04em;
-          margin: 0 0 10px;
+          line-height: 1.05;
         }
 
         .hero-highlight {
-          background: linear-gradient(120deg, #F4D03F, #F9A826);
+          background: linear-gradient(120deg, #F4D03F, #F97316);
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
@@ -170,370 +375,425 @@ export default function PricingPage() {
 
         .hero-subtitle {
           font-size: 1.02rem;
-          line-height: 1.6;
-          max-width: 640px;
-          color: #CBD5F5;
-        }
-
-        .hero-subtitle strong {
-          color: #FBBF24;
-        }
-
-        .hero-cta-row {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-          margin-top: 16px;
-        }
-
-        .hero-cta-primary,
-        .hero-cta-secondary {
-          border-radius: 999px;
-          border: none;
-          padding: 9px 16px;
-          font-size: 0.96rem;
-          font-weight: 600;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          cursor: pointer;
-          text-decoration: none;
-          transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
-        }
-
-        .hero-cta-primary {
-          background: linear-gradient(135deg, #047857, #22C55E);
-          color: #ECFDF5;
-          box-shadow: 0 14px 40px rgba(16, 185, 129, 0.45);
-        }
-
-        .hero-cta-primary:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 18px 52px rgba(16, 185, 129, 0.7);
-        }
-
-        .hero-cta-secondary {
-          background: rgba(15, 23, 42, 0.9);
-          border: 1px solid rgba(148, 163, 184, 0.7);
           color: #E5E7EB;
+          max-width: 520px;
         }
 
-        .hero-cta-secondary:hover {
-          background: rgba(15, 23, 42, 1);
-          transform: translateY(-1px);
+        .industry-selector {
+          min-width: 240px;
+          padding: 10px 12px;
+          border-radius: 16px;
+          background: rgba(15, 23, 42, 0.96);
+          border: 1px solid rgba(148, 163, 184, 0.7);
         }
 
-        .hero-footnote {
-          margin-top: 10px;
-          font-size: 0.86rem;
-          color: var(--text-muted);
+        .industry-selector-label {
+          font-size: 0.83rem;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--muted);
+          margin-bottom: 4px;
         }
 
-        .tab-strip {
-          margin-top: 22px;
-          display: inline-flex;
-          flex-wrap: wrap;
-          border-radius: 999px;
-          background: rgba(15, 23, 42, 0.8);
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          padding: 4px;
-          gap: 4px;
+        .industry-select {
+          width: 100%;
+          padding: 7px 9px;
+          border-radius: 9px;
+          border: 1px solid rgba(148, 163, 184, 0.8);
+          background: #020617;
+          color: #E5E7EB;
+          font-size: 0.9rem;
+          outline: none;
         }
 
-        .tab-btn {
-          border-radius: 999px;
-          border: none;
-          padding: 6px 12px;
-          font-size: 0.88rem;
-          cursor: pointer;
-          background: transparent;
-          color: #CBD5F5;
-          opacity: 0.7;
-          transition: background 0.16s ease, opacity 0.16s ease;
+        .industry-note {
+          font-size: 0.8rem;
+          color: var(--muted);
+          margin-top: 6px;
         }
 
-        .tab-btn--active {
-          background: rgba(15, 23, 42, 1);
-          opacity: 1;
-        }
-
-        .layout-grid {
-          margin-top: 22px;
+        .hero-bottom-row {
+          margin-top: 18px;
           display: grid;
-          grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+          grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
           gap: 20px;
-          align-items: flex-start;
         }
 
         @media (max-width: 900px) {
-          .page-header {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-
-          .header-actions {
-            justify-content: flex-start;
-          }
-
-          .layout-grid {
+          .hero-bottom-row {
             grid-template-columns: 1fr;
-          }
-
-          .hero-card {
-            padding: 20px 16px 16px;
           }
         }
 
-        .panel {
+        .hero-industry-card {
           border-radius: 18px;
-          padding: 16px 14px 14px;
-          background: radial-gradient(circle at top, rgba(15, 118, 110, 0.32), rgba(15, 23, 42, 0.96));
-          border: 1px solid rgba(148, 163, 184, 0.58);
-          box-shadow: 0 20px 60px rgba(15, 23, 42, 0.85);
-        }
-
-        .panel-alt {
-          background: radial-gradient(circle at top, rgba(24, 24, 27, 0.9), rgba(15, 23, 42, 0.98));
-        }
-
-        .panel-header-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-          margin-bottom: 8px;
-        }
-
-        .panel-title {
-          font-size: 1.02rem;
-          font-weight: 600;
-        }
-
-        .panel-tag {
-          font-size: 0.8rem;
-          padding: 3px 8px;
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          color: var(--text-muted);
-        }
-
-        .panel-body {
-          font-size: 0.94rem;
-          color: #E5E7EB;
-        }
-
-        .diagram {
-          margin-top: 10px;
-          border-radius: 14px;
-          padding: 10px 10px 9px;
-          background: rgba(15, 23, 42, 0.96);
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          font-size: 0.9rem;
-        }
-
-        .diagram-steps {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-        }
-
-        .diagram-pill {
-          border-radius: 999px;
-          padding: 6px 10px;
-          font-size: 0.82rem;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          background: rgba(15, 23, 42, 0.9);
-          white-space: nowrap;
-        }
-
-        .diagram-arrow {
-          font-size: 0.8rem;
-          opacity: 0.6;
-          display: inline-flex;
-          align-items: center;
-        }
-
-        .diagram-caption {
-          margin-top: 8px;
-          font-size: 0.82rem;
-          color: var(--text-muted);
-        }
-
-        .list-tight {
-          list-style: disc;
-          padding-left: 18px;
-          margin: 6px 0 0;
-          font-size: 0.9rem;
-          color: var(--text-muted);
-        }
-
-        .list-tight li {
-          margin-bottom: 4px;
-        }
-
-        .two-col {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
-          margin-top: 10px;
-        }
-
-        @media (max-width: 700px) {
-          .two-col {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .mini-card {
-          border-radius: 12px;
-          padding: 9px 10px;
-          background: rgba(15, 23, 42, 0.98);
+          padding: 14px 14px 12px;
+          background: radial-gradient(circle at top, rgba(15, 118, 110, 0.35), rgba(15, 23, 42, 0.98));
           border: 1px solid rgba(148, 163, 184, 0.6);
-          font-size: 0.88rem;
         }
 
-        .mini-card-title {
+        .hero-industry-headline {
+          font-size: 1.02rem;
           font-weight: 600;
-          margin-bottom: 3px;
-        }
-
-        .mini-card-tag {
-          font-size: 0.76rem;
-          color: #FBBF24;
-          text-transform: uppercase;
-          letter-spacing: 0.12em;
-        }
-
-        .pricing-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 14px;
-          margin-top: 10px;
-        }
-
-        @media (max-width: 960px) {
-          .pricing-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .price-tier {
-          border-radius: 16px;
-          padding: 13px 12px 12px;
-          background: rgba(15, 23, 42, 0.96);
-          border: 1px solid rgba(148, 163, 184, 0.65);
-        }
-
-        .price-tier-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          gap: 8px;
           margin-bottom: 4px;
         }
 
-        .price-tier-name {
-          font-size: 1.02rem;
-          font-weight: 600;
-        }
-
-        .price-tier-pill {
-          font-size: 0.78rem;
-          padding: 2px 8px;
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          color: var(--text-muted);
-        }
-
-        .price-main {
-          font-size: 1.1rem;
-          font-weight: 700;
-          margin-top: 2px;
-        }
-
-        .price-sub {
-          font-size: 0.84rem;
-          color: var(--text-muted);
+        .hero-industry-sub {
+          font-size: 0.9rem;
+          color: #CBD5F5;
           margin-bottom: 6px;
         }
 
-        .price-list {
-          margin: 0;
-          padding-left: 18px;
-          font-size: 0.9rem;
-          color: #CBD5F5;
-        }
-
-        .price-list li {
-          margin-bottom: 4px;
-        }
-
-        .price-footnote {
-          margin-top: 6px;
-          font-size: 0.8rem;
-          color: var(--text-muted);
-        }
-
-        .plans-table {
-          margin-top: 8px;
-          border-radius: 14px;
-          border: 1px solid rgba(148, 163, 184, 0.65);
-          overflow: hidden;
+        .hero-industry-example {
           font-size: 0.86rem;
+          color: var(--muted);
         }
 
-        .plans-row {
-          display: grid;
-          grid-template-columns: 2.2fr 1.2fr 1.3fr;
-        }
-
-        .plans-head {
-          background: rgba(15, 23, 42, 0.98);
-          font-weight: 600;
-        }
-
-        .plans-cell {
-          padding: 7px 9px;
-          border-bottom: 1px solid rgba(31, 41, 55, 0.9);
-        }
-
-        .plans-row:nth-child(even):not(.plans-head) .plans-cell {
-          background: rgba(15, 23, 42, 0.92);
-        }
-
-        .plans-row:nth-child(odd):not(.plans-head) .plans-cell {
-          background: rgba(15, 23, 42, 0.86);
-        }
-
-        .cta-banner {
-          margin-top: 26px;
+        .hero-bullet-card {
           border-radius: 18px;
-          padding: 14px 14px 12px;
-          background: radial-gradient(circle at top, rgba(4, 120, 87, 0.35), rgba(15, 23, 42, 0.96));
-          border: 1px solid rgba(148, 163, 184, 0.7);
+          padding: 14px;
+          background: radial-gradient(circle at top, rgba(24, 24, 27, 0.9), rgba(15, 23, 42, 0.98));
+          border: 1px solid rgba(148, 163, 184, 0.6);
+        }
+
+        .hero-bullet-title {
+          font-size: 0.98rem;
+          font-weight: 600;
+          margin-bottom: 6px;
+        }
+
+        .hero-bullet-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          font-size: 0.88rem;
+          color: var(--muted);
+        }
+
+        .hero-bullet-list li {
+          margin-bottom: 4px;
+          padding-left: 16px;
+          position: relative;
+        }
+
+        .hero-bullet-list li::before {
+          content: "•";
+          position: absolute;
+          left: 4px;
+          color: var(--gold);
+        }
+
+        /* Booking Psychology Diagram */
+
+        .section-title-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          gap: 16px;
+          margin: 32px 0 10px;
+        }
+
+        .section-kicker {
+          font-size: 0.82rem;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+
+        .section-title {
+          font-size: 1.4rem;
+          margin-top: 4px;
+        }
+
+        .section-sub {
+          font-size: 0.95rem;
+          color: #CBD5F5;
+          max-width: 520px;
+        }
+
+        .slot-diagram-card {
+          border-radius: 20px;
+          padding: 16px 16px 14px;
+          background: radial-gradient(circle at top, rgba(15, 118, 110, 0.4), rgba(15, 23, 42, 0.98));
+          border: 1px solid rgba(148, 163, 184, 0.65);
+          box-shadow: 0 20px 60px rgba(15, 23, 42, 0.8);
+        }
+
+        .slot-row {
           display: flex;
           flex-wrap: wrap;
           align-items: center;
-          gap: 10px;
           justify-content: space-between;
+          gap: 18px;
         }
 
-        .cta-banner strong {
-          color: #FBBF24;
+        .slot-flow {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          align-items: center;
+          font-size: 0.88rem;
         }
 
-        .cta-actions {
+        .slot-pill {
+          border-radius: 999px;
+          padding: 7px 11px;
+          background: rgba(15, 23, 42, 0.95);
+          border: 1px solid rgba(148, 163, 184, 0.8);
+          white-space: nowrap;
+        }
+
+        .slot-pill--gold {
+          border-color: var(--gold);
+          background: rgba(24, 24, 27, 0.98);
+        }
+
+        .slot-arrow {
+          font-size: 1.1rem;
+          color: var(--muted);
+        }
+
+        .slot-copy {
+          font-size: 0.88rem;
+          color: var(--muted);
+          margin-top: 10px;
+        }
+
+        .slot-copy strong {
+          color: #E5E7EB;
+        }
+
+        .slot-callout {
+          font-size: 0.86rem;
+          color: #D1D5DB;
+          margin-top: 4px;
+        }
+
+        .slot-callout span {
+          color: var(--gold);
+          font-weight: 600;
+        }
+
+        /* Two-column calculators */
+
+        .calc-grid {
+          margin-top: 26px;
+          display: grid;
+          grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+          gap: 18px;
+        }
+
+        @media (max-width: 960px) {
+          .calc-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .calc-card {
+          border-radius: 18px;
+          padding: 16px 16px 14px;
+          background: rgba(15, 23, 42, 0.97);
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          box-shadow: 0 20px 50px rgba(15, 23, 42, 0.85);
+        }
+
+        .calc-title {
+          font-size: 1rem;
+          font-weight: 600;
+          margin-bottom: 4px;
+        }
+
+        .calc-sub {
+          font-size: 0.86rem;
+          color: var(--muted);
+          margin-bottom: 10px;
+        }
+
+        .calc-grid-inner {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        @media (max-width: 640px) {
+          .calc-grid-inner {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .calc-field label {
+          display: block;
+          font-size: 0.82rem;
+          color: #CBD5F5;
+          margin-bottom: 2px;
+        }
+
+        .calc-input {
+          width: 100%;
+          padding: 7px 8px;
+          border-radius: 8px;
+          border: 1px solid rgba(148, 163, 184, 0.8);
+          background: #020617;
+          color: #E5E7EB;
+          font-size: 0.9rem;
+          outline: none;
+        }
+
+        .calc-input:focus {
+          border-color: var(--emerald);
+          box-shadow: 0 0 0 1px rgba(4, 120, 87, 0.5);
+        }
+
+        .calc-metric {
+          margin-top: 10px;
+          padding: 9px 10px;
+          border-radius: 10px;
+          background: rgba(15, 23, 42, 0.95);
+          border: 1px solid rgba(148, 163, 184, 0.75);
+          font-size: 0.86rem;
+          color: #E5E7EB;
+        }
+
+        .calc-metric strong {
+          font-size: 1.02rem;
+        }
+
+        .calc-metric span {
+          color: var(--gold);
+          font-weight: 600;
+        }
+
+        .calc-footnote {
+          margin-top: 6px;
+          font-size: 0.8rem;
+          color: var(--muted);
+        }
+
+        /* Pricing tiers */
+
+        .tiers-section {
+          margin-top: 36px;
+        }
+
+        .tiers-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 16px;
+        }
+
+        @media (max-width: 960px) {
+          .tiers-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .tier-card {
+          border-radius: 20px;
+          padding: 16px 16px 14px;
+          background: rgba(15, 23, 42, 0.97);
+          border: 1px solid rgba(148, 163, 184, 0.7);
+        }
+
+        .tier-card--featured {
+          border-color: var(--gold);
+          box-shadow: 0 20px 60px rgba(250, 204, 21, 0.2);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .tier-chip {
+          font-size: 0.78rem;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: var(--muted);
+          margin-bottom: 4px;
+        }
+
+        .tier-name {
+          font-size: 1.05rem;
+          font-weight: 600;
+          margin-bottom: 6px;
+        }
+
+        .tier-price {
+          font-size: 0.95rem;
+          margin-bottom: 8px;
+          color: #E5E7EB;
+        }
+
+        .tier-price span {
+          color: var(--gold);
+          font-weight: 600;
+        }
+
+        .tier-desc {
+          font-size: 0.86rem;
+          color: var(--muted);
+          margin-bottom: 8px;
+        }
+
+        .tier-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          font-size: 0.86rem;
+          color: #E5E7EB;
+        }
+
+        .tier-list li {
+          margin-bottom: 4px;
+          padding-left: 16px;
+          position: relative;
+        }
+
+        .tier-list li::before {
+          content: "✓";
+          position: absolute;
+          left: 2px;
+          font-size: 0.75rem;
+          color: var(--gold);
+        }
+
+        .tier-tagline {
+          margin-top: 8px;
+          font-size: 0.8rem;
+          color: var(--muted);
+        }
+
+        .cta-strip {
+          margin-top: 32px;
+          border-radius: 18px;
+          padding: 14px 16px;
+          background: radial-gradient(circle at top, rgba(4, 120, 87, 0.6), rgba(15, 23, 42, 0.98));
+          border: 1px solid rgba(148, 163, 184, 0.75);
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: center;
+        }
+
+        .cta-text {
+          font-size: 0.95rem;
+        }
+
+        .cta-text span {
+          color: var(--gold);
+          font-weight: 600;
+        }
+
+        .cta-buttons {
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
         }
 
-        .cta-small-btn {
+        .cta-btn-primary,
+        .cta-btn-secondary {
           border-radius: 999px;
           border: none;
-          padding: 7px 13px;
-          font-size: 0.86rem;
+          padding: 8px 14px;
+          font-size: 0.92rem;
           font-weight: 600;
           cursor: pointer;
           text-decoration: none;
@@ -543,819 +803,639 @@ export default function PricingPage() {
           gap: 6px;
         }
 
-        .cta-small-btn--primary {
+        .cta-btn-primary {
           background: linear-gradient(135deg, #047857, #22C55E);
           color: #ECFDF5;
-          box-shadow: 0 12px 32px rgba(16, 185, 129, 0.55);
+          box-shadow: 0 12px 34px rgba(16, 185, 129, 0.55);
         }
 
-        .cta-small-btn--ghost {
-          background: transparent;
+        .cta-btn-primary:hover {
+          transform: translateY(-1px);
+        }
+
+        .cta-btn-secondary {
+          background: rgba(15, 23, 42, 0.95);
           border: 1px solid rgba(148, 163, 184, 0.8);
           color: #E5E7EB;
         }
 
-        .footer-legal {
-          margin-top: 32px;
-          font-size: 0.72rem;
-          color: #6B7280;
+        .footer-note {
+          margin-top: 18px;
+          font-size: 0.75rem;
+          color: var(--muted);
           text-align: center;
-          opacity: 0.85;
-        }
-
-        .footer-legal a {
-          color: inherit;
-          text-decoration: none;
-          border-bottom: 1px solid rgba(107, 114, 128, 0.3);
-          padding-bottom: 1px;
-        }
-
-        .footer-legal a:hover {
-          border-bottom-color: rgba(148, 163, 184, 0.8);
         }
       `}</style>
 
       <div className="aid-pricing-wrapper">
+        {/* HEADER */}
         <header className="page-header">
           <div className="brand-mark">
             <div className="brand-logo" />
             <div className="brand-text">
               <div className="brand-name">ALL IN DIGITAL</div>
-              <div className="brand-tagline">AI Revenue Operating Systems</div>
+              <div className="brand-tagline">AI Workforce &amp; Booking Systems</div>
             </div>
           </div>
-          <div className="header-actions">
-            <div className="header-pill">
-              <div className="header-pill-dot" />
-              <span>From “AI agent” to full operating system</span>
-            </div>
-            <a className="header-call" href="tel:2396880201">
-              <span>📞</span>
-              <span>Call Tom · 239-688-0201</span>
-            </a>
+          <div className="header-pill">
+            <div className="header-pill-dot" />
+            <span>From missed calls to a full AI Operating System</span>
           </div>
         </header>
 
-        <section className="hero-card">
-          <div className="hero-eyebrow">
-            <span>Interactive Pricing</span>
-            <div>See the full system · Not just a bot</div>
+        {/* HERO / INDUSTRY PICKER */}
+        <section className="hero-section">
+          <div className="hero-top-row">
+            <div className="hero-title-block">
+              <div className="hero-kicker">
+                <span>Pricing + ROI</span>
+                <div>See what an AI Operating System could return</div>
+              </div>
+              <h1 className="hero-title">
+                Design your{" "}
+                <span className="hero-highlight">AI Operating System</span>{" "}
+                around your business — not “just a bot”.
+              </h1>
+              <p className="hero-subtitle">
+                Pick your industry, run the numbers, and see what a full
+                end-to-end speed-to-lead + no-show + sales SOP could return in
+                booked revenue.
+              </p>
+            </div>
+
+            <div className="industry-selector">
+              <div className="industry-selector-label">FOCUS INDUSTRY</div>
+              <select
+                className="industry-select"
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value as Industry)}
+              >
+                {Object.entries(INDUSTRY_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <div className="industry-note">
+                Content below adapts to{" "}
+                <strong>{INDUSTRY_LABELS[industry]}</strong> so you can speak to
+                their world in concrete terms.
+              </div>
+            </div>
           </div>
-          <h1 className="hero-title">
-            Turn your leads, calls, and no-shows into an{" "}
-            <span className="hero-highlight">AI Revenue Operating System.</span>
-          </h1>
-          <p className="hero-subtitle">
-            Stop paying for random automations.{" "}
-            <strong>
-              This is a complete operating system around your lead flow, booking,
-              no-shows, and sales
-            </strong>{" "}
-            — with real-time lead delivery and always-on agents that do not get tired.
-          </p>
 
-          <div className="hero-cta-row">
-            <a href="/" className="hero-cta-primary">
-              See the live Speed-to-Lead demo
-            </a>
-            <a
-              href="https://calendly.com/tom-vge/new-meeting"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hero-cta-secondary"
-            >
-              Book a consult to walk through this
-            </a>
-          </div>
-
-          <p className="hero-footnote">
-            Most clients plug this into their existing traffic and{" "}
-            <strong>add 20–40% more closed revenue</strong> without touching ad spend.
-          </p>
-
-          <div className="tab-strip" aria-label="View selector">
-            <button
-              type="button"
-              className={
-                "tab-btn" + (tab === "overview" ? " tab-btn--active" : "")
-              }
-              onClick={() => setTab("overview")}
-            >
-              1 · Overview
-            </button>
-            <button
-              type="button"
-              className={
-                "tab-btn" + (tab === "systems" ? " tab-btn--active" : "")
-              }
-              onClick={() => setTab("systems")}
-            >
-              2 · Systems & Diagrams
-            </button>
-            <button
-              type="button"
-              className={
-                "tab-btn" + (tab === "pricing" ? " tab-btn--active" : "")
-              }
-              onClick={() => setTab("pricing")}
-            >
-              3 · Interactive Pricing
-            </button>
-            <button
-              type="button"
-              className={
-                "tab-btn" + (tab === "plans" ? " tab-btn--active" : "")
-              }
-              onClick={() => setTab("plans")}
-            >
-              4 · Minutes & SMS Plans
-            </button>
+          <div className="hero-bottom-row">
+            <div className="hero-industry-card">
+              <div className="hero-industry-headline">
+                {industryData.headline}
+              </div>
+              <div className="hero-industry-sub">{industryData.sub}</div>
+              <div className="hero-industry-example">
+                Example outcome: one extra{" "}
+                <strong>{industryData.example}</strong> booked (and closed)
+                already moves the needle.
+              </div>
+            </div>
+            <div className="hero-bullet-card">
+              <div className="hero-bullet-title">
+                What this Pricing OS actually includes:
+              </div>
+              <ul className="hero-bullet-list">
+                <li>
+                  <strong>Slot A/B booking AI</strong> that says “What works
+                  best for you?” and does real calendar logic.
+                </li>
+                <li>
+                  <strong>Speed-to-lead SOP</strong> with call + SMS sequences
+                  that can boost bookings up to 800%.
+                </li>
+                <li>
+                  <strong>No-show &amp; callback agents</strong> that save
+                  dropped consults and “call me later” leads.
+                </li>
+                <li>
+                  <strong>Sales &amp; finance agent handoff</strong> that can
+                  handle 10–60 minute consult flows cleanly.
+                </li>
+                <li>
+                  <strong>Real-time lead delivery &amp; outcome updates</strong>{" "}
+                  into your pipeline (no “CSV hell”).
+                </li>
+              </ul>
+            </div>
           </div>
         </section>
 
-        {/* MAIN GRID */}
-        <section className="layout-grid">
-          {/* LEFT SIDE – content changes by tab */}
-          <div>
-            {tab === "overview" && (
-              <>
-                <div className="panel">
-                  <div className="panel-header-row">
-                    <div className="panel-title">What you&apos;re really buying</div>
-                    <div className="panel-tag">Not “just an AI agent”</div>
-                  </div>
-                  <div className="panel-body">
-                    <p>
-                      You are not paying for a random voice bot. You are buying a{" "}
-                      <strong>repeatable operating system</strong> around:
-                    </p>
-                    <ul className="list-tight">
-                      <li>Inbound speed-to-lead (from form to ringing phone).</li>
-                      <li>
-                        High-intent booking flows with Slot A/B options (“what works best for
-                        you?”).
-                      </li>
-                      <li>
-                        No-show enforcement and pre-call positioning so people actually show.
-                      </li>
-                      <li>
-                        A pre-call video system that warms the lead and anchors your value.
-                      </li>
-                      <li>
-                        A 30–60 day follow-up engine that quietly rescues &quot;not yet&quot;
-                        leads.
-                      </li>
-                    </ul>
-                    <p style={{ marginTop: 8 }}>
-                      The diagrams on this page are the top-level map. The{" "}
-                      <strong>exact scripts, timing, and logic are proprietary</strong> and
-                      delivered only to paying clients.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="panel panel-alt" style={{ marginTop: 16 }}>
-                  <div className="panel-header-row">
-                    <div className="panel-title">The 3 layers of your AI Operating System</div>
-                    <div className="panel-tag">Stacked, not random</div>
-                  </div>
-                  <div className="panel-body two-col">
-                    <div className="mini-card">
-                      <div className="mini-card-title">Layer 1 · Traffic → Lead</div>
-                      <div className="mini-card-tag">Landing Page OS</div>
-                      <ul className="list-tight">
-                        <li>Emerald + gold, conversion-first landing bundle.</li>
-                        <li>Real-time lead delivery into your system.</li>
-                        <li>TCPA / FCC compliant forms and consent language.</li>
-                      </ul>
-                    </div>
-                    <div className="mini-card">
-                      <div className="mini-card-title">Layer 2 · Lead → Show</div>
-                      <div className="mini-card-tag">Speed-to-Lead Engine</div>
-                      <ul className="list-tight">
-                        <li>Instant SMS + callback logic.</li>
-                        <li>Booking call with Slot A/B options.</li>
-                        <li>No-show fee psychology and pre-call video.</li>
-                      </ul>
-                    </div>
-                    <div className="mini-card">
-                      <div className="mini-card-title">Layer 3 · Show → Closed</div>
-                      <div className="mini-card-tag">Sales & Follow-Up OS</div>
-                      <ul className="list-tight">
-                        <li>Sales-ready handoff and scripting.</li>
-                        <li>Finance / payment agent if needed.</li>
-                        <li>20–60 day call + SMS follow-up engine.</li>
-                      </ul>
-                    </div>
-                    <div className="mini-card">
-                      <div className="mini-card-title">Optional · Dispatch & Ops</div>
-                      <div className="mini-card-tag">Field & Service OS</div>
-                      <ul className="list-tight">
-                        <li>Dispatcher agent wired into your calendar.</li>
-                        <li>ETA + reschedule calls handled by AI.</li>
-                        <li>Free your humans for the actual work.</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {tab === "systems" && (
-              <>
-                {/* Speed-to-Lead Diagram */}
-                <div className="panel">
-                  <div className="panel-header-row">
-                    <div className="panel-title">Speed-to-Lead Engine</div>
-                    <div className="panel-tag">Form → Ringing phone in under a minute</div>
-                  </div>
-                  <div className="panel-body">
-                    <p>
-                      This is the front door. When someone fills out your form, they don&apos;t
-                      get lost. They go into a tight, proven speed-to-lead sequence:
-                    </p>
-                    <div className="diagram">
-                      <div className="diagram-steps">
-                        <div className="diagram-pill">Form submitted</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">Instant SMS: &quot;Heads up, we&apos;ll call&quot;</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">1st call attempt (AI agent)</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">Voicemail if needed</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">2nd call attempt</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">Short SMS follow-up</div>
-                      </div>
-                      <div className="diagram-caption">
-                        The full sequence runs over the first few minutes. After that, leads
-                        enter a longer follow-up engine (15–20 human-style calls + 5–10 SMS over{" "}
-                        30–60 days). The exact timing and scripting are client-only IP.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Booking Psychology Diagram */}
-                <div className="panel panel-alt" style={{ marginTop: 16 }}>
-                  <div className="panel-header-row">
-                    <div className="panel-title">Booking Psychology Flow</div>
-                    <div className="panel-tag">“What works best for you?”</div>
-                  </div>
-                  <div className="panel-body">
-                    <p>
-                      A big difference between “meh” booking and high conversion is how the slot is
-                      presented. Your AI doesn&apos;t ask open-ended &quot;when are you free?&quot;
-                      questions. It sells the slot.
-                    </p>
-                    <div className="diagram">
-                      <div className="diagram-steps">
-                        <div className="diagram-pill">Caller says what they&apos;re trying to fix</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">AI: “What works best for you…”</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">
-                          Slot A/B offer: “Mon 9:00am or Mon 11:00am?”
-                        </div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">Confirmation + expectations</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">SMS calendar link as backup</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">Optional transfer to human</div>
-                      </div>
-                      <div className="diagram-caption">
-                        Always-on agent consistency. Human teams rarely offer slots the same way,
-                        every time, on every call. The AI does — and that&apos;s where a lot of lift
-                        comes from.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* No-show + Pre-call video */}
-                <div className="panel" style={{ marginTop: 16 }}>
-                  <div className="panel-header-row">
-                    <div className="panel-title">No-Show Physics & Pre-Call Video</div>
-                    <div className="panel-tag">Show rate ↑ · Time waste ↓</div>
-                  </div>
-                  <div className="panel-body">
-                    <p>
-                      Two levers here:{" "}
-                      <strong>no-show fee psychology</strong> and a{" "}
-                      <strong>required pre-call video.</strong>
-                    </p>
-                    <div className="two-col">
-                      <div className="mini-card">
-                        <div className="mini-card-title">$100 no-show anchor</div>
-                        <ul className="list-tight">
-                          <li>
-                            Booking call positions a nominal $100 no-show fee as standard policy.
-                          </li>
-                          <li>
-                            This alone can reduce no-shows by <strong>20–60%</strong> depending on
-                            industry.
-                          </li>
-                          <li>
-                            You choose whether to actually enforce it — we can wire in invoicing if
-                            you want.
-                          </li>
-                        </ul>
-                      </div>
-                      <div className="mini-card">
-                        <div className="mini-card-title">Pre-call value video</div>
-                        <ul className="list-tight">
-                          <li>10–15 minute &quot;required&quot; pre-call video.</li>
-                          <li>
-                            Shows your story, proof, reviews, and why your offer is worth 2–10x the
-                            price.
-                          </li>
-                          <li>
-                            Sales or field team re-anchors it on the call (“what did you notice in
-                            that video?”).
-                          </li>
-                          <li>
-                            That alone can increase close rates by{" "}
-                            <strong>20–40% on the same lead volume.</strong>
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Follow-up Engine */}
-                <div className="panel panel-alt" style={{ marginTop: 16 }}>
-                  <div className="panel-header-row">
-                    <div className="panel-title">Follow-Up Engine (30–60 days)</div>
-                    <div className="panel-tag">“Not now” ≠ “Never”</div>
-                  </div>
-                  <div className="panel-body">
-                    <p>
-                      Most businesses leave a scary amount of money in{" "}
-                      <strong>&quot;not now&quot; or &quot;call me later&quot; land.</strong> This
-                      engine quietly rescues those.
-                    </p>
-                    <div className="diagram">
-                      <div className="diagram-steps">
-                        <div className="diagram-pill">Lead doesn&apos;t book / no-shows / says &quot;later&quot;</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">Drip of human-style calls</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">Occasional, relevant SMS</div>
-                        <div className="diagram-arrow">→</div>
-                        <div className="diagram-pill">Reactivated booking or handoff to sales</div>
-                      </div>
-                      <div className="diagram-caption">
-                        Inside: ~15–20 call attempts and 5–10 SMS over 30–60 days, tuned to your
-                        sales cycle. Exact copy, timing, and branching are not published — they are
-                        implemented directly in your system.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {tab === "pricing" && (
-              <>
-                {/* Landing Page OS */}
-                <div className="panel">
-                  <div className="panel-header-row">
-                    <div className="panel-title">Landing Page Operating System</div>
-                    <div className="panel-tag">Traffic → Lead (with compliance)</div>
-                  </div>
-                  <div className="panel-body">
-                    <p>
-                      This is the front-end of the OS — SaaS-style, emerald + gold landing pages
-                      built for speed-to-lead and TCPA / FCC compliance.
-                    </p>
-                    <div className="pricing-grid">
-                      <div className="price-tier">
-                        <div className="price-tier-header">
-                          <div className="price-tier-name">Landing Bundle</div>
-                          <div className="price-tier-pill">Buy 1 · Get 2</div>
-                        </div>
-                        <div className="price-main">$2,600 one-time</div>
-                        <div className="price-sub">
-                          3 coordinated landing pages (1 core + 2 variants).
-                        </div>
-                        <ul className="price-list">
-                          <li>Designed and hosted on our stack.</li>
-                          <li>Speed-to-lead form &amp; consent baked in.</li>
-                          <li>Real-time lead delivery into your system.</li>
-                          <li>Ready for AI agent routing from day one.</li>
-                        </ul>
-                      </div>
-
-                      <div className="price-tier">
-                        <div className="price-tier-header">
-                          <div className="price-tier-name">Landing Retainer</div>
-                          <div className="price-tier-pill">Per month</div>
-                        </div>
-                        <div className="price-main">$197 /mo · first page</div>
-                        <div className="price-sub">$98 /mo per additional page</div>
-                        <ul className="price-list">
-                          <li>Hosting, uptime, and core maintenance.</li>
-                          <li>Minor copy / layout tweaks as needed.</li>
-                          <li>Real-time lead routing upkeep.</li>
-                          <li>Perfect when running multiple offers or locations.</li>
-                        </ul>
-                        <div className="price-footnote">
-                          Example: 3 pages = $393/mo (197 + 98 + 98).
-                        </div>
-                      </div>
-
-                      <div className="price-tier">
-                        <div className="price-tier-header">
-                          <div className="price-tier-name">Launch Incentive</div>
-                          <div className="price-tier-pill">For serious buyers</div>
-                        </div>
-                        <div className="price-main">1st month core agent fees covered</div>
-                        <div className="price-sub">
-                          When you start with 3 landing pages (≈ $393/mo).
-                        </div>
-                        <ul className="price-list">
-                          <li>
-                            We cover the basic activation fee, starter minutes, and SMS for month
-                            one.
-                          </li>
-                          <li>You only pay overages if you blow past volume.</li>
-                          <li>Gives you a clean runway to see results.</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Agent Builds */}
-                <div className="panel panel-alt" style={{ marginTop: 16 }}>
-                  <div className="panel-header-row">
-                    <div className="panel-title">AI Agent Build Options</div>
-                    <div className="panel-tag">Layered by complexity</div>
-                  </div>
-                  <div className="panel-body">
-                    <div className="pricing-grid">
-                      <div className="price-tier">
-                        <div className="price-tier-header">
-                          <div className="price-tier-name">Basic Inbound Agent</div>
-                          <div className="price-tier-pill">Great starter</div>
-                        </div>
-                        <div className="price-main">$35 activation</div>
-                        <div className="price-sub">
-                          + voice &amp; SMS plan of your choice (below).
-                        </div>
-                        <ul className="price-list">
-                          <li>1 inbound AI agent.</li>
-                          <li>Basic FAQ via your existing website.</li>
-                          <li>Basic calendar connection and intake.</li>
-                          <li>1 phone number and caller info capture.</li>
-                        </ul>
-                        <div className="price-footnote">
-                          Need deeper FAQ? Add a 20-question FAQ pack for $125 one-time.
-                        </div>
-                      </div>
-
-                      <div className="price-tier">
-                        <div className="price-tier-header">
-                          <div className="price-tier-name">Custom Agent (no complex booking)</div>
-                          <div className="price-tier-pill">Service, triage, simple booking</div>
-                        </div>
-                        <div className="price-main">$260 one-time per agent</div>
-                        <div className="price-sub">+ $35 per automation buildout</div>
-                        <ul className="price-list">
-                          <li>Custom intake and routing logic.</li>
-                          <li>Can text booking links instead of handling slot logic.</li>
-                          <li>Optional multi-agent routing ($150–$300).</li>
-                          <li>Plug in your CRM integration for $80 one-time.</li>
-                        </ul>
-                      </div>
-
-                      <div className="price-tier">
-                        <div className="price-tier-header">
-                          <div className="price-tier-name">Complex Slot A/B Booking Agent</div>
-                          <div className="price-tier-pill">Higher-end booking logic</div>
-                        </div>
-                        <div className="price-main">
-                          $800–$1,250 per agent (scope-based)
-                        </div>
-                        <div className="price-sub">
-                          For “what works best for you” booking with layered fallbacks.
-                        </div>
-                        <ul className="price-list">
-                          <li>Slot A/B logic + calendar scanning.</li>
-                          <li>Multiple attempts to get a firm time.</li>
-                          <li>SMS fallback with booking links.</li>
-                          <li>Optional transfer path to human if needed.</li>
-                        </ul>
-                        <div className="price-footnote">
-                          Priced higher when booking, sales, and finance logic are all combined in
-                          one flow.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Systems Bundles */}
-                <div className="panel" style={{ marginTop: 16 }}>
-                  <div className="panel-header-row">
-                    <div className="panel-title">90-Day System Packages</div>
-                    <div className="panel-tag">For people who want the whole engine</div>
-                  </div>
-                  <div className="panel-body pricing-grid">
-                    <div className="price-tier">
-                      <div className="price-tier-header">
-                        <div className="price-tier-name">No-Show + Callback OS</div>
-                        <div className="price-tier-pill">Show rate ↑</div>
-                      </div>
-                      <div className="price-main">$1,700 setup · $350/mo</div>
-                      <div className="price-sub">Designed to rescue dropped and delayed leads.</div>
-                      <ul className="price-list">
-                        <li>Callback agent + no-show recovery logic.</li>
-                        <li>Embedded into your speed-to-lead flows.</li>
-                        <li>Includes call + SMS follow-up patterns.</li>
-                        <li>Ideal add-on to an existing inbound team.</li>
-                      </ul>
-                    </div>
-
-                    <div className="price-tier">
-                      <div className="price-tier-header">
-                        <div className="price-tier-name">Dispatcher &amp; Field OS</div>
-                        <div className="price-tier-pill">Ops layer</div>
-                      </div>
-                      <div className="price-main">$2,600 setup · $530/mo</div>
-                      <div className="price-sub">Great for home services and field teams.</div>
-                      <ul className="price-list">
-                        <li>Dispatcher agent wired into your calendar.</li>
-                        <li>Handles ETAs, running-late calls, reschedules.</li>
-                        <li>Reduces &quot;where is my tech?&quot; phone chaos.</li>
-                        <li>Keeps humans focused on billable work.</li>
-                      </ul>
-                    </div>
-
-                    <div className="price-tier">
-                      <div className="price-tier-header">
-                        <div className="price-tier-name">Sales OS (Booking + Sales + Finance)</div>
-                        <div className="price-tier-pill">3-Agent system</div>
-                      </div>
-                      <div className="price-main">$4,400 setup · $620/mo</div>
-                      <div className="price-sub">Built for teams selling real ticket sizes.</div>
-                      <ul className="price-list">
-                        <li>Booking agent tuned to your offer.</li>
-                        <li>Sales support / handoff agent.</li>
-                        <li>Finance / payment agent logic.</li>
-                        <li>Designed to drive 20–40% more closed revenue.</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="panel panel-alt" style={{ marginTop: 16 }}>
-                  <div className="panel-header-row">
-                    <div className="panel-title">Full Sales SOP + Video System</div>
-                    <div className="panel-tag">Serious scaler package</div>
-                  </div>
-                  <div className="panel-body">
-                    <p>
-                      For teams that want the whole thing mapped:{" "}
-                      <strong>sales SOP, pre-call video framework, booking scripts, and AI agent
-                      handoff</strong> — all working together.
-                    </p>
-                    <div className="two-col">
-                      <div className="mini-card">
-                        <div className="mini-card-title">Delivery</div>
-                        <ul className="list-tight">
-                          <li>Complete sales SOP customized to your offer.</li>
-                          <li>10–15 minute pre-call video blueprint.</li>
-                          <li>Booking call verbiage tied to that video.</li>
-                          <li>Agent prompts designed to support your closer.</li>
-                        </ul>
-                      </div>
-                      <div className="mini-card">
-                        <div className="mini-card-title">Investment</div>
-                        <ul className="list-tight">
-                          <li>Starts at <strong>$4,400 setup</strong>.</li>
-                          <li>From <strong>$1,250/mo</strong> for ongoing tuning.</li>
-                          <li>Best for offers where one extra close pays for the whole system.</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {tab === "plans" && (
-              <>
-                <div className="panel">
-                  <div className="panel-header-row">
-                    <div className="panel-title">AI Voice Minute Plans</div>
-                    <div className="panel-tag">You only pay for usage</div>
-                  </div>
-                  <div className="panel-body">
-                    <p style={{ marginBottom: 6 }}>
-                      Voice minutes are where the agent actually does its job. You can dial this up
-                      or down as you grow.
-                    </p>
-                    <div className="plans-table">
-                      <div className="plans-row plans-head">
-                        <div className="plans-cell">Plan</div>
-                        <div className="plans-cell">Included minutes</div>
-                        <div className="plans-cell">Rate &amp; overage</div>
-                      </div>
-                      <div className="plans-row">
-                        <div className="plans-cell">Starter Lite</div>
-                        <div className="plans-cell">160 minutes / mo</div>
-                        <div className="plans-cell">$53/mo · $0.35/min + $15 overage fee</div>
-                      </div>
-                      <div className="plans-row">
-                        <div className="plans-cell">Starter</div>
-                        <div className="plans-cell">280 minutes / mo</div>
-                        <div className="plans-cell">$98/mo · $0.28/min + $15 overage fee</div>
-                      </div>
-                      <div className="plans-row">
-                        <div className="plans-cell">Growth</div>
-                        <div className="plans-cell">710 minutes / mo</div>
-                        <div className="plans-cell">$197/mo · $0.22/min + $15 overage fee</div>
-                      </div>
-                      <div className="plans-row">
-                        <div className="plans-cell">Pro</div>
-                        <div className="plans-cell">1,700 minutes / mo</div>
-                        <div className="plans-cell">$377/mo · $0.17/min + $15 overage fee</div>
-                      </div>
-                      <div className="plans-row">
-                        <div className="plans-cell">Enterprise</div>
-                        <div className="plans-cell">5,300 minutes / mo</div>
-                        <div className="plans-cell">$800/mo · $0.12/min + $15 overage fee</div>
-                      </div>
-                      <div className="plans-row">
-                        <div className="plans-cell">Ultra Enterprise</div>
-                        <div className="plans-cell">12,000 minutes / mo</div>
-                        <div className="plans-cell">$1,500/mo · $0.09/min + $15 overage fee</div>
-                      </div>
-                    </div>
-                    <p className="price-footnote" style={{ marginTop: 8 }}>
-                      Your underlying costs: ~$0.08/min call cost, phone numbers, and carrier fees.
-                      We handle all of that and keep the math simple on your side.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="panel panel-alt" style={{ marginTop: 16 }}>
-                  <div className="panel-header-row">
-                    <div className="panel-title">SMS Plans</div>
-                    <div className="panel-tag">Booking &amp; follow-up fuel</div>
-                  </div>
-                  <div className="panel-body">
-                    <p style={{ marginBottom: 6 }}>
-                      SMS is what your leads actually read. This powers booking links,
-                      confirmations, and the quiet follow-up that closes the gap.
-                    </p>
-                    <div className="plans-table">
-                      <div className="plans-row plans-head">
-                        <div className="plans-cell">Plan</div>
-                        <div className="plans-cell">Included SMS</div>
-                        <div className="plans-cell">Rate &amp; overage</div>
-                      </div>
-                      <div className="plans-row">
-                        <div className="plans-cell">SMS Lite</div>
-                        <div className="plans-cell">50 SMS / mo</div>
-                        <div className="plans-cell">$8/mo · $0.15/SMS + $15 overage fee</div>
-                      </div>
-                      <div className="plans-row">
-                        <div className="plans-cell">SMS Starter</div>
-                        <div className="plans-cell">100 SMS / mo</div>
-                        <div className="plans-cell">$17/mo · $0.15/SMS + $15 overage fee</div>
-                      </div>
-                      <div className="plans-row">
-                        <div className="plans-cell">SMS Boost</div>
-                        <div className="plans-cell">200 SMS / mo</div>
-                        <div className="plans-cell">$29/mo · $0.14/SMS + $15 overage fee</div>
-                      </div>
-                      <div className="plans-row">
-                        <div className="plans-cell">SMS Growth</div>
-                        <div className="plans-cell">400 SMS / mo</div>
-                        <div className="plans-cell">$53/mo · $0.13/SMS + $15 overage fee</div>
-                      </div>
-                      <div className="plans-row">
-                        <div className="plans-cell">SMS Pro</div>
-                        <div className="plans-cell">800 SMS / mo</div>
-                        <div className="plans-cell">$98/mo · $0.12/SMS + $15 overage fee</div>
-                      </div>
-                    </div>
-
-                    <p className="price-footnote" style={{ marginTop: 8 }}>
-                      If a client insists on using their own carrier account (e.g. Twilio / Telnyx)
-                      to shave costs, we can wire that in for{" "}
-                      <strong>$125 one-time</strong>. The trade-off: callers may see one number for
-                      SMS and a different number for calls, which can dent conversion.
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
+        {/* BOOKING PSYCHOLOGY DIAGRAM */}
+        <section>
+          <div className="section-title-row">
+            <div>
+              <div className="section-kicker">BOOKING PSYCHOLOGY FLOW</div>
+              <div className="section-title">
+                “What works best for you?” — turned into a machine.
+              </div>
+            </div>
+            <p className="section-sub">
+              Humans forget. AI doesn’t. This is the Slot A/B booking logic that
+              runs the same way on Monday at 9am and Saturday at 11pm.
+            </p>
           </div>
 
-          {/* RIGHT SIDE – stays fairly consistent to anchor the “why” */}
-          <aside>
-            <div className="panel panel-alt">
-              <div className="panel-header-row">
-                <div className="panel-title">Why this is not “just another AI agent”</div>
-                <div className="panel-tag">Operating system view</div>
-              </div>
-              <div className="panel-body">
-                <ul className="list-tight">
-                  <li>
-                    <strong>System, not tool:</strong> We design the whole path: traffic →
-                    landing → call → booking → show → close → follow-up.
-                  </li>
-                  <li>
-                    <strong>Real-time lead routing:</strong> Leads do not sit in a Google Sheet
-                    for 15 minutes while a zap runs. They hit the system in seconds.
-                  </li>
-                  <li>
-                    <strong>Booking psychology baked in:</strong> Slot A/B offers, no-show
-                    enforcement, and pre-call value set up correctly, every time.
-                  </li>
-                  <li>
-                    <strong>Sales-aware design:</strong> The video and scripts are built to make
-                    your closer&apos;s life easier, not harder.
-                  </li>
-                  <li>
-                    <strong>Proprietary follow-up engine:</strong> The “extra” 20–40% often comes
-                    from what others completely ignore — long-tail follow-up.
-                  </li>
-                </ul>
-                <p style={{ marginTop: 8 }}>
-                  If you already have traffic and even a halfway decent offer,{" "}
-                  <strong>this is usually the highest leverage upgrade</strong> you can make.
-                </p>
+          <div className="slot-diagram-card">
+            <div className="slot-row">
+              <div className="slot-flow">
+                <div className="slot-pill slot-pill--gold">
+                  Caller: “I&apos;d like to book...”
+                </div>
+                <div className="slot-arrow">→</div>
+                <div className="slot-pill">
+                  AI: “What works best for you today?”
+                </div>
+                <div className="slot-arrow">→</div>
+                <div className="slot-pill">
+                  Calendar scan (from today forward)
+                </div>
+                <div className="slot-arrow">→</div>
+                <div className="slot-pill slot-pill--gold">
+                  Slot A / Slot B offer
+                </div>
+                <div className="slot-arrow">→</div>
+                <div className="slot-pill">Confirmed booking</div>
+                <div className="slot-arrow">→</div>
+                <div className="slot-pill">SMS link + details</div>
+                <div className="slot-arrow">→</div>
+                <div className="slot-pill">Backup transfer (optional)</div>
               </div>
             </div>
-
-            <div className="panel" style={{ marginTop: 16 }}>
-              <div className="panel-header-row">
-                <div className="panel-title">How most clients start</div>
-                <div className="panel-tag">Simple entry path</div>
-              </div>
-              <div className="panel-body">
-                <ol className="list-tight">
-                  <li>
-                    Start with the <strong>Landing Bundle</strong> so traffic has a clean,
-                    compliant home.
-                  </li>
-                  <li>
-                    Turn on a <strong>basic inbound agent</strong> + starter minutes/SMS to catch
-                    calls 24/7.
-                  </li>
-                  <li>
-                    Add the <strong>Speed-to-Lead engine</strong> and Slot A/B booking logic.
-                  </li>
-                  <li>
-                    Layer in <strong>No-Show + Callback OS</strong> after the first wins.</li>
-                  <li>
-                    Graduate to the <strong>Sales OS</strong> and full SOP + video once you want
-                    to treat this like a serious revenue channel.
-                  </li>
-                </ol>
-              </div>
+            <div className="slot-copy">
+              Script example:{" "}
+              <strong>
+                “What works best for you? — without pause — Monday, December
+                8th at 9am or 11am?”
+              </strong>{" "}
+              then repeat this pattern 2–3 times, fall back to SMS, and finally
+              to a transfer if needed.
             </div>
-          </aside>
+            <div className="slot-callout">
+              Always-on AI runs this SOP with <span>perfect consistency.</span>{" "}
+              Human teams will never follow a 15–20 touch speed-to-lead + no-show
+              playbook on every lead for 60 days straight.
+            </div>
+          </div>
         </section>
 
-        {/* CTA BANNER */}
-        <div className="cta-banner">
-          <div>
-            Ready to see how this would plug into{" "}
-            <strong>your</strong> traffic and sales flow?
+        {/* ROI CALCULATORS */}
+        <section>
+          <div className="section-title-row">
+            <div>
+              <div className="section-kicker">TWO ROI VIEWS</div>
+              <div className="section-title">
+                1) Full pipeline uplift. 2) Missed-call recovery.
+              </div>
+            </div>
+            <p className="section-sub">
+              Use these to justify budget, present to partners, or sanity-check
+              the upside before we even touch ad spend.
+            </p>
           </div>
-          <div className="cta-actions">
-            <a href="/" className="cta-small-btn cta-small-btn--primary">
-              Trigger the live demo flow
+
+          <div className="calc-grid">
+            {/* CALC 1: FULL PIPELINE */}
+            <div className="calc-card">
+              <div className="calc-title">
+                1. Lead → Book → Show → Close Uplift
+              </div>
+              <div className="calc-sub">
+                Model how the end-to-end SOP (booking psychology, no-show fee,
+                pre-call video, and AI consistency) affects your core funnel.
+              </div>
+
+              <div className="calc-grid-inner">
+                <div className="calc-field">
+                  <label>Monthly leads / inbound opportunities</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    value={leadsPerMonth}
+                    onChange={(e) => setLeadsPerMonth(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Current lead → booked (%)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={leadToBookRate}
+                    onChange={(e) => setLeadToBookRate(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Current show rate (%)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={showRate}
+                    onChange={(e) => setShowRate(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Current close rate (%)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={closeRate}
+                    onChange={(e) => setCloseRate(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Average ticket / case value ($)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    value={avgTicket}
+                    onChange={(e) => setAvgTicket(e.target.value)}
+                  />
+                </div>
+
+                <div className="calc-field">
+                  <label>
+                    Change in lead → booked with SOP (%){" "}
+                    <span style={{ color: "#9CA3AF", fontSize: "0.75rem" }}>
+                      (often -5% to -10% with no-show fee)
+                    </span>
+                  </label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    value={bookLiftDelta}
+                    onChange={(e) => setBookLiftDelta(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Show rate lift with SOP (%)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    value={showLift}
+                    onChange={(e) => setShowLift(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Close rate lift with SOP (%)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    value={closeLift}
+                    onChange={(e) => setCloseLift(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Implementation setup cost ($)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    value={implSetupCost}
+                    onChange={(e) => setImplSetupCost(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Ongoing monthly fee ($)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    value={implMonthlyFee}
+                    onChange={(e) => setImplMonthlyFee(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="calc-metric">
+                <div>
+                  Current monthly revenue from this funnel:{" "}
+                  <strong>
+                    $
+                    {baseRevenue.toLocaleString(undefined, {
+                      maximumFractionDigits: 0,
+                    })}
+                  </strong>{" "}
+                  ({baseCloses.toFixed(1)} closes)
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  With full SOP in place:{" "}
+                  <strong>
+                    $
+                    {sopRevenue.toLocaleString(undefined, {
+                      maximumFractionDigits: 0,
+                    })}
+                  </strong>{" "}
+                  ({sopCloses.toFixed(1)} closes)
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  Estimated extra revenue / month:{" "}
+                  <span>
+                    $
+                    {sopExtraRevenue.toLocaleString(undefined, {
+                      maximumFractionDigits: 0,
+                    })}
+                  </span>
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  Rough payback on Year 1 investment:{" "}
+                  {Number.isFinite(paybackMonths) && paybackMonths > 0 ? (
+                    <span>
+                      {paybackMonths.toFixed(1)}{" "}
+                      {paybackMonths <= 12 ? "months" : "months (beyond 1 year)"}
+                    </span>
+                  ) : (
+                    <span>—</span>
+                  )}
+                </div>
+              </div>
+              <div className="calc-footnote">
+                This is intentionally conservative. It doesn&apos;t include lower
+                ad CPA, referral lift, or lifetime value. It&apos;s just what the
+                end-to-end SOP can do at the front of your funnel.
+              </div>
+            </div>
+
+            {/* CALC 2: MISSED CALL RECOVERY */}
+            <div className="calc-card">
+              <div className="calc-title">
+                2. Inbound Missed Call &amp; Voicemail Recovery
+              </div>
+              <div className="calc-sub">
+                Your AI workforce runs the full speed-to-lead sequence on every
+                missed call and voicemail: 5–10 SMS + 15–20 calls over 30–60
+                days.
+              </div>
+
+              <div className="calc-grid-inner">
+                <div className="calc-field">
+                  <label>Average inbound calls per day</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    value={dailyInboundCalls}
+                    onChange={(e) => setDailyInboundCalls(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Estimated missed / voicemail (%)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={missedRate}
+                    onChange={(e) => setMissedRate(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>AI reaches these missed leads (%)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={aiReachRate}
+                    onChange={(e) => setAiReachRate(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>AI books from reached leads (%)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={aiConvertRate}
+                    onChange={(e) => setAiConvertRate(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Show / consult completion rate (%)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={inboundCloseRate}
+                    onChange={(e) => setInboundCloseRate(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Average ticket / job size ($)</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    value={inboundAvgTicket}
+                    onChange={(e) => setInboundAvgTicket(e.target.value)}
+                  />
+                </div>
+                <div className="calc-field">
+                  <label>Working days per month</label>
+                  <input
+                    className="calc-input"
+                    type="number"
+                    min={0}
+                    value={workingDays}
+                    onChange={(e) => setWorkingDays(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="calc-metric">
+                <div>
+                  Missed / voicemail calls per month:{" "}
+                  <strong>{missedCallsPerMonth.toFixed(0)}</strong>
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  AI re-engages:{" "}
+                  <strong>{aiReached.toFixed(0)} calls</strong>
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  AI books: <strong>{aiBooked.toFixed(0)} extra slots</strong>
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  Estimated extra completed jobs / cases:{" "}
+                  <strong>{aiClosed.toFixed(0)}</strong>
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  Estimated extra revenue / month from missed calls:{" "}
+                  <span>
+                    $
+                    {aiRecoveredRevenue.toLocaleString(undefined, {
+                      maximumFractionDigits: 0,
+                    })}
+                  </span>
+                </div>
+              </div>
+              <div className="calc-footnote">
+                This reflects just the missed-call / voicemail layer. When you
+                stack this on top of the full Booking Psychology SOP, the
+                compounding effect is where the big revenue lives.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* TIERS */}
+        <section className="tiers-section">
+          <div className="section-title-row">
+            <div>
+              <div className="section-kicker">TIERS &amp; IMPLEMENTATION</div>
+              <div className="section-title">
+                Start simple, or go straight to the full end-to-end SOP.
+              </div>
+            </div>
+            <p className="section-sub">
+              We&apos;ll tailor specifics to{" "}
+              <strong>{INDUSTRY_LABELS[industry]}</strong>, but these tiers give
+              you a realistic lane for budget and scope.
+            </p>
+          </div>
+
+          <div className="tiers-grid">
+            {/* Tier 1 */}
+            <div className="tier-card">
+              <div className="tier-chip">TIER 1 — FOUNDATION</div>
+              <div className="tier-name">Core Booking &amp; Callback OS</div>
+              <div className="tier-price">
+                <span>Entry-level project</span> — built around your inbound
+                calls.
+              </div>
+              <div className="tier-desc">
+                Designed for teams that want AI handling basic booking, simple
+                intake, and structured callbacks without touching the whole
+                sales stack yet.
+              </div>
+              <ul className="tier-list">
+                <li>Inbound AI booking agent (Slot A/B or link-based).</li>
+                <li>Callback agent for “call me later” leads.</li>
+                <li>Basic FAQ connection to your website.</li>
+                <li>TCPA / FCC-aligned landing page + consent language.</li>
+                <li>Real-time lead delivery into your CRM or sheet.</li>
+              </ul>
+              <div className="tier-tagline">
+                Perfect for proving the model and recapturing dropped inbound
+                demand before scaling up.
+              </div>
+            </div>
+
+            {/* Tier 2 */}
+            <div className="tier-card">
+              <div className="tier-chip">TIER 2 — GROWTH</div>
+              <div className="tier-name">
+                No-Show, Recovery &amp; Nurture OS
+              </div>
+              <div className="tier-price">
+                <span>Mid-size project</span> — layered on top of your existing
+                booking.
+              </div>
+              <div className="tier-desc">
+                Ideal if you already book a decent calendar, but no-shows,
+                cancellations, and “not now” leads quietly bleed revenue.
+              </div>
+              <ul className="tier-list">
+                <li>No-show AI agent with voice + SMS sequences.</li>
+                <li>Multi-touch recovery SOP (up to 15–20 calls, 5–10 SMS).</li>
+                <li>“Call me later” logic wired into your calendars.</li>
+                <li>Outcome tracking (show, no-show, reschedule, lost).</li>
+                <li>Reporting on recovered revenue and show-rate lift.</li>
+              </ul>
+              <div className="tier-tagline">
+                Great for med spas, dental, and home services losing thousands
+                in unused time every month.
+              </div>
+            </div>
+
+            {/* Tier 3 */}
+            <div className="tier-card tier-card--featured">
+              <div className="tier-chip">TIER 3 — FULL AI OPERATING SYSTEM</div>
+              <div className="tier-name">
+                End-to-End Speed-to-Lead + Sales SOP
+              </div>
+              <div className="tier-price">
+                Starting around <span>$6,200</span> for full build-out +{" "}
+                <span>$1,250/mo</span> for ongoing optimization and AB testing.
+              </div>
+              <div className="tier-desc">
+                This is the complete stack: booking psychology, pre-call video,
+                no-show fee anchoring, callback flows, sales &amp; finance
+                agents, plus continuous AB testing.
+              </div>
+              <ul className="tier-list">
+                <li>
+                  Slot A/B booking agent that runs your full script{" "}
+                  <em>every single time</em>.
+                </li>
+                <li>
+                  10–25 minute pre-call sales video SOP (anchoring no-show fee,
+                  your story, authority, and offer value).
+                </li>
+                <li>
+                  No-show fee logic that typically sacrifices 5–10% of bookings
+                  to gain 20–60% higher show rates.
+                </li>
+                <li>
+                  Dedicated callback, no-show, sales, and finance agents with
+                  clean variable handoff between each node.
+                </li>
+                <li>
+                  Weekly AB tests on scripts, offers, and flows – routing 5–10%
+                  of calls to test variants before rolling out winners.
+                </li>
+                <li>
+                  Real-time lead + outcome updates, ready for your CRM and
+                  reporting stack.
+                </li>
+              </ul>
+              <div className="tier-tagline">
+                Built for teams serious about turning this into an{" "}
+                <strong>operating system</strong>, not a one-off bot. Pricing
+                adjusts with complexity, volume, and how deep we go into your
+                sales cycles.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA STRIP */}
+        <div className="cta-strip">
+          <div className="cta-text">
+            Ready to see this{" "}
+            <span>speed-to-lead + no-show + sales OS</span> run for{" "}
+            {INDUSTRY_LABELS[industry]} in real time?
+          </div>
+          <div className="cta-buttons">
+            <a href="/" className="cta-btn-primary">
+              Run a live AI demo call
             </a>
-            <a
-              href="https://calendly.com/tom-vge/new-meeting"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="cta-small-btn cta-small-btn--ghost"
-            >
-              Talk through my numbers with Tom
+            <a href="tel:2396880201" className="cta-btn-secondary">
+              Or call 239-688-0201
             </a>
           </div>
         </div>
 
-        <footer className="footer-legal">
-          <span>© {new Date().getFullYear()} All In Digital. </span>
-          <a href="/terms" target="_blank" rel="noopener noreferrer">
-            Terms of Service
-          </a>
-          {" · "}
-          <a href="/privacy" target="_blank" rel="noopener noreferrer">
-            Privacy Policy
-          </a>
-        </footer>
+        <div className="footer-note">
+          Use this page live on calls to walk prospects through the diagrams and
+          calculators — then let the AI demo and your pre-call video do the
+          heavy lifting.
+        </div>
       </div>
     </main>
   );
