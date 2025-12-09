@@ -1,1590 +1,678 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { 
+  Calculator, 
+  ArrowRight, 
+  CheckCircle2, 
+  TrendingUp, 
+  Zap, 
+  Phone, 
+  Globe, 
+  Server, 
+  ShieldCheck 
+} from "lucide-react";
 
-type TierKey = "landing" | "starter" | "os" | "enterprise" | null;
+// --- Types & Configuration ---
+
+type TierKey = "landing" | "starter" | "os" | "enterprise";
 type FunnelMode = "inbound" | "outbound";
 
+interface VerticalPreset {
+  id: string;
+  label: string;
+  leads: string;
+  bookRate: string; // %
+  showRate: string; // %
+  closeRate: string; // %
+  ticket: string; // $
+}
+
+const VERTICALS: VerticalPreset[] = [
+  { id: "medspa", label: "Med Spa", leads: "150", bookRate: "45", showRate: "70", closeRate: "30", ticket: "1200" },
+  { id: "solar", label: "Solar", leads: "300", bookRate: "15", showRate: "60", closeRate: "20", ticket: "6500" },
+  { id: "roofing", label: "Roofing", leads: "100", bookRate: "35", showRate: "75", closeRate: "40", ticket: "12000" },
+  { id: "dentist", label: "Dentist", leads: "200", bookRate: "50", showRate: "80", closeRate: "35", ticket: "800" },
+  { id: "hvac", label: "HVAC", leads: "120", bookRate: "40", showRate: "85", closeRate: "45", ticket: "5500" },
+  { id: "realestate", label: "Real Estate", leads: "400", bookRate: "10", showRate: "50", closeRate: "15", ticket: "15000" },
+  { id: "law", label: "Legal / PI", leads: "80", bookRate: "25", showRate: "70", closeRate: "35", ticket: "25000" },
+  { id: "gym", label: "Gym / Fitness", leads: "500", bookRate: "60", showRate: "55", closeRate: "30", ticket: "450" },
+];
+
 export default function PricingPage() {
-  const [openTier, setOpenTier] = useState<TierKey>("landing");
+  // --- State ---
+  const [openTier, setOpenTier] = useState<TierKey>("os");
   const [funnelMode, setFunnelMode] = useState<FunnelMode>("inbound");
+  const [activeVertical, setActiveVertical] = useState<string>("medspa");
 
-  // ROI calculator state
-  const [leads, setLeads] = useState("200");
-  const [bookRate, setBookRate] = useState("40"); // %
-  const [showRate, setShowRate] = useState("60"); // %
-  const [closeRate, setCloseRate] = useState("25"); // %
-  const [avgTicket, setAvgTicket] = useState("1500");
+  // ROI Inputs
+  const [leads, setLeads] = useState("150");
+  const [bookRate, setBookRate] = useState("45");
+  const [showRate, setShowRate] = useState("70");
+  const [closeRate, setCloseRate] = useState("30");
+  const [avgTicket, setAvgTicket] = useState("1200");
 
-  // Improvement assumptions (you can tweak defaults)
-  const [bookDrop, setBookDrop] = useState("7"); // 5–10% drop
-  const [showLift, setShowLift] = useState("35"); // 20–60% lift
-  const [closeLift, setCloseLift] = useState("25"); // 20–40% lift
+  // Lift Assumptions (Dynamic based on mode)
+  const [bookLift, setBookLift] = useState("35"); // 35% improvement
+  const [showLift, setShowLift] = useState("20");
+  const [closeLift, setCloseLift] = useState("15");
 
-  const parsedLeads = Number(leads) || 0;
-  const parsedBookRate = Number(bookRate) || 0;
-  const parsedShowRate = Number(showRate) || 0;
-  const parsedCloseRate = Number(closeRate) || 0;
-  const parsedAvgTicket = Number(avgTicket) || 0;
+  // --- Effects ---
 
-  const parsedBookDrop = Number(bookDrop) || 0;
-  const parsedShowLift = Number(showLift) || 0;
-  const parsedCloseLift = Number(closeLift) || 0;
+  // When vertical changes, load presets
+  useEffect(() => {
+    const preset = VERTICALS.find((v) => v.id === activeVertical);
+    if (preset) {
+      setLeads(preset.leads);
+      setBookRate(preset.bookRate);
+      setShowRate(preset.showRate);
+      setCloseRate(preset.closeRate);
+      setAvgTicket(preset.ticket);
+    }
+  }, [activeVertical]);
 
-  // Baseline funnel
-  const baselineBooked = parsedLeads * (parsedBookRate / 100);
-  const baselineShows = baselineBooked * (parsedShowRate / 100);
-  const baselineSales = baselineShows * (parsedCloseRate / 100);
-  const baselineRevenue = baselineSales * parsedAvgTicket;
+  // When mode changes, adjust lift assumptions
+  useEffect(() => {
+    if (funnelMode === "outbound") {
+      setBookLift("50"); // Outbound AI typically lifts booking volume heavily via dial volume
+      setShowLift("10"); 
+    } else {
+      setBookLift("35"); // Inbound speed-to-lead lift
+      setShowLift("20");
+    }
+  }, [funnelMode]);
 
-  // Improved funnel (with full SOP)
-  const improvedBookRate = parsedBookRate * (1 - parsedBookDrop / 100);
-  const improvedShowRate = parsedShowRate * (1 + parsedShowLift / 100);
-  const improvedCloseRate = parsedCloseRate * (1 + parsedCloseLift / 100);
+  // --- Calculations ---
 
-  const improvedBooked = parsedLeads * (improvedBookRate / 100);
-  const improvedShows = improvedBooked * (improvedShowRate / 100);
-  const improvedSales = improvedShows * (improvedCloseRate / 100);
-  const improvedRevenue = improvedSales * parsedAvgTicket;
+  const metrics = useMemo(() => {
+    const pLeads = Number(leads) || 0;
+    const pBook = Number(bookRate) || 0;
+    const pShow = Number(showRate) || 0;
+    const pClose = Number(closeRate) || 0;
+    const pTicket = Number(avgTicket) || 0;
 
-  const extraRevenue = Math.max(0, improvedRevenue - baselineRevenue);
+    const pBookLift = Number(bookLift) || 0;
+    const pShowLift = Number(showLift) || 0;
+    const pCloseLift = Number(closeLift) || 0;
 
-  // Assumptions for full SOP package (you can edit numbers)
-  const setupCost = 6200; // base SOP setup
-  const monthlyOpsCost = 1250; // base SOP monthly
-  const monthsToPayback =
-    extraRevenue > 0 ? setupCost / extraRevenue : Infinity;
+    // Baseline
+    const baseBooked = pLeads * (pBook / 100);
+    const baseShown = baseBooked * (pShow / 100);
+    const baseSales = baseShown * (pClose / 100);
+    const baseRev = baseSales * pTicket;
 
-  const formatCurrency = (value: number) =>
-    value.toLocaleString(undefined, {
-      maximumFractionDigits: 0,
-    });
+    // New System
+    // We apply lift as a percentage increase to the RATE (e.g. 20% rate * 1.5 lift = 30% rate)
+    // Capped at 95% to be realistic
+    const newBookRate = Math.min(95, pBook * (1 + pBookLift / 100));
+    const newShowRate = Math.min(95, pShow * (1 + pShowLift / 100));
+    const newCloseRate = Math.min(95, pClose * (1 + pCloseLift / 100));
+
+    const newBooked = pLeads * (newBookRate / 100);
+    const newShown = newBooked * (newShowRate / 100);
+    const newSales = newShown * (newCloseRate / 100);
+    const newRev = newSales * pTicket;
+
+    const extraRev = newRev - baseRev;
+    const roiMultiplier = extraRev > 0 ? (extraRev / 2000).toFixed(1) : "0"; // Assuming ~$2k/mo cost for ROI math
+
+    return {
+      baseRev,
+      newRev,
+      extraRev,
+      roiMultiplier,
+      newBooked,
+      newSales
+    };
+  }, [leads, bookRate, showRate, closeRate, avgTicket, bookLift, showLift, closeLift]);
+
+  const formatCurrency = (val: number) =>
+    val.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
   return (
     <main className="aid-pricing-page">
+      {/* --- CSS STYLES --- 
+         In a real Next.js app, ideally move this to a module.css or Tailwind. 
+         Kept here for single-file portability as requested.
+      */}
       <style>{`
         :root {
-          --emerald: #047857;
-          --emerald-dark: #065f46;
-          --gold: #F4D03F;
-          --charcoal: #0F172A;
-          --bg-deep: #020617;
-          --offwhite: #F9FAFB;
-          --muted: #9CA3AF;
+          --emerald: #10B981;
+          --emerald-dim: rgba(16, 185, 129, 0.1);
+          --emerald-dark: #064E3B;
+          --gold: #FACC15;
+          --bg-dark: #020617;
+          --bg-card: #0F172A;
+          --text-main: #F8FAFC;
+          --text-muted: #94A3B8;
+          --border: rgba(148, 163, 184, 0.2);
         }
+
+        * { box-sizing: border-box; }
 
         body {
           margin: 0;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-          background: radial-gradient(circle at top, #022c22 0, #020617 55%, #000000 100%);
-          color: #E5E7EB;
+          font-family: 'Inter', system-ui, sans-serif;
+          background: #000;
+          color: var(--text-main);
+          overflow-x: hidden;
         }
 
         .aid-pricing-page {
+          background: radial-gradient(circle at 50% 0%, #064e3b 0%, #020617 40%, #000000 100%);
           min-height: 100vh;
+          padding-bottom: 120px;
         }
 
-        .pricing-wrapper {
-          max-width: 1120px;
+        .container {
+          max-width: 1200px;
           margin: 0 auto;
-          padding: 32px 16px 96px;
+          padding: 0 20px;
         }
 
-        .pricing-header {
+        /* --- Vertical Selector --- */
+        .vertical-scroller {
           display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 16px;
-          margin-bottom: 32px;
-        }
-
-        @media (max-width: 768px) {
-          .pricing-header {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-        }
-
-        .brand-mark {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .brand-logo {
-          width: 34px;
-          height: 34px;
-          border-radius: 10px;
-          background: radial-gradient(circle at 30% 20%, #6EE7B7 0, #047857 45%, #022c22 100%);
-          box-shadow: 0 12px 28px rgba(5, 150, 105, 0.45);
-        }
-
-        .brand-text {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .brand-name {
-          font-weight: 700;
-          letter-spacing: 0.09em;
-          font-size: 0.98rem;
-          text-transform: uppercase;
-        }
-
-        .brand-tagline {
-          font-size: 0.86rem;
-          color: var(--muted);
-        }
-
-        .header-pill {
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          padding: 8px 18px;
-          font-size: 0.9rem;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          background: rgba(15, 23, 42, 0.7);
-          backdrop-filter: blur(12px);
-        }
-
-        .header-pill-dot {
-          width: 9px;
-          height: 9px;
-          border-radius: 999px;
-          background: radial-gradient(circle at 30% 20%, #BBF7D0 0, #22C55E 40%, #166534 100%);
-          box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
-        }
-
-        .page-title-block {
-          margin-bottom: 20px;
-        }
-
-        .page-eyebrow {
-          font-size: 0.9rem;
-          text-transform: uppercase;
-          letter-spacing: 0.16em;
-          color: var(--muted);
-          margin-bottom: 4px;
-        }
-
-        .page-title {
-          font-size: clamp(2.1rem, 3.2vw, 2.8rem);
-          letter-spacing: -0.04em;
-          margin: 0 0 8px;
-        }
-
-        .page-title span {
-          background: linear-gradient(120deg, #F4D03F, #F9A826);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-        }
-
-        .page-subtitle {
-          font-size: 1.02rem;
-          max-width: 640px;
-          color: #CBD5F5;
-        }
-
-        /* Tier selector */
-
-        .tier-selector {
-          margin-top: 28px;
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 12px;
+          overflow-x: auto;
+          padding: 20px 0;
+          scrollbar-width: none;
+          mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
         }
+        .vertical-scroller::-webkit-scrollbar { display: none; }
 
-        @media (max-width: 900px) {
-          .tier-selector {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .tier-pill {
-          border-radius: 16px;
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          background: rgba(15, 23, 42, 0.9);
-          padding: 10px 12px 9px;
-          cursor: pointer;
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-          transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
-        }
-
-        .tier-pill-title {
-          font-size: 0.98rem;
-          font-weight: 600;
-        }
-
-        .tier-pill-sub {
-          font-size: 0.88rem;
-          color: var(--muted);
-        }
-
-        .tier-pill-price {
-          font-size: 0.86rem;
-          color: #FACC15;
-        }
-
-        .tier-pill--active {
-          border-color: #F4D03F;
-          background: radial-gradient(circle at top left, rgba(4, 120, 87, 0.6), rgba(15, 23, 42, 0.98));
-          box-shadow: 0 18px 40px rgba(4, 120, 87, 0.65);
-          transform: translateY(-1px);
-        }
-
-        /* Sections */
-
-        .section {
-          margin-top: 32px;
-        }
-
-        .section-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 12px;
-        }
-
-        .section-title {
-          font-size: 1.25rem;
-          font-weight: 600;
-        }
-
-        .section-tag {
-          font-size: 0.82rem;
-          padding: 3px 9px;
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          color: var(--muted);
-        }
-
-        .section-sub {
-          font-size: 0.94rem;
-          color: #CBD5F5;
-          max-width: 720px;
-        }
-
-        .pricing-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-          gap: 20px;
-          margin-top: 16px;
-        }
-
-        @media (max-width: 900px) {
-          .pricing-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .card {
-          border-radius: 18px;
-          padding: 16px 16px 14px;
-          background: rgba(15, 23, 42, 0.96);
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          box-shadow: 0 18px 50px rgba(15, 23, 42, 0.85);
-        }
-
-        .card-alt {
-          background: radial-gradient(circle at top, rgba(24, 24, 27, 0.96), rgba(15, 23, 42, 0.98));
-        }
-
-        .card-title {
-          font-size: 1.02rem;
-          font-weight: 600;
-          margin-bottom: 4px;
-        }
-
-        .card-sub {
-          font-size: 0.9rem;
-          color: var(--muted);
-          margin-bottom: 8px;
-        }
-
-        .price-main {
-          font-size: 1.4rem;
-          font-weight: 700;
-        }
-
-        .price-subline {
-          font-size: 0.9rem;
-          color: var(--muted);
-        }
-
-        .inline-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 4px 10px;
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          font-size: 0.82rem;
-          color: var(--muted);
-          margin-top: 6px;
-        }
-
-        .inline-badge span {
-          width: 7px;
-          height: 7px;
-          border-radius: 999px;
-          background: #4ADE80;
-          box-shadow: 0 0 8px rgba(74, 222, 128, 0.8);
-        }
-
-        .card-list {
-          list-style: none;
-          padding: 0;
-          margin: 10px 0 0;
-          display: grid;
-          gap: 6px;
-          font-size: 0.92rem;
-        }
-
-        .card-list li {
-          padding-left: 16px;
-          position: relative;
-          color: #E5E7EB;
-        }
-
-        .card-list li::before {
-          content: "•";
-          position: absolute;
-          left: 3px;
-          top: 0;
-          color: #F4D03F;
-        }
-
-        .inline-note {
-          font-size: 0.8rem;
-          color: var(--muted);
-          margin-top: 8px;
-        }
-
-        /* Tables */
-
-        .price-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 0.88rem;
-          margin-top: 6px;
-        }
-
-        .price-table thead {
-          background: rgba(15, 23, 42, 0.9);
-        }
-
-        .price-table th,
-        .price-table td {
-          padding: 6px 8px;
-          border-bottom: 1px solid rgba(31, 41, 55, 0.8);
-          text-align: left;
-        }
-
-        .price-table th {
-          font-weight: 600;
-          font-size: 0.82rem;
-          color: #9CA3AF;
-        }
-
-        .price-table tr:last-child td {
-          border-bottom: none;
-        }
-
-        /* Diagrams */
-
-        .diagram-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-          gap: 20px;
-          margin-top: 22px;
-        }
-
-        @media (max-width: 900px) {
-          .diagram-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .diagram-card {
-          border-radius: 18px;
-          padding: 14px 14px 12px;
-          background: radial-gradient(circle at top, rgba(4, 120, 87, 0.35), rgba(15, 23, 42, 0.96));
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          box-shadow: 0 18px 50px rgba(15, 23, 42, 0.9);
-        }
-
-        .diagram-title {
-          font-size: 0.98rem;
-          font-weight: 600;
-          margin-bottom: 4px;
-        }
-
-        .diagram-sub {
-          font-size: 0.86rem;
-          color: #E5E7EB;
-          margin-bottom: 8px;
-        }
-
-        .diagram-flow {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-        }
-
-        .diagram-node {
-          padding: 6px 9px;
-          border-radius: 999px;
-          background: rgba(15, 23, 42, 0.98);
-          border: 1px solid rgba(148, 163, 184, 0.65);
-          font-size: 0.8rem;
+        .vertical-pill {
+          background: rgba(30, 41, 59, 0.6);
+          border: 1px solid var(--border);
+          color: var(--text-muted);
+          padding: 8px 20px;
+          border-radius: 100px;
           white-space: nowrap;
-        }
-
-        .diagram-arrow {
-          font-size: 0.8rem;
-          color: #9CA3AF;
-          align-self: center;
-        }
-
-        .diagram-footnote {
-          margin-top: 8px;
-          font-size: 0.8rem;
-          color: var(--muted);
-        }
-
-        /* Accordions / OS tiers */
-
-        .accordion {
-          margin-top: 14px;
-          display: grid;
-          gap: 10px;
-        }
-
-        .accordion-item {
-          border-radius: 16px;
-          border: 1px solid rgba(148, 163, 184, 0.55);
-          background: rgba(15, 23, 42, 0.96);
-          overflow: hidden;
-        }
-
-        .accordion-header-btn {
-          width: 100%;
-          border: none;
-          background: transparent;
-          padding: 10px 12px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
           cursor: pointer;
-          color: #E5E7EB;
-        }
-
-        .accordion-header-main {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          text-align: left;
-        }
-
-        .accordion-label {
+          transition: all 0.2s;
           font-size: 0.9rem;
-          font-weight: 600;
+          font-weight: 500;
+        }
+        .vertical-pill:hover { border-color: var(--emerald); color: white; }
+        .vertical-pill.active {
+          background: var(--emerald);
+          color: #020617;
+          border-color: var(--emerald);
+          font-weight: 700;
+          box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
         }
 
-        .accordion-price {
-          font-size: 0.86rem;
-          color: #FACC15;
+        /* --- ROI Calculator --- */
+        .roi-section {
+          background: rgba(15, 23, 42, 0.6);
+          border: 1px solid var(--border);
+          border-radius: 24px;
+          padding: 32px;
+          margin: 40px 0;
+          backdrop-filter: blur(10px);
         }
-
-        .accordion-chevron {
-          font-size: 1rem;
-          opacity: 0.7;
+        
+        .roi-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
         }
-
-        .accordion-body {
-          padding: 0 12px 10px;
-          border-top: 1px solid rgba(30, 64, 175, 0.3);
-          font-size: 0.9rem;
+        
+        .toggle-group {
+            background: #1e293b;
+            padding: 4px;
+            border-radius: 99px;
+            display: inline-flex;
         }
-
-        .accordion-body p {
-          margin: 8px 0;
-          color: #CBD5F5;
+        
+        .toggle-btn {
+            padding: 8px 24px;
+            border-radius: 99px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
         }
-
-        .accordion-list {
-          list-style: none;
-          padding: 0;
-          margin: 6px 0 0;
-          display: grid;
-          gap: 4px;
+        .toggle-btn.active {
+            background: var(--emerald);
+            color: #020617;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
-
-        .accordion-list li {
-          padding-left: 16px;
-          position: relative;
-          color: #E5E7EB;
-          font-size: 0.88rem;
-        }
-
-        .accordion-list li::before {
-          content: "•";
-          position: absolute;
-          left: 3px;
-          top: 0;
-          color: #F4D03F;
-        }
-
-        /* ROI */
 
         .roi-grid {
           display: grid;
-          grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-          gap: 18px;
-          margin-top: 14px;
+          grid-template-columns: 1fr 1fr;
+          gap: 40px;
+        }
+        @media(max-width: 900px) { .roi-grid { grid-template-columns: 1fr; } }
+
+        .input-group { margin-bottom: 16px; }
+        .input-label { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem; color: var(--text-muted); }
+        .range-slider {
+            width: 100%;
+            height: 6px;
+            background: #334155;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--emerald);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #020617;
+        }
+        .input-field {
+            background: #0f172a;
+            border: 1px solid var(--border);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            width: 100%;
+            margin-top: 8px;
+            font-family: monospace;
         }
 
-        @media (max-width: 900px) {
-          .roi-grid {
-            grid-template-columns: 1fr;
-          }
+        .results-card {
+            background: linear-gradient(145deg, #065f46 0%, #020617 100%);
+            border: 1px solid #047857;
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .results-glow {
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(250, 204, 21, 0.2) 0%, transparent 70%);
+            filter: blur(40px);
         }
 
-        .input-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .stat-row:last-child { border: none; margin: 0; padding: 0; }
+        
+        .stat-label { color: var(--text-muted); font-size: 0.9rem; }
+        .stat-val { font-size: 1.2rem; font-weight: 600; }
+        .stat-val.gold { color: var(--gold); }
+        .stat-val.dim { color: var(--text-muted); text-decoration: line-through; font-size: 1rem; }
+
+        .big-rev {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--emerald);
+            line-height: 1;
+            margin-top: 4px;
+            text-shadow: 0 0 30px rgba(16, 185, 129, 0.4);
         }
 
-        @media (max-width: 640px) {
-          .input-grid {
-            grid-template-columns: 1fr;
-          }
+        /* --- Tiers --- */
+        .tier-nav {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 6px;
+            border-radius: 16px;
+            margin-bottom: 32px;
+            border: 1px solid var(--border);
+        }
+        @media(max-width: 640px) { .tier-nav { grid-template-columns: 1fr 1fr; } }
+        
+        .tier-tab {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        .tier-tab:hover { background: rgba(255,255,255,0.05); color: white; }
+        .tier-tab.active {
+            background: #1e293b;
+            color: var(--emerald);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            border: 1px solid rgba(16, 185, 129, 0.2);
         }
 
-        .field {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
+        .pricing-card {
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            position: relative;
+        }
+        .pricing-card.highlight {
+            border-color: var(--emerald);
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.15);
+        }
+        
+        .badge {
+            display: inline-block;
+            background: var(--emerald);
+            color: #020617;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 99px;
+            margin-bottom: 12px;
         }
 
-        .field label {
-          font-size: 0.84rem;
-          color: #CBD5F5;
+        .feature-list { list-style: none; padding: 0; margin: 24px 0; }
+        .feature-list li {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 14px;
+            color: #cbd5e1;
+            font-size: 0.95rem;
         }
+        .icon-check { color: var(--emerald); flex-shrink: 0; }
 
-        .field input {
-          padding: 7px 9px;
-          border-radius: 9px;
-          border: 1px solid rgba(148, 163, 184, 0.8);
-          background: rgba(15, 23, 42, 0.95);
-          color: #E5E7EB;
-          font-size: 0.9rem;
-          outline: none;
+        /* Flow Diagram CSS (Visual fallback) */
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
         }
+        .flow-step {
+            background: #1e293b;
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: #e2e8f0;
+        }
+        .flow-arrow { color: var(--text-muted); }
 
-        .field input:focus {
-          border-color: #047857;
-          box-shadow: 0 0 0 1px rgba(4, 120, 87, 0.5);
-        }
-
-        .field small {
-          font-size: 0.75rem;
-          color: var(--muted);
-        }
-
-        .pill-toggle-group {
-          display: inline-flex;
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          overflow: hidden;
-          font-size: 0.8rem;
-        }
-
-        .pill-toggle-btn {
-          padding: 4px 9px;
-          border: none;
-          background: transparent;
-          color: #9CA3AF;
-          cursor: pointer;
-        }
-
-        .pill-toggle-btn--active {
-          background: rgba(4, 120, 87, 0.85);
-          color: #ECFDF5;
-        }
-
-        .roi-metrics {
-          font-size: 0.88rem;
-          display: grid;
-          gap: 6px;
-          margin-top: 8px;
-        }
-
-        .metric-label {
-          color: var(--muted);
-        }
-
-        .metric-value {
-          font-weight: 600;
-        }
-
-        .metric-highlight {
-          color: #FACC15;
-        }
-
-        .metric-danger {
-          color: #f87171;
-        }
-
-        .cta-footer {
-          margin-top: 32px;
-          padding-top: 18px;
-          border-top: 1px solid rgba(31, 41, 55, 0.8);
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: space-between;
-          gap: 10px;
-          align-items: center;
-        }
-
-        .cta-text {
-          font-size: 0.96rem;
-          color: #CBD5F5;
-        }
-
-        .cta-text span {
-          color: #F4D03F;
-          font-weight: 600;
-        }
-
-        .cta-link-btn {
-          border-radius: 999px;
-          border: none;
-          padding: 9px 16px;
-          font-size: 0.96rem;
-          font-weight: 600;
-          background: linear-gradient(135deg, #047857, #22C55E);
-          color: #ECFDF5;
-          cursor: pointer;
-          box-shadow: 0 14px 36px rgba(16, 185, 129, 0.55);
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .cta-link-btn span {
-          font-size: 1.1rem;
-        }
       `}</style>
 
-      <div className="pricing-wrapper">
+      <div className="container">
         {/* Header */}
-        <header className="pricing-header">
-          <div className="brand-mark">
-            <div className="brand-logo" />
-            <div className="brand-text">
-              <div className="brand-name">ALL IN DIGITAL</div>
-              <div className="brand-tagline">AI Phone, SMS & Landing Systems</div>
-            </div>
+        <header style={{ padding: '60px 0 40px', textAlign: 'center' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '20px', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 16px', borderRadius: '99px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+            <span style={{ width: '8px', height: '8px', background: '#10B981', borderRadius: '50%', boxShadow: '0 0 10px #10B981' }}></span>
+            <span style={{ color: '#10B981', fontSize: '0.9rem', fontWeight: 600 }}>End-to-End AI Systems</span>
           </div>
-          <div className="header-pill">
-            <div className="header-pill-dot" />
-            <span>From first click to closed deal, end-to-end.</span>
-          </div>
+          <h1 style={{ fontSize: '3.5rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '16px', lineHeight: 1.1 }}>
+            Pricing that pays for <br />
+            <span style={{ background: 'linear-gradient(to right, #FACC15, #10B981)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>itself in 30 days.</span>
+          </h1>
+          <p style={{ color: '#94A3B8', fontSize: '1.2rem', maxWidth: '600px', margin: '0 auto' }}>
+            Select your industry below to see how our AI Operating System models revenue for your specific vertical.
+          </p>
         </header>
 
-        {/* Intro */}
-        <div className="page-title-block">
-          <div className="page-eyebrow">Pricing & Systems</div>
-          <h1 className="page-title">
-            From <span>single landing pages</span> to full AI operating systems.
-          </h1>
-          <p className="page-subtitle">
-            Start simple with a conversion-optimized landing page and a basic AI agent, or
-            roll into a full, end-to-end sales and booking operating system when you&apos;re ready.
-          </p>
+        {/* Vertical Selector */}
+        <div className="vertical-scroller">
+          {VERTICALS.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setActiveVertical(v.id)}
+              className={`vertical-pill ${activeVertical === v.id ? "active" : ""}`}
+            >
+              {v.label}
+            </button>
+          ))}
         </div>
 
-        {/* Tier selector */}
-        <div className="tier-selector">
-          <button
-            type="button"
-            className={
-              "tier-pill" + (openTier === "landing" ? " tier-pill--active" : "")
-            }
-            onClick={() => setOpenTier((prev) => (prev === "landing" ? null : "landing"))}
-          >
-            <div className="tier-pill-title">Landing Page Foundation</div>
-            <div className="tier-pill-sub">
-              Buy 1, get 2 high-converting funnels built for speed-to-lead.
-            </div>
-            <div className="tier-pill-price">$2,600 + $197/mo + $98/additional page</div>
-          </button>
-
-          <button
-            type="button"
-            className={
-              "tier-pill" + (openTier === "starter" ? " tier-pill--active" : "")
-            }
-            onClick={() => setOpenTier((prev) => (prev === "starter" ? null : "starter"))}
-          >
-            <div className="tier-pill-title">AI Agent Starter</div>
-            <div className="tier-pill-sub">
-              One inbound agent, basic booking, and live call coverage.
-            </div>
-            <div className="tier-pill-price">
-              $35 activation + voice &amp; SMS plans + add-ons
-            </div>
-          </button>
-
-          <button
-            type="button"
-            className={
-              "tier-pill" +
-              (openTier === "os" || openTier === "enterprise"
-                ? " tier-pill--active"
-                : "")
-            }
-            onClick={() => setOpenTier((prev) => (prev === "os" ? null : "os"))}
-          >
-            <div className="tier-pill-title">Full Operating System</div>
-            <div className="tier-pill-sub">
-              Booking + pre-call video + sales + finance flows, fully wired.
-            </div>
-            <div className="tier-pill-price">
-              From $6,200 build-out + $1,250/mo, up to full OS &amp; enterprise.
-            </div>
-          </button>
-        </div>
-
-        {/* Speed-to-lead diagrams */}
-        <section className="section">
-          <div className="section-header">
-            <div>
-              <div className="section-title">Speed-to-Lead & Booking Psychology</div>
-              <div className="section-sub">
-                This is the backbone of everything we build: answer fast, book cleanly, and
-                anchor the value before the consult even starts.
-              </div>
+        {/* ROI Calculator */}
+        <section className="roi-section">
+          <div className="roi-header">
+            <h2 style={{ fontSize: '1.5rem', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Calculator size={24} color="#10B981" />
+              ROI Simulator
+            </h2>
+            <div className="toggle-group">
+              <button 
+                className={`toggle-btn ${funnelMode === 'inbound' ? 'active' : ''}`}
+                onClick={() => setFunnelMode('inbound')}
+              >
+                Inbound Lead Response
+              </button>
+              <button 
+                className={`toggle-btn ${funnelMode === 'outbound' ? 'active' : ''}`}
+                onClick={() => setFunnelMode('outbound')}
+              >
+                Outbound Database Reactivation
+              </button>
             </div>
           </div>
 
-          <div className="diagram-grid">
-            <div className="diagram-card">
-              <div className="diagram-title">Speed-to-Lead Sequence (800% booking lift)</div>
-              <div className="diagram-sub">
-                Designed for both inbound and outbound flows. The goal is simple: respond
-                faster and more consistently than any human team ever could.
-              </div>
-              <div className="diagram-flow">
-                <div className="diagram-node">Lead hits landing page</div>
-                <div className="diagram-arrow">→</div>
-                <div className="diagram-node">SMS in 5–10 seconds</div>
-                <div className="diagram-arrow">→</div>
-                <div className="diagram-node">First call in 20–30 seconds</div>
-                <div className="diagram-arrow">→</div>
-                <div className="diagram-node">Second call + voicemail</div>
-                <div className="diagram-arrow">→</div>
-                <div className="diagram-node">Follow-up SMS at 3–4 minutes</div>
-                <div className="diagram-arrow">→</div>
-                <div className="diagram-node">
-                  Ongoing callbacks &amp; SMS over 30–60 days
-                </div>
-              </div>
-              <p className="diagram-footnote">
-                Most teams touch a lead once or twice. This operating rhythm keeps leads
-                alive for weeks without burning out your staff.
-              </p>
+          <div className="roi-grid">
+            {/* Inputs */}
+            <div>
+               <div className="input-group">
+                  <div className="input-label">
+                    <span>Monthly Leads / Records</span>
+                    <span style={{color: 'white'}}>{leads}</span>
+                  </div>
+                  <input type="range" min="50" max="5000" step="10" value={leads} onChange={(e) => setLeads(e.target.value)} className="range-slider" />
+               </div>
+
+               <div className="input-group">
+                  <div className="input-label">
+                    <span>Avg. Ticket Price ($)</span>
+                    <span style={{color: 'white'}}>${avgTicket}</span>
+                  </div>
+                  <input type="number" value={avgTicket} onChange={(e) => setAvgTicket(e.target.value)} className="input-field" />
+               </div>
+
+               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '30px' }}>
+                 <div className="input-group">
+                    <div className="input-label"><span>Current Booking %</span></div>
+                    <input type="number" value={bookRate} onChange={(e) => setBookRate(e.target.value)} className="input-field" />
+                 </div>
+                 <div className="input-group">
+                    <div className="input-label"><span>Current Show %</span></div>
+                    <input type="number" value={showRate} onChange={(e) => setShowRate(e.target.value)} className="input-field" />
+                 </div>
+               </div>
+               
+               <p style={{ fontSize: '0.85rem', color: '#64748B', marginTop: '20px', fontStyle: 'italic' }}>
+                 *System assumes a conservative {bookLift}% lift in booking rate and {showLift}% lift in show rate due to sub-1-minute speed-to-lead.
+               </p>
             </div>
 
-            <div className="diagram-card">
-              <div className="diagram-title">
-                Booking Psychology: “What works best for you?”
-              </div>
-              <div className="diagram-sub">
-                We combine intent-based scheduling with clear A/B options and a strong
-                no-show policy to protect your calendar.
-              </div>
-              <div className="diagram-flow">
-                <div className="diagram-node">“What works best for you?”</div>
-                <div className="diagram-arrow">→</div>
-                <div className="diagram-node">
-                  Scan calendar from today forward
+            {/* Results */}
+            <div className="results-card">
+              <div className="results-glow" />
+              <div style={{ position: 'relative', zIndex: 10 }}>
+                <div className="stat-row">
+                  <div>
+                    <div className="stat-label">Baseline Revenue</div>
+                    <div className="stat-val dim">{formatCurrency(metrics.baseRev)}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="stat-label">Projected Lift</div>
+                    <div className="stat-val gold">+{formatCurrency(metrics.extraRev)}</div>
+                  </div>
                 </div>
-                <div className="diagram-arrow">→</div>
-                <div className="diagram-node">
-                  Offer Slot A/B (e.g. Mon 9am or 11am)
+
+                <div style={{ marginTop: '20px' }}>
+                  <div className="stat-label" style={{ color: '#10B981', fontWeight: 600 }}>NEW MONTHLY REVENUE</div>
+                  <div className="big-rev">{formatCurrency(metrics.newRev)}</div>
                 </div>
-                <div className="diagram-arrow">→</div>
-                <div className="diagram-node">
-                  Confirm time + anchor expectations (incl. $100 no-show policy if desired)
-                </div>
-                <div className="diagram-arrow">→</div>
-                <div className="diagram-node">Send SMS confirmation + pre-call video</div>
-                <div className="diagram-arrow">→</div>
-                <div className="diagram-node">
-                  Backup SMS link + transfer path if they don&apos;t book on the spot
+
+                <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', gap: '12px' }}>
+                  <TrendingUp color="#FACC15" />
+                  <span style={{ fontSize: '0.95rem', color: '#e2e8f0' }}>
+                    At <strong>{metrics.roiMultiplier}x ROI</strong>, this system pays for the setup fee in the first month from extra revenue alone.
+                  </span>
                 </div>
               </div>
-              <p className="diagram-footnote">
-                The script does the heavy lifting: the agent never forgets the no-show
-                policy, never skips the video, and never stops offering clean A/B choices.
-              </p>
             </div>
           </div>
         </section>
 
-        {/* Landing package */}
-        {openTier === "landing" && (
-          <section className="section">
-            <div className="section-header">
-              <div>
-                <div className="section-title">Landing Page Foundation</div>
-                <div className="section-sub">
-                  Built specifically for AI calling and speed-to-lead — not just a “pretty
-                  site”. This is where everything else starts.
-                </div>
+        {/* Tier Selector */}
+        <nav className="tier-nav">
+          <button onClick={() => setOpenTier("landing")} className={`tier-tab ${openTier === "landing" ? "active" : ""}`}>Landing</button>
+          <button onClick={() => setOpenTier("starter")} className={`tier-tab ${openTier === "starter" ? "active" : ""}`}>Starter AI</button>
+          <button onClick={() => setOpenTier("os")} className={`tier-tab ${openTier === "os" ? "active" : ""}`}>Full OS</button>
+          <button onClick={() => setOpenTier("enterprise")} className={`tier-tab ${openTier === "enterprise" ? "active" : ""}`}>Enterprise</button>
+        </nav>
+
+        {/* Tier Content */}
+        <div className="pricing-content">
+          
+          {/* LANDING TIER */}
+          {openTier === "landing" && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              <div className="pricing-card">
+                 <h3 style={{fontSize: '1.5rem', marginTop: 0}}>Funnel Foundation</h3>
+                 <div style={{fontSize: '2rem', fontWeight: 700, margin: '16px 0', color: '#FACC15'}}>$2,600</div>
+                 <p style={{color: '#94A3B8'}}>Perfect for paid traffic. Includes compliance, speed wiring, and high-conversion design.</p>
+                 <ul className="feature-list">
+                    <li><CheckCircle2 size={18} className="icon-check"/> Buy 1, Get 2 Variants</li>
+                    <li><CheckCircle2 size={18} className="icon-check"/> FCC/TCPA Compliant Forms</li>
+                    <li><CheckCircle2 size={18} className="icon-check"/> Speed-to-lead Webhook Ready</li>
+                 </ul>
+                 <button style={{width:'100%', padding:'14px', borderRadius:'12px', background: '#334155', color: 'white', border:'none', cursor:'pointer', fontWeight: 600}}>Get Started</button>
               </div>
-              <div className="section-tag">Buy 1, get 2 live funnels</div>
-            </div>
+              <div className="pricing-card">
+                
 
-            <div className="pricing-grid">
-              <div className="card">
-                <div className="card-title">Landing Page Package</div>
-                <div className="card-sub">
-                  Designed around your AI calling flows, compliance, and call outcomes.
-                </div>
-                <div className="price-main">$2,600</div>
-                <div className="price-subline">Buy 1, get 2 live landing pages</div>
+[Image of Landing Page Optimization Diagram]
 
-                <ul className="card-list">
-                  <li>Conversion-optimized, AI-ready landing page layout.</li>
-                  <li>
-                    Built-in TCPA/FCC-compliant consent language for calls &amp; SMS from
-                    AI systems.
-                  </li>
-                  <li>Speed-to-lead wiring for form → call → SMS.</li>
-                  <li>Form fields mapped to your AI agents and CRM if needed.</li>
-                  <li>Branding aligned to your offer (copy, colors, positioning).</li>
-                </ul>
-
-                <div className="inline-badge">
-                  <span />
-                  Hosting &amp; management on our stack
-                </div>
-              </div>
-
-              <div className="card card-alt">
-                <div className="card-title">Ongoing Landing Management</div>
-                <div className="card-sub">
-                  We keep the pages live, fast, and aligned to your offer as it evolves.
-                </div>
-                <div className="price-main">$197/mo</div>
-                <div className="price-subline">First landing page</div>
-                <div className="price-subline">+$98/mo per additional page</div>
-
-                <ul className="card-list">
-                  <li>Hosting, monitoring, and performance checks.</li>
-                  <li>Minor copy &amp; layout adjustments as your offer refines.</li>
-                  <li>Lead routing &amp; outcome pass-through to your systems.</li>
-                  <li>Room to attach upgraded AI agents as you grow.</li>
-                </ul>
-
-                <div className="inline-note">
-                  Perfect for businesses that want AI-ready pages and don&apos;t want to
-                  deal with page builders, hosting, or routing logic.
+                <div style={{marginTop: '20px'}}>
+                   <h4 style={{margin: '0 0 10px'}}>Why this works</h4>
+                   <p style={{fontSize: '0.9rem', color: '#94A3B8'}}>
+                     Most landing pages fail because they aren't wired for the <strong style={{color:'white'}}>5-minute window</strong>. Ours trigger the call immediately.
+                   </p>
                 </div>
               </div>
             </div>
-          </section>
-        )}
+          )}
 
-        {/* Starter AI agent & plans */}
-        {openTier === "starter" && (
-          <section className="section">
-            <div className="section-header">
-              <div>
-                <div className="section-title">AI Agent Starter & Plans</div>
-                <div className="section-sub">
-                  Start with a single inbound agent, basic FAQ, and simple booking logic,
-                  then layer in more agents and logic as you go.
-                </div>
-              </div>
-              <div className="section-tag">Great for 30–100 calls/month</div>
-            </div>
-
-            <div className="pricing-grid">
-              <div className="card">
-                <div className="card-title">Getting Started</div>
-                <div className="card-sub">
-                  A clean entry point for businesses new to AI voice and SMS.
-                </div>
-                <ul className="card-list">
-                  <li>
-                    <strong>$35 Activation Fee</strong> — includes 1 inbound AI agent, 1
-                    phone number, basic FAQ linked to your existing website, and basic
-                    calendar connection.
-                  </li>
-                  <li>
-                    <strong>$80 Live Transfer Setup (per phone)</strong> — configure
-                    transfers from the AI agent directly to your team.
-                  </li>
-                  <li>
-                    <strong>$260 per Additional AI Agent</strong> for simple non-complex
-                    flows (e.g. basic customer service, intake, or SMS booking agent).
-                  </li>
-                  <li>
-                    <strong>Basic FAQ</strong> = attaching your website as a reference.
-                  </li>
-                  <li>
-                    <strong>Custom FAQ Pack (20 Qs) – $125 one-time</strong> — curated,
-                    written FAQs baked into the agent&apos;s knowledge.
-                  </li>
-                </ul>
-
-                <div className="inline-note">
-                  This is the “test it in your business” tier — minimal risk, real calls,
-                  and real data.
-                </div>
-              </div>
-
-              <div className="card card-alt">
-                <div className="card-title">Callback AI Agent</div>
-                <div className="card-sub">
-                  For leads that say “call me back later” or fills that slip past the
-                  first attempt.
-                </div>
-                <div className="price-main">$35 / callback trigger</div>
-                <div className="price-subline">One-time setup</div>
-                <ul className="card-list">
-                  <li>Full callback automation when a lead requests a callback.</li>
-                  <li>Integration with your Calendly/Cal.com/GHL calendar.</li>
-                  <li>Outbound Thoughtly webhook configuration.</li>
-                  <li>
-                    Graceful handling of &ldquo;in 10 minutes or 30 minutes&rdquo; style
-                    scheduling.
-                  </li>
-                  <li>Works alongside your inbound agent for full speed-to-lead coverage.</li>
-                </ul>
-                <div className="inline-note">
-                  <strong>Callback Infrastructure Fee:</strong> $17/mo flat — covers
-                  hosting of the callback automation, monitoring, and small adjustments to
-                  keep timing logic smooth.
-                </div>
-              </div>
-            </div>
-
-            {/* Plan tables */}
-            <div className="pricing-grid">
-              <div className="card">
-                <div className="card-title">AI Voice Plans (Monthly)</div>
-                <table className="price-table">
-                  <thead>
-                    <tr>
-                      <th>Plan</th>
-                      <th>Minutes</th>
-                      <th>Rate / min</th>
-                      <th>Overage</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Starter Lite</td>
-                      <td>160</td>
-                      <td>$0.35</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>Starter</td>
-                      <td>280</td>
-                      <td>$0.28</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>Growth</td>
-                      <td>710</td>
-                      <td>$0.22</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>Pro</td>
-                      <td>1,700</td>
-                      <td>$0.17</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>Enterprise</td>
-                      <td>5,300</td>
-                      <td>$0.12</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>Ultra Enterprise</td>
-                      <td>12,000</td>
-                      <td>$0.09</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div className="inline-note">
-                  <strong>Suggested baseline:</strong> many smaller teams start on Starter
-                  Lite + a small SMS plan, then upgrade as call volume ramps.
-                </div>
-              </div>
-
-              <div className="card card-alt">
-                <div className="card-title">SMS Plans (Monthly)</div>
-                <table className="price-table">
-                  <thead>
-                    <tr>
-                      <th>Plan</th>
-                      <th>Included SMS</th>
-                      <th>Overage</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>SMS Lite</td>
-                      <td>50</td>
-                      <td>$0.15 + $15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>SMS Starter</td>
-                      <td>100</td>
-                      <td>$0.15 + $15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>SMS Boost</td>
-                      <td>200</td>
-                      <td>$0.14 + $15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>SMS Growth</td>
-                      <td>400</td>
-                      <td>$0.13 + $15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>SMS Pro</td>
-                      <td>800</td>
-                      <td>$0.12 + $15 overage fee</td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div className="inline-note">
-                  For example, SMS Lite at $8/mo with 50 SMS is enough to cover 50 booking
-                  link texts if you&apos;re just getting started.
-                </div>
-              </div>
-            </div>
-
-            {/* Add-ons */}
-            <div className="pricing-grid">
-              <div className="card">
-                <div className="card-title">Add-Ons & Integrations</div>
-                <ul className="card-list">
-                  <li>
-                    <strong>Calendar Setup – $35 / person / calendar</strong>  
-                    Cal.com, Calendly, Acuity, GHL, etc.
-                  </li>
-                  <li>
-                    <strong>Twilio / Telnyx Setup – $125</strong> — we connect your
-                    messaging provider so you pay their usage directly.
-                  </li>
-                  <li>
-                    <strong>CRM Integration – $80</strong> — map outcomes/leads into your
-                    CRM.
-                  </li>
-                  <li>
-                    <strong>After-Hours Routing – $50</strong> — separate logic for
-                    nights/weekends.
-                  </li>
-                  <li>
-                    <strong>Multi-Agent Routing – $150–$300</strong> — route calls across
-                    multiple AI agents and flows.
-                  </li>
-                  <li>
-                    <strong>Complex Logic Build – $250–$500</strong> — for more advanced
-                    conditional flows beyond “simple” intakes.
-                  </li>
-                  <li>
-                    <strong>Additional Phone Numbers – $10 each</strong>.
-                  </li>
-                </ul>
-              </div>
-
-              <div className="card card-alt">
-                <div className="card-title">CloseBot AI SMS Setup</div>
-                <div className="card-sub">
-                  For text-based follow-up and closing, layered on top of your voice flows.
-                </div>
-                <ul className="card-list">
-                  <li>
-                    <strong>$350 Setup Fee</strong> — configure CloseBot around your offer
-                    and funnel.
-                  </li>
-                  <li>
-                    <strong>$64/mo CloseBot subscription</strong> — paid directly by you to
-                    the platform.
-                  </li>
-                  <li>
-                    <strong>$35/mo optional maintenance</strong> or <strong>$350</strong>{" "}
-                    per-incident update.
-                  </li>
-                  <li>Nurture and close warm leads via SMS in between live calls.</li>
-                </ul>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Operating system tiers + ROI */}
-        {(openTier === "os" || openTier === "enterprise") && (
-          <>
-            <section className="section">
-              <div className="section-header">
+          {/* STARTER TIER */}
+          {openTier === "starter" && (
+            <div className="pricing-card highlight">
+              <span className="badge">Best for Testing</span>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
                 <div>
-                  <div className="section-title">Full AI Operating Systems</div>
-                  <div className="section-sub">
-                    When you&apos;re ready for a complete end-to-end system — booking,
-                    pre-call video, sales, finance, and dispatch — this is where it lives.
-                  </div>
+                  <h3 style={{fontSize: '1.8rem', margin: 0}}>AI Agent Starter</h3>
+                  <p style={{color: '#94A3B8'}}>Voice & SMS handling for small volume.</p>
                 </div>
-                <div className="section-tag">Designed for serious volume</div>
-              </div>
-
-              <div className="pricing-grid">
-                <div className="card">
-                  <div className="card-title">Speed-to-Lead OS (Core SOP)</div>
-                  <div className="card-sub">
-                    For teams that want a complete speed-to-lead and booking system around
-                    their existing sales team.
-                  </div>
-                  <div className="price-main">$6,200</div>
-                  <div className="price-subline">Core SOP build-out</div>
-                  <div className="price-subline">$1,250/mo ongoing optimization</div>
-
-                  <ul className="card-list">
-                    <li>
-                      Slot A/B booking agent (~15–20 minutes) with &ldquo;what works
-                      best&rdquo; and clean A/B time offers.
-                    </li>
-                    <li>
-                      Pre-call video strategy (10–15 minutes) to anchor the $100 no-show
-                      policy and build value before the consult.
-                    </li>
-                    <li>
-                      No-show &amp; callback flows tied back into your calendar and call
-                      system.
-                    </li>
-                    <li>
-                      SMS fallbacks to push booking to happen on the spot and confirm the
-                      time in writing.
-                    </li>
-                    <li>
-                      Ongoing script refinement and A/B testing based on the actual calls
-                      and show rates your system produces.
-                    </li>
-                  </ul>
-
-                  <div className="inline-note">
-                    This is where most businesses start seeing a meaningful lift in
-                    booked-and-kept appointments, without touching ad spend.
-                  </div>
-                </div>
-
-                <div className="card card-alt">
-                  <div className="card-title">OS &amp; Enterprise Tiers</div>
-                  <div className="card-sub">
-                    For full-cycle sales teams, high-ticket offers, or operations that
-                    need AI across the entire customer journey.
-                  </div>
-
-                  <div className="accordion">
-                    <div className="accordion-item">
-                      <button
-                        type="button"
-                        className="accordion-header-btn"
-                        onClick={() =>
-                          setOpenTier((prev) => (prev === "os" ? null : "os"))
-                        }
-                      >
-                        <div className="accordion-header-main">
-                          <span className="accordion-label">
-                            Full End-to-End AI Operating System
-                          </span>
-                          <span className="accordion-price">
-                            $12,500–$20,000 build-out • $3,500–$4,400/mo
-                          </span>
-                        </div>
-                        <span className="accordion-chevron">
-                          {openTier === "os" ? "▾" : "▸"}
-                        </span>
-                      </button>
-                      {openTier === "os" && (
-                        <div className="accordion-body">
-                          <p>
-                            Ideal for offers that justify a 20–60 minute call and need AI
-                            involved at every step:
-                          </p>
-                          <ul className="accordion-list">
-                            <li>
-                              <strong>20–30 minute booking agent</strong> with full
-                              discovery, problem/pain extraction, value framing, and
-                              calendar logic.
-                            </li>
-                            <li>
-                              <strong>15–25 minute pre-call video</strong> (via tools like
-                              Sora-style video creation) — story, credibility, reviews,
-                              value stacking, and no-show policy.
-                            </li>
-                            <li>
-                              <strong>60 minute sales call agent</strong> segmented into
-                              structured stages (opener, discovery, offer, price, objection
-                              handling, commitment).
-                            </li>
-                            <li>
-                              <strong>10–15 minute finance/closer agent</strong> for
-                              options, payment breakdowns, and sending finance links.
-                            </li>
-                            <li>
-                              <strong>Dispatcher / operations agent</strong> for home
-                              services-style routing, ETAs, and keeping the field schedule
-                              tight.
-                            </li>
-                            <li>
-                              Continuous testing of scripts, offer positioning, and
-                              booking/no-show patterns so the system keeps getting better
-                              instead of going stale.
-                            </li>
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="accordion-item">
-                      <button
-                        type="button"
-                        className="accordion-header-btn"
-                        onClick={() =>
-                          setOpenTier((prev) =>
-                            prev === "enterprise" ? null : "enterprise"
-                          )
-                        }
-                      >
-                        <div className="accordion-header-main">
-                          <span className="accordion-label">
-                            Enterprise AI Department (Custom)
-                          </span>
-                          <span className="accordion-price">
-                            $25,000–$70,000 build-out • $6,000–$12,000/mo
-                          </span>
-                        </div>
-                        <span className="accordion-chevron">
-                          {openTier === "enterprise" ? "▾" : "▸"}
-                        </span>
-                      </button>
-                      {openTier === "enterprise" && (
-                        <div className="accordion-body">
-                          <p>
-                            For teams handling 50–200+ inbound leads per day, existing
-                            sales teams, finance, underwriting, or multi-location
-                            operations:
-                          </p>
-                          <ul className="accordion-list">
-                            <li>
-                              Multi-agent architecture across inbound, booking, no-show
-                              recovery, outbound, sales, finance, and post-sale.
-                            </li>
-                            <li>
-                              Omnichannel coverage (phone + SMS, with room for more
-                              channels).
-                            </li>
-                            <li>
-                              Deep integration with your CRM, billing, and scheduling
-                              tools.
-                            </li>
-                            <li>
-                              Advanced routing rules, segmentation, and logic for multiple
-                              brands or locations.
-                            </li>
-                            <li>
-                              Performance dashboards and clear ROI tracking so leadership
-                              can see where gains are coming from.
-                            </li>
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                <div style={{textAlign:'right'}}>
+                   <div style={{fontSize: '1.2rem', color: '#FACC15', fontWeight: 700}}>$35 Setup</div>
+                   <div style={{fontSize: '0.9rem', color: '#94A3B8'}}>+ Usage / Mo</div>
                 </div>
               </div>
-            </section>
-
-            {/* ROI Calculator */}
-            <section className="section">
-              <div className="section-header">
-                <div>
-                  <div className="section-title">ROI & Payback Calculator</div>
-                  <div className="section-sub">
-                    Plug in your numbers to see what an end-to-end operating system could
-                    recover — and how fast the core SOP can pay for itself.
-                  </div>
+              
+              <div style={{marginTop: '30px', background: '#020617', padding: '20px', borderRadius: '12px'}}>
+                <div style={{display:'flex', justifyContent:'space-between', marginBottom: '10px', fontSize: '0.9rem', fontWeight: 600, color: '#94A3B8'}}>
+                    <span>PLAN</span>
+                    <span>MINUTES</span>
+                    <span>RATE</span>
                 </div>
-                <div className="pill-toggle-group">
-                  <button
-                    type="button"
-                    className={
-                      "pill-toggle-btn" +
-                      (funnelMode === "inbound" ? " pill-toggle-btn--active" : "")
-                    }
-                    onClick={() => setFunnelMode("inbound")}
-                  >
-                    Inbound Funnel
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      "pill-toggle-btn" +
-                      (funnelMode === "outbound" ? " pill-toggle-btn--active" : "")
-                    }
-                    onClick={() => setFunnelMode("outbound")}
-                  >
-                    Outbound Funnel
-                  </button>
-                </div>
+                {[
+                    {name: 'Starter', min: '280', rate: '$0.28'},
+                    {name: 'Growth', min: '710', rate: '$0.22'},
+                    {name: 'Pro', min: '1,700', rate: '$0.17'}
+                ].map((plan, i) => (
+                    <div key={i} style={{display:'flex', justifyContent:'space-between', padding: '12px 0', borderTop: '1px solid rgba(255,255,255,0.1)'}}>
+                        <span style={{color: 'white'}}>{plan.name}</span>
+                        <span style={{color: '#10B981'}}>{plan.min}</span>
+                        <span style={{color: 'white'}}>{plan.rate}/min</span>
+                    </div>
+                ))}
               </div>
+            </div>
+          )}
 
-              <div className="roi-grid">
-                <div className="card">
-                  <div className="card-title">
-                    Your Current {funnelMode === "inbound" ? "Inbound" : "Outbound"} Funnel
-                  </div>
-                  <div className="card-sub">
-                    Estimated monthly performance. These don&apos;t need to be perfect —
-                    just close enough to see the lift.
-                  </div>
+          {/* OS TIER (MAIN) */}
+          {openTier === "os" && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px' }}>
+                <div className="pricing-card highlight">
+                    <span className="badge">Most Popular</span>
+                    <h3 style={{fontSize: '2rem', margin: 0}}>Full Operating System</h3>
+                    <p style={{color: '#94A3B8', fontSize: '1.1rem'}}>The complete "Lead-to-Close" infrastructure.</p>
+                    
+                    <div style={{margin: '30px 0'}}>
+                        <div style={{display:'flex', alignItems: 'baseline', gap: '10px'}}>
+                            <span style={{fontSize: '2.5rem', fontWeight: 700, color: 'white'}}>$6,200</span>
+                            <span style={{color: '#94A3B8'}}>one-time build</span>
+                        </div>
+                        <div style={{fontSize: '1.1rem', color: '#10B981', marginTop: '4px'}}>+ $1,250 / mo maintenance & optimization</div>
+                    </div>
 
-                  <div className="input-grid">
-                    <div className="field">
-                      <label>Monthly leads / inbound calls</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={leads}
-                        onChange={(e) => setLeads(e.target.value)}
-                      />
-                    </div>
-                    <div className="field">
-                      <label>Lead → Booked ratio (%)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={bookRate}
-                        onChange={(e) => setBookRate(e.target.value)}
-                      />
-                      <small>
-                        For example: if 40 out of 100 leads book, enter <strong>40</strong>.
-                      </small>
-                    </div>
-                    <div className="field">
-                      <label>Booked → Show ratio (%)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={showRate}
-                        onChange={(e) => setShowRate(e.target.value)}
-                      />
-                    </div>
-                    <div className="field">
-                      <label>Show → Close ratio (%)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={closeRate}
-                        onChange={(e) => setCloseRate(e.target.value)}
-                      />
-                      <small>
-                        For some medical or dental offers this may be close to{" "}
-                        <strong>100%</strong>.
-                      </small>
-                    </div>
-                    <div className="field">
-                      <label>Average ticket / deal size ($)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={avgTicket}
-                        onChange={(e) => setAvgTicket(e.target.value)}
-                      />
-                    </div>
-                  </div>
+                    <ul className="feature-list">
+                        <li><CheckCircle2 size={18} className="icon-check"/> <strong>Everything in Landing + Starter</strong></li>
+                        <li><Zap size={18} className="icon-check"/> <strong>Full CRM Setup</strong> (GHL Snapshot)</li>
+                        <li><Phone size={18} className="icon-check"/> <strong>Custom AI Voice Agent</strong> (Sales trained)</li>
+                        <li><Server size={18} className="icon-check"/> <strong>Workflow Automation</strong> (Calendar/Booking)</li>
+                        <li><ShieldCheck size={18} className="icon-check"/> <strong>Live Transfer</strong> & Voicemail Drops</li>
+                    </ul>
 
-                  <div className="inline-note" style={{ marginTop: 10 }}>
-                    <strong>Baseline results:</strong> this is what you&apos;re earning
-                    today from the leads you already pay to generate.
-                  </div>
-
-                  <div className="roi-metrics">
-                    <div>
-                      <span className="metric-label">Booked per month:</span>{" "}
-                      <span className="metric-value">
-                        {baselineBooked.toFixed(1)} bookings
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Shows per month:</span>{" "}
-                      <span className="metric-value">
-                        {baselineShows.toFixed(1)} kept appointments
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Sales per month:</span>{" "}
-                      <span className="metric-value">
-                        {baselineSales.toFixed(1)} closed deals
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Estimated monthly revenue:</span>{" "}
-                      <span className="metric-value">
-                        ${formatCurrency(baselineRevenue)}
-                      </span>
-                    </div>
-                  </div>
+                    <button style={{width:'100%', padding:'18px', borderRadius:'12px', background: 'linear-gradient(135deg, #059669 0%, #10B981 100%)', color: 'white', border:'none', cursor:'pointer', fontWeight: 700, fontSize: '1.1rem', boxShadow: '0 10px 30px rgba(16, 185, 129, 0.3)'}}>
+                        Apply for OS Implementation <ArrowRight size={18} style={{verticalAlign: 'middle', marginLeft: '8px'}}/>
+                    </button>
                 </div>
 
-                <div className="card card-alt">
-                  <div className="card-title">With the Full SOP Installed</div>
-                  <div className="card-sub">
-                    We use conservative lift ranges based on better booking psychology,
-                    speed-to-lead, pre-call video, and no-show control.
-                  </div>
-
-                  <div className="input-grid">
-                    <div className="field">
-                      <label>Expected change: Lead → Booked</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={30}
-                        value={bookDrop}
-                        onChange={(e) => setBookDrop(e.target.value)}
-                      />
-                      <small>
-                        % <strong>drop</strong> in bookings (5–10% is common) from adding a
-                        strong no-show policy.
-                      </small>
+                <div style={{display:'flex', flexDirection:'column', gap: '20px'}}>
+                    <div className="pricing-card">
+                        <h4 style={{marginTop:0, display:'flex', alignItems:'center', gap:'10px'}}>
+                            <Globe size={18} color="#10B981"/> speed-to-lead flow
+                        </h4>
+                        
+                        <div className="flow-diagram">
+                           <div className="flow-step">Lead</div>
+                           <div className="flow-arrow">→</div>
+                           <div className="flow-step" style={{borderColor: '#10B981', color: '#10B981'}}>AI Call (30s)</div>
+                           <div className="flow-arrow">→</div>
+                           <div className="flow-step">Booking</div>
+                        </div>
                     </div>
-                    <div className="field">
-                      <label>Expected lift: Booked → Show</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={showLift}
-                        onChange={(e) => setShowLift(e.target.value)}
-                      />
-                      <small>
-                        % <strong>increase</strong> in show rate (20–60% range).
-                      </small>
+                    <div className="pricing-card" style={{background: 'rgba(250, 204, 21, 0.05)', borderColor: 'rgba(250, 204, 21, 0.2)'}}>
+                        <h4 style={{marginTop:0, color: '#FACC15'}}>ROI Guarantee</h4>
+                        <p style={{fontSize: '0.9rem', color: '#cbd5e1'}}>
+                            If the system doesn't generate {formatCurrency(metrics.extraRev)} in extra pipeline value within 90 days, we work for free until it does.
+                        </p>
                     </div>
-                    <div className="field">
-                      <label>Expected lift: Show → Close</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={closeLift}
-                        onChange={(e) => setCloseLift(e.target.value)}
-                      />
-                      <small>
-                        % <strong>increase</strong> with pre-call video and stronger
-                        framing (20–40% typical).
-                      </small>
-                    </div>
-                  </div>
-
-                  <div className="roi-metrics">
-                    <div>
-                      <span className="metric-label">
-                        New booked ratio (after no-show policy):
-                      </span>{" "}
-                      <span className="metric-value">
-                        {improvedBookRate.toFixed(1)}%
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">New show ratio:</span>{" "}
-                      <span className="metric-value">
-                        {improvedShowRate.toFixed(1)}%
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">New close ratio:</span>{" "}
-                      <span className="metric-value">
-                        {improvedCloseRate.toFixed(1)}%
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">New monthly revenue:</span>{" "}
-                      <span className="metric-highlight">
-                        ${formatCurrency(improvedRevenue)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Extra revenue per month:</span>{" "}
-                      <span
-                        className={
-                          "metric-value " +
-                          (extraRevenue > 0 ? "metric-highlight" : "metric-danger")
-                        }
-                      >
-                        {extraRevenue > 0
-                          ? `+$${formatCurrency(extraRevenue)}`
-                          : "$0 (no lift with current inputs)"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">
-                        Est. payback period on $6,200 SOP:
-                      </span>{" "}
-                      <span className="metric-value">
-                        {extraRevenue > 0
-                          ? `${monthsToPayback.toFixed(1)} months`
-                          : "—"}
-                      </span>
-                    </div>
-                    <div className="inline-note">
-                      This does not include the cost of the monthly operating package or
-                      any extra OS tiers — it&apos;s a simple look at how quickly the{" "}
-                      <strong>$6,200</strong> core SOP can pay for itself on the low end.
-                    </div>
-                  </div>
                 </div>
-              </div>
-            </section>
-          </>
-        )}
+            </div>
+          )}
 
-        {/* CTA footer */}
-        <div className="cta-footer">
-          <div className="cta-text">
-            Ready to see this in action on a live{" "}
-            <span>AI-powered speed-to-lead landing page</span>?
-          </div>
-          <a href="/" className="cta-link-btn">
-            Hear the AI &amp; see the page
-            <span>↗</span>
-          </a>
+           {/* ENTERPRISE TIER */}
+           {openTier === "enterprise" && (
+             <div className="pricing-card" style={{textAlign:'center', padding: '60px 20px'}}>
+                <h3 style={{fontSize: '2rem'}}>Franchise & Multi-Location</h3>
+                <p style={{color: '#94A3B8', maxWidth: '500px', margin: '20px auto'}}>
+                    Unified reporting, master snapshots, and AI training for 10+ locations.
+                </p>
+                <button style={{padding:'14px 30px', borderRadius:'99px', background: 'transparent', border: '1px solid white', color: 'white', cursor: 'pointer'}}>
+                    Contact Sales
+                </button>
+             </div>
+           )}
+
         </div>
       </div>
     </main>
