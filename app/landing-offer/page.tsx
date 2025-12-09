@@ -2,133 +2,10 @@
 
 import { useState } from "react";
 
-type ProblemKey =
-  | "missedCalls"
-  | "noShows"
-  | "slowFollowUp"
-  | "salesPipeline"
-  | "schedulingChaos";
-
-type PackageConfig = {
-  label: string;
-  shortLabel: string;
-  headline: string;
-  setupPrice: string;
-  monthlyPrice: string;
-  bestFor: string;
-  outcomes: string[];
-  notes: string[];
-};
-
-const PACKAGES: Record<ProblemKey, PackageConfig> = {
-  missedCalls: {
-    label: "Missed Calls / Voicemail",
-    shortLabel: "Missed Calls",
-    headline: "AI Inbound + Callback System",
-    setupPrice: "$1,700–$2,600 one-time",
-    monthlyPrice: "Typically $197–$350/mo + minutes & SMS",
-    bestFor:
-      "Teams that bleed money every time a call hits voicemail or rings out.",
-    outcomes: [
-      "24/7 AI agent that answers every call and captures qualified lead info.",
-      "Speed-to-lead callback sequences when your team can’t answer in time.",
-      "Real-time lead delivery to your inbox/CRM so nothing slips through cracks.",
-      "Optional live transfers for hot leads."
-    ],
-    notes: [
-      "Minutes start at $53/mo (160 minutes) and scale with volume.",
-      "SMS plans start at $8/mo (50 SMS) for confirmations and booking links.",
-      "Designed to be your ‘always-on front desk’ so humans stay on revenue work."
-    ]
-  },
-  noShows: {
-    label: "No-Shows & Cancellations",
-    shortLabel: "No-Shows",
-    headline: "AI No-Show & Callback Recovery System",
-    setupPrice: "$1,700 one-time",
-    monthlyPrice: "From $350/mo + minutes & SMS",
-    bestFor:
-      "Businesses with a full calendar on paper but too many empty chairs on the day.",
-    outcomes: [
-      "Detects missed/abandoned appointments and automatically calls & texts to reschedule.",
-      "Brings dead time back to life by filling gaps with recovered bookings.",
-      "Keeps your team calendar more stable, with fewer roller-coaster weeks.",
-      "Runs quietly in the background, so staff don’t have to chase no-shows."
-    ],
-    notes: [
-      "Pairs perfectly with inbound booking agents for full funnel coverage.",
-      "Great first system if your biggest complaint is ‘half my day blew up again’.",
-      "Minutes + SMS billed on top, so you only pay for real usage."
-    ]
-  },
-  slowFollowUp: {
-    label: "Slow Lead Follow-Up",
-    shortLabel: "Slow Follow-Up",
-    headline: "Speed-to-Lead AI Callback System",
-    setupPrice: "$1,700–$4,400 one-time",
-    monthlyPrice: "Typically $197–$620/mo + minutes & SMS",
-    bestFor:
-      "Teams that generate leads but can’t consistently call/text them back in the first 5 minutes.",
-    outcomes: [
-      "AI calls new leads in seconds — not hours — with your script and tone.",
-      "Layered SMS + voicemail so prospects remember who you are when you call.",
-      "Option to add Sales + Finance agents for full lead → close flow.",
-      "Built to support your existing reps, not replace them."
-    ],
-    notes: [
-      "Follows proven speed-to-lead SOPs that can boost booked calls dramatically.",
-      "You choose how aggressive follow-up should be and when humans step in.",
-      "Great for ads, inbound form fills, or high-intent web traffic."
-    ]
-  },
-  salesPipeline: {
-    label: "Sales Pipeline & Closing",
-    shortLabel: "Sales Pipeline",
-    headline: "Advanced Sales OS (Booking + Sales + Finance Agents)",
-    setupPrice: "From $4,400 one-time",
-    monthlyPrice: "From $620/mo + minutes & SMS",
-    bestFor:
-      "Teams with real sales volume who want structured, repeatable, AI-supported closing.",
-    outcomes: [
-      "AI booking agent fills your calendar with qualified appointments.",
-      "Sales agent supports structured calls with discovery, recap, and next steps.",
-      "Finance agent handles follow-up, agreements, and payment link reminders.",
-      "Optional full Sales SOP with training video so humans and AI work as one system."
-    ],
-    notes: [
-      "Full Sales SOP with video starts at $4,400 alone.",
-      "Bundle: Booking Agent + Sales Video + Sales Agent + Finance Agent ≈ $6,300.",
-      "Best fit for high-ticket offers, consultative sales, or multi-step pipelines."
-    ]
-  },
-  schedulingChaos: {
-    label: "Scheduling Chaos & Dispatch",
-    shortLabel: "Scheduling Chaos",
-    headline: "AI Dispatch & Scheduling System",
-    setupPrice: "$2,600 one-time",
-    monthlyPrice: "From $530/mo + minutes & SMS",
-    bestFor:
-      "Service businesses juggling ETAs, techs, routes, and ‘where’s my appointment’ calls.",
-    outcomes: [
-      "AI handles ETA updates, basic rescheduling, and confirmation calls automatically.",
-      "Reduces inbound ‘where is my appointment’ calls that clog your lines.",
-      "Keeps customers informed and your schedule tighter without manual chasing.",
-      "Plays nicely with human dispatchers — takes the noise, they keep the control."
-    ],
-    notes: [
-      "Ideal for HVAC, home services, deliveries, clinics, and any route-heavy business.",
-      "Can be layered in after a basic inbound agent is in place.",
-      "Designed as a sane next step once phones stop being on fire all day."
-    ]
-  }
-};
+type ViewTab = "overview" | "systems" | "pricing" | "plans";
 
 export default function PricingPage() {
-  const [selectedProblem, setSelectedProblem] = useState<ProblemKey | null>(
-    null
-  );
-
-  const selectedPackage = selectedProblem ? PACKAGES[selectedProblem] : null;
+  const [tab, setTab] = useState<ViewTab>("overview");
 
   return (
     <main className="aid-pricing-page">
@@ -153,18 +30,18 @@ export default function PricingPage() {
           min-height: 100vh;
         }
 
-        .pricing-wrapper {
-          max-width: 1080px;
+        .aid-pricing-wrapper {
+          max-width: 1120px;
           margin: 0 auto;
           padding: 32px 16px 96px;
         }
 
-        .pricing-header {
+        .page-header {
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          gap: 12px;
-          margin-bottom: 28px;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 26px;
         }
 
         .brand-mark {
@@ -174,8 +51,8 @@ export default function PricingPage() {
         }
 
         .brand-logo {
-          width: 32px;
-          height: 32px;
+          width: 34px;
+          height: 34px;
           border-radius: 10px;
           background: radial-gradient(circle at 30% 20%, #6EE7B7 0, #047857 45%, #022c22 100%);
           box-shadow: 0 12px 28px rgba(5, 150, 105, 0.45);
@@ -189,21 +66,50 @@ export default function PricingPage() {
         .brand-name {
           font-weight: 700;
           letter-spacing: 0.09em;
-          font-size: 0.96rem;
+          font-size: 0.98rem;
           text-transform: uppercase;
         }
 
         .brand-tagline {
-          font-size: 0.84rem;
+          font-size: 0.86rem;
           color: var(--text-muted);
         }
 
-        .back-link {
-          font-size: 0.85rem;
-          padding: 7px 14px;
+        .header-actions {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        .header-pill {
           border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.6);
+          padding: 7px 16px;
+          font-size: 0.86rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(12px);
+          color: #E5E7EB;
+        }
+
+        .header-pill-dot {
+          width: 9px;
+          height: 9px;
+          border-radius: 999px;
+          background: radial-gradient(circle at 30% 20%, #BBF7D0 0, #22C55E 40%, #166534 100%);
+          box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+        }
+
+        .header-call {
+          border-radius: 999px;
+          padding: 7px 14px;
+          font-size: 0.86rem;
+          font-weight: 600;
           border: 1px solid rgba(148, 163, 184, 0.7);
-          background: rgba(15, 23, 42, 0.75);
+          background: rgba(15, 23, 42, 0.8);
           color: #E5E7EB;
           text-decoration: none;
           display: inline-flex;
@@ -211,500 +117,1245 @@ export default function PricingPage() {
           gap: 6px;
         }
 
-        .back-link span {
-          font-size: 0.88rem;
+        .header-call span {
+          font-size: 0.9rem;
         }
 
-        .pricing-hero {
+        .hero-card {
           border-radius: 24px;
-          padding: 26px 22px 24px;
-          background: radial-gradient(circle at top left, rgba(4, 120, 87, 0.4), rgba(15, 23, 42, 0.95));
+          padding: 26px 20px 20px;
+          background: radial-gradient(circle at top left, rgba(4, 120, 87, 0.4), rgba(15, 23, 42, 0.96));
           border: 1px solid rgba(148, 163, 184, 0.35);
           box-shadow:
-            0 24px 80px rgba(15, 23, 42, 0.85),
-            0 0 0 1px rgba(15, 23, 42, 0.7);
-          margin-bottom: 28px;
+            0 24px 80px rgba(15, 23, 42, 0.9),
+            0 0 0 1px rgba(15, 23, 42, 0.85);
+          margin-bottom: 22px;
         }
 
-        .step-tag {
+        .hero-eyebrow {
           display: inline-flex;
           align-items: center;
-          gap: 7px;
-          padding: 5px 12px;
+          gap: 8px;
+          padding: 5px 13px;
           border-radius: 999px;
+          background: rgba(15, 23, 42, 0.85);
           border: 1px solid rgba(148, 163, 184, 0.6);
           font-size: 0.9rem;
           color: var(--text-muted);
-          margin-bottom: 12px;
-          background: rgba(15, 23, 42, 0.85);
+          margin-bottom: 14px;
         }
 
-        .step-tag span {
-          font-size: 0.8rem;
-          padding: 2px 8px;
+        .hero-eyebrow span {
+          padding: 2px 9px;
           border-radius: 999px;
           background: rgba(4, 120, 87, 0.2);
           color: #A7F3D0;
           font-weight: 600;
+          font-size: 0.82rem;
         }
 
-        .pricing-title {
-          font-size: clamp(2rem, 3vw, 2.4rem);
-          margin: 0 0 10px;
+        .hero-title {
+          font-size: clamp(2.1rem, 3.2vw, 2.7rem);
+          line-height: 1.05;
           letter-spacing: -0.04em;
+          margin: 0 0 10px;
         }
 
-        .pricing-highlight {
+        .hero-highlight {
           background: linear-gradient(120deg, #F4D03F, #F9A826);
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
         }
 
-        .pricing-subtitle {
-          font-size: 1rem;
-          color: #CBD5F5;
+        .hero-subtitle {
+          font-size: 1.02rem;
+          line-height: 1.6;
           max-width: 640px;
-          margin: 0 0 10px;
+          color: #CBD5F5;
         }
 
-        .pricing-note {
-          font-size: 0.9rem;
+        .hero-subtitle strong {
+          color: #FBBF24;
+        }
+
+        .hero-cta-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          margin-top: 16px;
+        }
+
+        .hero-cta-primary,
+        .hero-cta-secondary {
+          border-radius: 999px;
+          border: none;
+          padding: 9px 16px;
+          font-size: 0.96rem;
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          cursor: pointer;
+          text-decoration: none;
+          transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+        }
+
+        .hero-cta-primary {
+          background: linear-gradient(135deg, #047857, #22C55E);
+          color: #ECFDF5;
+          box-shadow: 0 14px 40px rgba(16, 185, 129, 0.45);
+        }
+
+        .hero-cta-primary:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 52px rgba(16, 185, 129, 0.7);
+        }
+
+        .hero-cta-secondary {
+          background: rgba(15, 23, 42, 0.9);
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          color: #E5E7EB;
+        }
+
+        .hero-cta-secondary:hover {
+          background: rgba(15, 23, 42, 1);
+          transform: translateY(-1px);
+        }
+
+        .hero-footnote {
+          margin-top: 10px;
+          font-size: 0.86rem;
           color: var(--text-muted);
         }
 
-        .pricing-layout {
+        .tab-strip {
+          margin-top: 22px;
+          display: inline-flex;
+          flex-wrap: wrap;
+          border-radius: 999px;
+          background: rgba(15, 23, 42, 0.8);
+          border: 1px solid rgba(148, 163, 184, 0.6);
+          padding: 4px;
+          gap: 4px;
+        }
+
+        .tab-btn {
+          border-radius: 999px;
+          border: none;
+          padding: 6px 12px;
+          font-size: 0.88rem;
+          cursor: pointer;
+          background: transparent;
+          color: #CBD5F5;
+          opacity: 0.7;
+          transition: background 0.16s ease, opacity 0.16s ease;
+        }
+
+        .tab-btn--active {
+          background: rgba(15, 23, 42, 1);
+          opacity: 1;
+        }
+
+        .layout-grid {
           margin-top: 22px;
           display: grid;
-          grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-          gap: 22px;
+          grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+          gap: 20px;
           align-items: flex-start;
         }
 
         @media (max-width: 900px) {
-          .pricing-layout {
+          .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .header-actions {
+            justify-content: flex-start;
+          }
+
+          .layout-grid {
             grid-template-columns: 1fr;
+          }
+
+          .hero-card {
+            padding: 20px 16px 16px;
           }
         }
 
-        .problem-card {
+        .panel {
           border-radius: 18px;
           padding: 16px 14px 14px;
-          background: rgba(15, 23, 42, 0.98);
-          border: 1px solid rgba(148, 163, 184, 0.6);
+          background: radial-gradient(circle at top, rgba(15, 118, 110, 0.32), rgba(15, 23, 42, 0.96));
+          border: 1px solid rgba(148, 163, 184, 0.58);
+          box-shadow: 0 20px 60px rgba(15, 23, 42, 0.85);
         }
 
-        .problem-title {
-          font-size: 0.98rem;
+        .panel-alt {
+          background: radial-gradient(circle at top, rgba(24, 24, 27, 0.9), rgba(15, 23, 42, 0.98));
+        }
+
+        .panel-header-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+
+        .panel-title {
+          font-size: 1.02rem;
           font-weight: 600;
-          margin-bottom: 6px;
         }
 
-        .problem-sub {
+        .panel-tag {
+          font-size: 0.8rem;
+          padding: 3px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          color: var(--text-muted);
+        }
+
+        .panel-body {
+          font-size: 0.94rem;
+          color: #E5E7EB;
+        }
+
+        .diagram {
+          margin-top: 10px;
+          border-radius: 14px;
+          padding: 10px 10px 9px;
+          background: rgba(15, 23, 42, 0.96);
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          font-size: 0.9rem;
+        }
+
+        .diagram-steps {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .diagram-pill {
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-size: 0.82rem;
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          background: rgba(15, 23, 42, 0.9);
+          white-space: nowrap;
+        }
+
+        .diagram-arrow {
+          font-size: 0.8rem;
+          opacity: 0.6;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        .diagram-caption {
+          margin-top: 8px;
+          font-size: 0.82rem;
+          color: var(--text-muted);
+        }
+
+        .list-tight {
+          list-style: disc;
+          padding-left: 18px;
+          margin: 6px 0 0;
           font-size: 0.9rem;
           color: var(--text-muted);
-          margin-bottom: 12px;
         }
 
-        .problem-grid {
+        .list-tight li {
+          margin-bottom: 4px;
+        }
+
+        .two-col {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 10px;
-          margin-bottom: 12px;
+          margin-top: 10px;
         }
 
-        @media (max-width: 680px) {
-          .problem-grid {
+        @media (max-width: 700px) {
+          .two-col {
             grid-template-columns: 1fr;
           }
         }
 
-        .problem-button {
-          border-radius: 14px;
-          border: 2px solid rgba(148, 163, 184, 0.7);
-          background: linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92));
-          padding: 10px 11px 9px;
-          text-align: left;
-          color: #E5E7EB;
-          font-size: 0.9rem;
-          cursor: pointer;
-          transition:
-            border-color 0.15s ease,
-            background 0.15s ease,
-            transform 0.12s ease,
-            box-shadow 0.12s ease;
-          box-shadow: 0 12px 30px rgba(15, 23, 42, 0.95);
-        }
-
-        .problem-button strong {
-          display: block;
-          margin-bottom: 2px;
-          font-size: 0.95rem;
-        }
-
-        .problem-button span {
-          font-size: 0.82rem;
-          color: var(--text-muted);
-        }
-
-        .problem-button--active {
-          border-color: var(--gold);
-          background: linear-gradient(145deg, rgba(4, 120, 87, 1), rgba(15, 23, 42, 0.98));
-          box-shadow: 0 18px 40px rgba(4, 120, 87, 0.75);
-          transform: translateY(-1px);
-        }
-
-        .problem-hint {
-          font-size: 0.82rem;
-          color: var(--text-muted);
-        }
-
-        .problem-hint strong {
-          color: #E5E7EB;
-        }
-
-        .package-card {
-          border-radius: 18px;
-          padding: 16px 15px 15px;
-          background: radial-gradient(circle at top, rgba(15, 118, 110, 0.38), rgba(15, 23, 42, 0.98));
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          box-shadow: 0 20px 60px rgba(15, 23, 42, 0.8);
-        }
-
-        .package-label {
-          font-size: 0.78rem;
-          text-transform: uppercase;
-          letter-spacing: 0.16em;
-          color: var(--text-muted);
-          margin-bottom: 4px;
-        }
-
-        .package-headline {
-          font-size: 1.2rem;
-          margin: 0 0 8px;
-        }
-
-        .package-pricing {
-          font-size: 0.94rem;
-          margin-bottom: 10px;
-        }
-
-        .package-pricing strong {
-          color: #fef9c3;
-        }
-
-        .package-bestfor {
-          font-size: 0.92rem;
-          color: #CBD5F5;
-          margin-bottom: 10px;
-        }
-
-        .package-section-title {
+        .mini-card {
+          border-radius: 12px;
+          padding: 9px 10px;
+          background: rgba(15, 23, 42, 0.98);
+          border: 1px solid rgba(148, 163, 184, 0.6);
           font-size: 0.88rem;
-          text-transform: uppercase;
-          letter-spacing: 0.14em;
-          color: #A5B4FC;
-          margin-top: 10px;
-          margin-bottom: 4px;
         }
 
-        .package-list {
-          list-style: none;
-          padding: 0;
-          margin: 0 0 6px;
-          font-size: 0.9rem;
-        }
-
-        .package-list li {
-          position: relative;
-          padding-left: 18px;
-          margin-bottom: 4px;
-        }
-
-        .package-list li::before {
-          content: "•";
-          position: absolute;
-          left: 4px;
-          top: -1px;
-          color: var(--gold);
-        }
-
-        .package-notes {
-          font-size: 0.82rem;
-          color: var(--text-muted);
-          margin-top: 4px;
-        }
-
-        .package-notes li {
+        .mini-card-title {
+          font-weight: 600;
           margin-bottom: 3px;
         }
 
-        .cta-panel {
-          margin-top: 22px;
+        .mini-card-tag {
+          font-size: 0.76rem;
+          color: #FBBF24;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+        }
+
+        .pricing-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 14px;
+          margin-top: 10px;
+        }
+
+        @media (max-width: 960px) {
+          .pricing-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .price-tier {
           border-radius: 16px;
-          padding: 14px 13px;
+          padding: 13px 12px 12px;
           background: rgba(15, 23, 42, 0.96);
-          border: 1px solid rgba(148, 163, 184, 0.6);
+          border: 1px solid rgba(148, 163, 184, 0.65);
+        }
+
+        .price-tier-header {
           display: flex;
-          flex-direction: column;
+          justify-content: space-between;
+          align-items: baseline;
           gap: 8px;
+          margin-bottom: 4px;
         }
 
-        .cta-text {
-          font-size: 0.9rem;
-          color: #E5E7EB;
-        }
-
-        .cta-text span {
-          color: var(--gold);
+        .price-tier-name {
+          font-size: 1.02rem;
           font-weight: 600;
         }
 
-        .cta-buttons {
+        .price-tier-pill {
+          font-size: 0.78rem;
+          padding: 2px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          color: var(--text-muted);
+        }
+
+        .price-main {
+          font-size: 1.1rem;
+          font-weight: 700;
+          margin-top: 2px;
+        }
+
+        .price-sub {
+          font-size: 0.84rem;
+          color: var(--text-muted);
+          margin-bottom: 6px;
+        }
+
+        .price-list {
+          margin: 0;
+          padding-left: 18px;
+          font-size: 0.9rem;
+          color: #CBD5F5;
+        }
+
+        .price-list li {
+          margin-bottom: 4px;
+        }
+
+        .price-footnote {
+          margin-top: 6px;
+          font-size: 0.8rem;
+          color: var(--text-muted);
+        }
+
+        .plans-table {
+          margin-top: 8px;
+          border-radius: 14px;
+          border: 1px solid rgba(148, 163, 184, 0.65);
+          overflow: hidden;
+          font-size: 0.86rem;
+        }
+
+        .plans-row {
+          display: grid;
+          grid-template-columns: 2.2fr 1.2fr 1.3fr;
+        }
+
+        .plans-head {
+          background: rgba(15, 23, 42, 0.98);
+          font-weight: 600;
+        }
+
+        .plans-cell {
+          padding: 7px 9px;
+          border-bottom: 1px solid rgba(31, 41, 55, 0.9);
+        }
+
+        .plans-row:nth-child(even):not(.plans-head) .plans-cell {
+          background: rgba(15, 23, 42, 0.92);
+        }
+
+        .plans-row:nth-child(odd):not(.plans-head) .plans-cell {
+          background: rgba(15, 23, 42, 0.86);
+        }
+
+        .cta-banner {
+          margin-top: 26px;
+          border-radius: 18px;
+          padding: 14px 14px 12px;
+          background: radial-gradient(circle at top, rgba(4, 120, 87, 0.35), rgba(15, 23, 42, 0.96));
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 10px;
+          justify-content: space-between;
+        }
+
+        .cta-banner strong {
+          color: #FBBF24;
+        }
+
+        .cta-actions {
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
         }
 
-        .primary-cta {
+        .cta-small-btn {
           border-radius: 999px;
           border: none;
-          padding: 9px 16px;
-          font-size: 0.94rem;
+          padding: 7px 13px;
+          font-size: 0.86rem;
           font-weight: 600;
-          background: linear-gradient(135deg, #047857, #22C55E);
-          color: #ECFDF5;
+          cursor: pointer;
           text-decoration: none;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 6px;
-          box-shadow: 0 14px 40px rgba(16, 185, 129, 0.45);
-          cursor: pointer;
         }
 
-        .secondary-cta {
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          padding: 8px 14px;
-          font-size: 0.9rem;
+        .cta-small-btn--primary {
+          background: linear-gradient(135deg, #047857, #22C55E);
+          color: #ECFDF5;
+          box-shadow: 0 12px 32px rgba(16, 185, 129, 0.55);
+        }
+
+        .cta-small-btn--ghost {
           background: transparent;
+          border: 1px solid rgba(148, 163, 184, 0.8);
           color: #E5E7EB;
+        }
+
+        .footer-legal {
+          margin-top: 32px;
+          font-size: 0.72rem;
+          color: #6B7280;
+          text-align: center;
+          opacity: 0.85;
+        }
+
+        .footer-legal a {
+          color: inherit;
           text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
+          border-bottom: 1px solid rgba(107, 114, 128, 0.3);
+          padding-bottom: 1px;
         }
 
-        .disclaimer {
-          margin-top: 18px;
-          font-size: 0.78rem;
-          color: var(--text-muted);
-        }
-
-        @media (max-width: 640px) {
-          .pricing-header {
-            flex-direction: column;
-            align-items: flex-start;
-          }
+        .footer-legal a:hover {
+          border-bottom-color: rgba(148, 163, 184, 0.8);
         }
       `}</style>
 
-      <div className="pricing-wrapper">
-        <header className="pricing-header">
+      <div className="aid-pricing-wrapper">
+        <header className="page-header">
           <div className="brand-mark">
             <div className="brand-logo" />
             <div className="brand-text">
               <div className="brand-name">ALL IN DIGITAL</div>
-              <div className="brand-tagline">AI Call, Booking &amp; Recovery Systems</div>
+              <div className="brand-tagline">AI Revenue Operating Systems</div>
             </div>
           </div>
-          <a href="/" className="back-link">
-            <span>←</span> Back to main site
-          </a>
+          <div className="header-actions">
+            <div className="header-pill">
+              <div className="header-pill-dot" />
+              <span>From “AI agent” to full operating system</span>
+            </div>
+            <a className="header-call" href="tel:2396880201">
+              <span>📞</span>
+              <span>Call Tom · 239-688-0201</span>
+            </a>
+          </div>
         </header>
 
-        <section className="pricing-hero">
-          <div className="step-tag">
-            <span>Step 1</span> Choose what you want fixed first
+        <section className="hero-card">
+          <div className="hero-eyebrow">
+            <span>Interactive Pricing</span>
+            <div>See the full system · Not just a bot</div>
           </div>
-          <h1 className="pricing-title">
-            Build your{" "}
-            <span className="pricing-highlight">AI call &amp; booking system</span> around the
-            real problem in your business.
+          <h1 className="hero-title">
+            Turn your leads, calls, and no-shows into an{" "}
+            <span className="hero-highlight">AI Revenue Operating System.</span>
           </h1>
-          <p className="pricing-subtitle">
-            This page is for after we&apos;ve spoken. Pick the biggest bottleneck you want to
-            solve first and we&apos;ll map it to a concrete AI system configuration with{" "}
-            ballpark pricing.
+          <p className="hero-subtitle">
+            Stop paying for random automations.{" "}
+            <strong>
+              This is a complete operating system around your lead flow, booking,
+              no-shows, and sales
+            </strong>{" "}
+            — with real-time lead delivery and always-on agents that do not get tired.
           </p>
-          <p className="pricing-note">
-            You don&apos;t have to know all the tech. Just choose where it hurts most. We&apos;ll
-            design the rest.
+
+          <div className="hero-cta-row">
+            <a href="/" className="hero-cta-primary">
+              See the live Speed-to-Lead demo
+            </a>
+            <a
+              href="https://calendly.com/tom-vge/new-meeting"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hero-cta-secondary"
+            >
+              Book a consult to walk through this
+            </a>
+          </div>
+
+          <p className="hero-footnote">
+            Most clients plug this into their existing traffic and{" "}
+            <strong>add 20–40% more closed revenue</strong> without touching ad spend.
           </p>
 
-          <div className="pricing-layout">
-            {/* Left: Problem selection */}
-            <div className="problem-card">
-              <div className="problem-title">What&apos;s your loudest problem right now?</div>
-              <div className="problem-sub">
-                Click the one that sounds most like your world today. You can add more systems
-                later — we start with the biggest win.
-              </div>
-
-              <div className="problem-grid">
-                <button
-                  type="button"
-                  className={
-                    "problem-button" +
-                    (selectedProblem === "missedCalls" ? " problem-button--active" : "")
-                  }
-                  onClick={() => setSelectedProblem("missedCalls")}
-                >
-                  <strong>Missed calls &amp; voicemail</strong>
-                  <span>Ringing out, hitting voicemail, staff can&apos;t keep up.</span>
-                </button>
-                <button
-                  type="button"
-                  className={
-                    "problem-button" +
-                    (selectedProblem === "noShows" ? " problem-button--active" : "")
-                  }
-                  onClick={() => setSelectedProblem("noShows")}
-                >
-                  <strong>No-shows &amp; cancellations</strong>
-                  <span>Calendar looks full, but half the day blows up.</span>
-                </button>
-                <button
-                  type="button"
-                  className={
-                    "problem-button" +
-                    (selectedProblem === "slowFollowUp" ? " problem-button--active" : "")
-                  }
-                  onClick={() => setSelectedProblem("slowFollowUp")}
-                >
-                  <strong>Slow follow-up on leads</strong>
-                  <span>Leads sit for hours before anyone calls or texts.</span>
-                </button>
-                <button
-                  type="button"
-                  className={
-                    "problem-button" +
-                    (selectedProblem === "salesPipeline" ? " problem-button--active" : "")
-                  }
-                  onClick={() => setSelectedProblem("salesPipeline")}
-                >
-                  <strong>Sales pipeline &amp; closing</strong>
-                  <span>Lots of interest, not enough closed revenue.</span>
-                </button>
-                <button
-                  type="button"
-                  className={
-                    "problem-button" +
-                    (selectedProblem === "schedulingChaos" ? " problem-button--active" : "")
-                  }
-                  onClick={() => setSelectedProblem("schedulingChaos")}
-                >
-                  <strong>Scheduling chaos &amp; dispatch</strong>
-                  <span>ETAs, routes, &quot;where&apos;s my appointment&quot; calls all day.</span>
-                </button>
-              </div>
-
-              <div className="problem-hint">
-                {selectedPackage ? (
-                  <>
-                    You picked: <strong>{selectedPackage.label}</strong>. Scroll right to see
-                    the recommended system.
-                  </>
-                ) : (
-                  <>
-                    Not sure which one fits
-                    <span>?</span> Pick the one that would make your life easier this month
-                    if it disappeared.
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Right: Recommended package */}
-            <div className="package-card">
-              <div className="package-label">Recommended System</div>
-              {selectedPackage ? (
-                <>
-                  <h2 className="package-headline">{selectedPackage.headline}</h2>
-                  <div className="package-pricing">
-                    <div>
-                      <strong>Setup:</strong> {selectedPackage.setupPrice}
-                    </div>
-                    <div>
-                      <strong>Ongoing:</strong> {selectedPackage.monthlyPrice}
-                    </div>
-                  </div>
-                  <div className="package-bestfor">
-                    <strong>Best for:</strong> {selectedPackage.bestFor}
-                  </div>
-
-                  <div className="package-section-title">What this system does for you</div>
-                  <ul className="package-list">
-                    {selectedPackage.outcomes.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-
-                  <div className="package-section-title">How the pricing works</div>
-                  <ul className="package-list package-notes">
-                    {selectedPackage.notes.map((note) => (
-                      <li key={note}>{note}</li>
-                    ))}
-                    <li>
-                      We&apos;ll finalize exact numbers together on a call based on volume,
-                      complexity, and how many agents you actually need.
-                    </li>
-                  </ul>
-                </>
-              ) : (
-                <>
-                  <h2 className="package-headline">Pick a problem to see your system</h2>
-                  <div className="package-bestfor">
-                    Once you choose the problem that best fits your world, this side will show:
-                  </div>
-                  <ul className="package-list">
-                    <li>The recommended AI system configuration.</li>
-                    <li>A clear one-time setup range and typical monthly range.</li>
-                    <li>Exactly what that system will do to clean up your phones, calendar, or pipeline.</li>
-                    <li>How we keep everything TCPA and FCC compliant by design.</li>
-                  </ul>
-                  <p className="package-notes">
-                    Most clients start with <strong>one core system</strong> (inbound + callbacks
-                    or no-show recovery) and expand into dispatch or full sales OS once the first
-                    system is printing wins.
-                  </p>
-                </>
-              )}
-
-              <div className="cta-panel">
-                <div className="cta-text">
-                  Next step:{" "}
-                  <span>See this system in action with a live AI call</span> — and, if it
-                  feels right, use that call to lock in your build and handle payment.
-                </div>
-                <div className="cta-buttons">
-                  <a href="/#leadForm" className="primary-cta">
-                    Trigger my live AI demo
-                    <span>↗</span>
-                  </a>
-                  <a href="mailto:info@allindigitalmktg.com" className="secondary-cta">
-                    Email Tom a question
-                  </a>
-                </div>
-                <div className="disclaimer">
-                  This page is meant as a transparent guide. Final pricing depends on the
-                  exact workflows, number of agents, and volume we agree on together.
-                </div>
-              </div>
-            </div>
+          <div className="tab-strip" aria-label="View selector">
+            <button
+              type="button"
+              className={
+                "tab-btn" + (tab === "overview" ? " tab-btn--active" : "")
+              }
+              onClick={() => setTab("overview")}
+            >
+              1 · Overview
+            </button>
+            <button
+              type="button"
+              className={
+                "tab-btn" + (tab === "systems" ? " tab-btn--active" : "")
+              }
+              onClick={() => setTab("systems")}
+            >
+              2 · Systems & Diagrams
+            </button>
+            <button
+              type="button"
+              className={
+                "tab-btn" + (tab === "pricing" ? " tab-btn--active" : "")
+              }
+              onClick={() => setTab("pricing")}
+            >
+              3 · Interactive Pricing
+            </button>
+            <button
+              type="button"
+              className={
+                "tab-btn" + (tab === "plans" ? " tab-btn--active" : "")
+              }
+              onClick={() => setTab("plans")}
+            >
+              4 · Minutes & SMS Plans
+            </button>
           </div>
         </section>
+
+        {/* MAIN GRID */}
+        <section className="layout-grid">
+          {/* LEFT SIDE – content changes by tab */}
+          <div>
+            {tab === "overview" && (
+              <>
+                <div className="panel">
+                  <div className="panel-header-row">
+                    <div className="panel-title">What you&apos;re really buying</div>
+                    <div className="panel-tag">Not “just an AI agent”</div>
+                  </div>
+                  <div className="panel-body">
+                    <p>
+                      You are not paying for a random voice bot. You are buying a{" "}
+                      <strong>repeatable operating system</strong> around:
+                    </p>
+                    <ul className="list-tight">
+                      <li>Inbound speed-to-lead (from form to ringing phone).</li>
+                      <li>
+                        High-intent booking flows with Slot A/B options (“what works best for
+                        you?”).
+                      </li>
+                      <li>
+                        No-show enforcement and pre-call positioning so people actually show.
+                      </li>
+                      <li>
+                        A pre-call video system that warms the lead and anchors your value.
+                      </li>
+                      <li>
+                        A 30–60 day follow-up engine that quietly rescues &quot;not yet&quot;
+                        leads.
+                      </li>
+                    </ul>
+                    <p style={{ marginTop: 8 }}>
+                      The diagrams on this page are the top-level map. The{" "}
+                      <strong>exact scripts, timing, and logic are proprietary</strong> and
+                      delivered only to paying clients.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="panel panel-alt" style={{ marginTop: 16 }}>
+                  <div className="panel-header-row">
+                    <div className="panel-title">The 3 layers of your AI Operating System</div>
+                    <div className="panel-tag">Stacked, not random</div>
+                  </div>
+                  <div className="panel-body two-col">
+                    <div className="mini-card">
+                      <div className="mini-card-title">Layer 1 · Traffic → Lead</div>
+                      <div className="mini-card-tag">Landing Page OS</div>
+                      <ul className="list-tight">
+                        <li>Emerald + gold, conversion-first landing bundle.</li>
+                        <li>Real-time lead delivery into your system.</li>
+                        <li>TCPA / FCC compliant forms and consent language.</li>
+                      </ul>
+                    </div>
+                    <div className="mini-card">
+                      <div className="mini-card-title">Layer 2 · Lead → Show</div>
+                      <div className="mini-card-tag">Speed-to-Lead Engine</div>
+                      <ul className="list-tight">
+                        <li>Instant SMS + callback logic.</li>
+                        <li>Booking call with Slot A/B options.</li>
+                        <li>No-show fee psychology and pre-call video.</li>
+                      </ul>
+                    </div>
+                    <div className="mini-card">
+                      <div className="mini-card-title">Layer 3 · Show → Closed</div>
+                      <div className="mini-card-tag">Sales & Follow-Up OS</div>
+                      <ul className="list-tight">
+                        <li>Sales-ready handoff and scripting.</li>
+                        <li>Finance / payment agent if needed.</li>
+                        <li>20–60 day call + SMS follow-up engine.</li>
+                      </ul>
+                    </div>
+                    <div className="mini-card">
+                      <div className="mini-card-title">Optional · Dispatch & Ops</div>
+                      <div className="mini-card-tag">Field & Service OS</div>
+                      <ul className="list-tight">
+                        <li>Dispatcher agent wired into your calendar.</li>
+                        <li>ETA + reschedule calls handled by AI.</li>
+                        <li>Free your humans for the actual work.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {tab === "systems" && (
+              <>
+                {/* Speed-to-Lead Diagram */}
+                <div className="panel">
+                  <div className="panel-header-row">
+                    <div className="panel-title">Speed-to-Lead Engine</div>
+                    <div className="panel-tag">Form → Ringing phone in under a minute</div>
+                  </div>
+                  <div className="panel-body">
+                    <p>
+                      This is the front door. When someone fills out your form, they don&apos;t
+                      get lost. They go into a tight, proven speed-to-lead sequence:
+                    </p>
+                    <div className="diagram">
+                      <div className="diagram-steps">
+                        <div className="diagram-pill">Form submitted</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">Instant SMS: &quot;Heads up, we&apos;ll call&quot;</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">1st call attempt (AI agent)</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">Voicemail if needed</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">2nd call attempt</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">Short SMS follow-up</div>
+                      </div>
+                      <div className="diagram-caption">
+                        The full sequence runs over the first few minutes. After that, leads
+                        enter a longer follow-up engine (15–20 human-style calls + 5–10 SMS over{" "}
+                        30–60 days). The exact timing and scripting are client-only IP.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Booking Psychology Diagram */}
+                <div className="panel panel-alt" style={{ marginTop: 16 }}>
+                  <div className="panel-header-row">
+                    <div className="panel-title">Booking Psychology Flow</div>
+                    <div className="panel-tag">“What works best for you?”</div>
+                  </div>
+                  <div className="panel-body">
+                    <p>
+                      A big difference between “meh” booking and high conversion is how the slot is
+                      presented. Your AI doesn&apos;t ask open-ended &quot;when are you free?&quot;
+                      questions. It sells the slot.
+                    </p>
+                    <div className="diagram">
+                      <div className="diagram-steps">
+                        <div className="diagram-pill">Caller says what they&apos;re trying to fix</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">AI: “What works best for you…”</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">
+                          Slot A/B offer: “Mon 9:00am or Mon 11:00am?”
+                        </div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">Confirmation + expectations</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">SMS calendar link as backup</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">Optional transfer to human</div>
+                      </div>
+                      <div className="diagram-caption">
+                        Always-on agent consistency. Human teams rarely offer slots the same way,
+                        every time, on every call. The AI does — and that&apos;s where a lot of lift
+                        comes from.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* No-show + Pre-call video */}
+                <div className="panel" style={{ marginTop: 16 }}>
+                  <div className="panel-header-row">
+                    <div className="panel-title">No-Show Physics & Pre-Call Video</div>
+                    <div className="panel-tag">Show rate ↑ · Time waste ↓</div>
+                  </div>
+                  <div className="panel-body">
+                    <p>
+                      Two levers here:{" "}
+                      <strong>no-show fee psychology</strong> and a{" "}
+                      <strong>required pre-call video.</strong>
+                    </p>
+                    <div className="two-col">
+                      <div className="mini-card">
+                        <div className="mini-card-title">$100 no-show anchor</div>
+                        <ul className="list-tight">
+                          <li>
+                            Booking call positions a nominal $100 no-show fee as standard policy.
+                          </li>
+                          <li>
+                            This alone can reduce no-shows by <strong>20–60%</strong> depending on
+                            industry.
+                          </li>
+                          <li>
+                            You choose whether to actually enforce it — we can wire in invoicing if
+                            you want.
+                          </li>
+                        </ul>
+                      </div>
+                      <div className="mini-card">
+                        <div className="mini-card-title">Pre-call value video</div>
+                        <ul className="list-tight">
+                          <li>10–15 minute &quot;required&quot; pre-call video.</li>
+                          <li>
+                            Shows your story, proof, reviews, and why your offer is worth 2–10x the
+                            price.
+                          </li>
+                          <li>
+                            Sales or field team re-anchors it on the call (“what did you notice in
+                            that video?”).
+                          </li>
+                          <li>
+                            That alone can increase close rates by{" "}
+                            <strong>20–40% on the same lead volume.</strong>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Follow-up Engine */}
+                <div className="panel panel-alt" style={{ marginTop: 16 }}>
+                  <div className="panel-header-row">
+                    <div className="panel-title">Follow-Up Engine (30–60 days)</div>
+                    <div className="panel-tag">“Not now” ≠ “Never”</div>
+                  </div>
+                  <div className="panel-body">
+                    <p>
+                      Most businesses leave a scary amount of money in{" "}
+                      <strong>&quot;not now&quot; or &quot;call me later&quot; land.</strong> This
+                      engine quietly rescues those.
+                    </p>
+                    <div className="diagram">
+                      <div className="diagram-steps">
+                        <div className="diagram-pill">Lead doesn&apos;t book / no-shows / says &quot;later&quot;</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">Drip of human-style calls</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">Occasional, relevant SMS</div>
+                        <div className="diagram-arrow">→</div>
+                        <div className="diagram-pill">Reactivated booking or handoff to sales</div>
+                      </div>
+                      <div className="diagram-caption">
+                        Inside: ~15–20 call attempts and 5–10 SMS over 30–60 days, tuned to your
+                        sales cycle. Exact copy, timing, and branching are not published — they are
+                        implemented directly in your system.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {tab === "pricing" && (
+              <>
+                {/* Landing Page OS */}
+                <div className="panel">
+                  <div className="panel-header-row">
+                    <div className="panel-title">Landing Page Operating System</div>
+                    <div className="panel-tag">Traffic → Lead (with compliance)</div>
+                  </div>
+                  <div className="panel-body">
+                    <p>
+                      This is the front-end of the OS — SaaS-style, emerald + gold landing pages
+                      built for speed-to-lead and TCPA / FCC compliance.
+                    </p>
+                    <div className="pricing-grid">
+                      <div className="price-tier">
+                        <div className="price-tier-header">
+                          <div className="price-tier-name">Landing Bundle</div>
+                          <div className="price-tier-pill">Buy 1 · Get 2</div>
+                        </div>
+                        <div className="price-main">$2,600 one-time</div>
+                        <div className="price-sub">
+                          3 coordinated landing pages (1 core + 2 variants).
+                        </div>
+                        <ul className="price-list">
+                          <li>Designed and hosted on our stack.</li>
+                          <li>Speed-to-lead form &amp; consent baked in.</li>
+                          <li>Real-time lead delivery into your system.</li>
+                          <li>Ready for AI agent routing from day one.</li>
+                        </ul>
+                      </div>
+
+                      <div className="price-tier">
+                        <div className="price-tier-header">
+                          <div className="price-tier-name">Landing Retainer</div>
+                          <div className="price-tier-pill">Per month</div>
+                        </div>
+                        <div className="price-main">$197 /mo · first page</div>
+                        <div className="price-sub">$98 /mo per additional page</div>
+                        <ul className="price-list">
+                          <li>Hosting, uptime, and core maintenance.</li>
+                          <li>Minor copy / layout tweaks as needed.</li>
+                          <li>Real-time lead routing upkeep.</li>
+                          <li>Perfect when running multiple offers or locations.</li>
+                        </ul>
+                        <div className="price-footnote">
+                          Example: 3 pages = $393/mo (197 + 98 + 98).
+                        </div>
+                      </div>
+
+                      <div className="price-tier">
+                        <div className="price-tier-header">
+                          <div className="price-tier-name">Launch Incentive</div>
+                          <div className="price-tier-pill">For serious buyers</div>
+                        </div>
+                        <div className="price-main">1st month core agent fees covered</div>
+                        <div className="price-sub">
+                          When you start with 3 landing pages (≈ $393/mo).
+                        </div>
+                        <ul className="price-list">
+                          <li>
+                            We cover the basic activation fee, starter minutes, and SMS for month
+                            one.
+                          </li>
+                          <li>You only pay overages if you blow past volume.</li>
+                          <li>Gives you a clean runway to see results.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Agent Builds */}
+                <div className="panel panel-alt" style={{ marginTop: 16 }}>
+                  <div className="panel-header-row">
+                    <div className="panel-title">AI Agent Build Options</div>
+                    <div className="panel-tag">Layered by complexity</div>
+                  </div>
+                  <div className="panel-body">
+                    <div className="pricing-grid">
+                      <div className="price-tier">
+                        <div className="price-tier-header">
+                          <div className="price-tier-name">Basic Inbound Agent</div>
+                          <div className="price-tier-pill">Great starter</div>
+                        </div>
+                        <div className="price-main">$35 activation</div>
+                        <div className="price-sub">
+                          + voice &amp; SMS plan of your choice (below).
+                        </div>
+                        <ul className="price-list">
+                          <li>1 inbound AI agent.</li>
+                          <li>Basic FAQ via your existing website.</li>
+                          <li>Basic calendar connection and intake.</li>
+                          <li>1 phone number and caller info capture.</li>
+                        </ul>
+                        <div className="price-footnote">
+                          Need deeper FAQ? Add a 20-question FAQ pack for $125 one-time.
+                        </div>
+                      </div>
+
+                      <div className="price-tier">
+                        <div className="price-tier-header">
+                          <div className="price-tier-name">Custom Agent (no complex booking)</div>
+                          <div className="price-tier-pill">Service, triage, simple booking</div>
+                        </div>
+                        <div className="price-main">$260 one-time per agent</div>
+                        <div className="price-sub">+ $35 per automation buildout</div>
+                        <ul className="price-list">
+                          <li>Custom intake and routing logic.</li>
+                          <li>Can text booking links instead of handling slot logic.</li>
+                          <li>Optional multi-agent routing ($150–$300).</li>
+                          <li>Plug in your CRM integration for $80 one-time.</li>
+                        </ul>
+                      </div>
+
+                      <div className="price-tier">
+                        <div className="price-tier-header">
+                          <div className="price-tier-name">Complex Slot A/B Booking Agent</div>
+                          <div className="price-tier-pill">Higher-end booking logic</div>
+                        </div>
+                        <div className="price-main">
+                          $800–$1,250 per agent (scope-based)
+                        </div>
+                        <div className="price-sub">
+                          For “what works best for you” booking with layered fallbacks.
+                        </div>
+                        <ul className="price-list">
+                          <li>Slot A/B logic + calendar scanning.</li>
+                          <li>Multiple attempts to get a firm time.</li>
+                          <li>SMS fallback with booking links.</li>
+                          <li>Optional transfer path to human if needed.</li>
+                        </ul>
+                        <div className="price-footnote">
+                          Priced higher when booking, sales, and finance logic are all combined in
+                          one flow.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Systems Bundles */}
+                <div className="panel" style={{ marginTop: 16 }}>
+                  <div className="panel-header-row">
+                    <div className="panel-title">90-Day System Packages</div>
+                    <div className="panel-tag">For people who want the whole engine</div>
+                  </div>
+                  <div className="panel-body pricing-grid">
+                    <div className="price-tier">
+                      <div className="price-tier-header">
+                        <div className="price-tier-name">No-Show + Callback OS</div>
+                        <div className="price-tier-pill">Show rate ↑</div>
+                      </div>
+                      <div className="price-main">$1,700 setup · $350/mo</div>
+                      <div className="price-sub">Designed to rescue dropped and delayed leads.</div>
+                      <ul className="price-list">
+                        <li>Callback agent + no-show recovery logic.</li>
+                        <li>Embedded into your speed-to-lead flows.</li>
+                        <li>Includes call + SMS follow-up patterns.</li>
+                        <li>Ideal add-on to an existing inbound team.</li>
+                      </ul>
+                    </div>
+
+                    <div className="price-tier">
+                      <div className="price-tier-header">
+                        <div className="price-tier-name">Dispatcher &amp; Field OS</div>
+                        <div className="price-tier-pill">Ops layer</div>
+                      </div>
+                      <div className="price-main">$2,600 setup · $530/mo</div>
+                      <div className="price-sub">Great for home services and field teams.</div>
+                      <ul className="price-list">
+                        <li>Dispatcher agent wired into your calendar.</li>
+                        <li>Handles ETAs, running-late calls, reschedules.</li>
+                        <li>Reduces &quot;where is my tech?&quot; phone chaos.</li>
+                        <li>Keeps humans focused on billable work.</li>
+                      </ul>
+                    </div>
+
+                    <div className="price-tier">
+                      <div className="price-tier-header">
+                        <div className="price-tier-name">Sales OS (Booking + Sales + Finance)</div>
+                        <div className="price-tier-pill">3-Agent system</div>
+                      </div>
+                      <div className="price-main">$4,400 setup · $620/mo</div>
+                      <div className="price-sub">Built for teams selling real ticket sizes.</div>
+                      <ul className="price-list">
+                        <li>Booking agent tuned to your offer.</li>
+                        <li>Sales support / handoff agent.</li>
+                        <li>Finance / payment agent logic.</li>
+                        <li>Designed to drive 20–40% more closed revenue.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="panel panel-alt" style={{ marginTop: 16 }}>
+                  <div className="panel-header-row">
+                    <div className="panel-title">Full Sales SOP + Video System</div>
+                    <div className="panel-tag">Serious scaler package</div>
+                  </div>
+                  <div className="panel-body">
+                    <p>
+                      For teams that want the whole thing mapped:{" "}
+                      <strong>sales SOP, pre-call video framework, booking scripts, and AI agent
+                      handoff</strong> — all working together.
+                    </p>
+                    <div className="two-col">
+                      <div className="mini-card">
+                        <div className="mini-card-title">Delivery</div>
+                        <ul className="list-tight">
+                          <li>Complete sales SOP customized to your offer.</li>
+                          <li>10–15 minute pre-call video blueprint.</li>
+                          <li>Booking call verbiage tied to that video.</li>
+                          <li>Agent prompts designed to support your closer.</li>
+                        </ul>
+                      </div>
+                      <div className="mini-card">
+                        <div className="mini-card-title">Investment</div>
+                        <ul className="list-tight">
+                          <li>Starts at <strong>$4,400 setup</strong>.</li>
+                          <li>From <strong>$1,250/mo</strong> for ongoing tuning.</li>
+                          <li>Best for offers where one extra close pays for the whole system.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {tab === "plans" && (
+              <>
+                <div className="panel">
+                  <div className="panel-header-row">
+                    <div className="panel-title">AI Voice Minute Plans</div>
+                    <div className="panel-tag">You only pay for usage</div>
+                  </div>
+                  <div className="panel-body">
+                    <p style={{ marginBottom: 6 }}>
+                      Voice minutes are where the agent actually does its job. You can dial this up
+                      or down as you grow.
+                    </p>
+                    <div className="plans-table">
+                      <div className="plans-row plans-head">
+                        <div className="plans-cell">Plan</div>
+                        <div className="plans-cell">Included minutes</div>
+                        <div className="plans-cell">Rate &amp; overage</div>
+                      </div>
+                      <div className="plans-row">
+                        <div className="plans-cell">Starter Lite</div>
+                        <div className="plans-cell">160 minutes / mo</div>
+                        <div className="plans-cell">$53/mo · $0.35/min + $15 overage fee</div>
+                      </div>
+                      <div className="plans-row">
+                        <div className="plans-cell">Starter</div>
+                        <div className="plans-cell">280 minutes / mo</div>
+                        <div className="plans-cell">$98/mo · $0.28/min + $15 overage fee</div>
+                      </div>
+                      <div className="plans-row">
+                        <div className="plans-cell">Growth</div>
+                        <div className="plans-cell">710 minutes / mo</div>
+                        <div className="plans-cell">$197/mo · $0.22/min + $15 overage fee</div>
+                      </div>
+                      <div className="plans-row">
+                        <div className="plans-cell">Pro</div>
+                        <div className="plans-cell">1,700 minutes / mo</div>
+                        <div className="plans-cell">$377/mo · $0.17/min + $15 overage fee</div>
+                      </div>
+                      <div className="plans-row">
+                        <div className="plans-cell">Enterprise</div>
+                        <div className="plans-cell">5,300 minutes / mo</div>
+                        <div className="plans-cell">$800/mo · $0.12/min + $15 overage fee</div>
+                      </div>
+                      <div className="plans-row">
+                        <div className="plans-cell">Ultra Enterprise</div>
+                        <div className="plans-cell">12,000 minutes / mo</div>
+                        <div className="plans-cell">$1,500/mo · $0.09/min + $15 overage fee</div>
+                      </div>
+                    </div>
+                    <p className="price-footnote" style={{ marginTop: 8 }}>
+                      Your underlying costs: ~$0.08/min call cost, phone numbers, and carrier fees.
+                      We handle all of that and keep the math simple on your side.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="panel panel-alt" style={{ marginTop: 16 }}>
+                  <div className="panel-header-row">
+                    <div className="panel-title">SMS Plans</div>
+                    <div className="panel-tag">Booking &amp; follow-up fuel</div>
+                  </div>
+                  <div className="panel-body">
+                    <p style={{ marginBottom: 6 }}>
+                      SMS is what your leads actually read. This powers booking links,
+                      confirmations, and the quiet follow-up that closes the gap.
+                    </p>
+                    <div className="plans-table">
+                      <div className="plans-row plans-head">
+                        <div className="plans-cell">Plan</div>
+                        <div className="plans-cell">Included SMS</div>
+                        <div className="plans-cell">Rate &amp; overage</div>
+                      </div>
+                      <div className="plans-row">
+                        <div className="plans-cell">SMS Lite</div>
+                        <div className="plans-cell">50 SMS / mo</div>
+                        <div className="plans-cell">$8/mo · $0.15/SMS + $15 overage fee</div>
+                      </div>
+                      <div className="plans-row">
+                        <div className="plans-cell">SMS Starter</div>
+                        <div className="plans-cell">100 SMS / mo</div>
+                        <div className="plans-cell">$17/mo · $0.15/SMS + $15 overage fee</div>
+                      </div>
+                      <div className="plans-row">
+                        <div className="plans-cell">SMS Boost</div>
+                        <div className="plans-cell">200 SMS / mo</div>
+                        <div className="plans-cell">$29/mo · $0.14/SMS + $15 overage fee</div>
+                      </div>
+                      <div className="plans-row">
+                        <div className="plans-cell">SMS Growth</div>
+                        <div className="plans-cell">400 SMS / mo</div>
+                        <div className="plans-cell">$53/mo · $0.13/SMS + $15 overage fee</div>
+                      </div>
+                      <div className="plans-row">
+                        <div className="plans-cell">SMS Pro</div>
+                        <div className="plans-cell">800 SMS / mo</div>
+                        <div className="plans-cell">$98/mo · $0.12/SMS + $15 overage fee</div>
+                      </div>
+                    </div>
+
+                    <p className="price-footnote" style={{ marginTop: 8 }}>
+                      If a client insists on using their own carrier account (e.g. Twilio / Telnyx)
+                      to shave costs, we can wire that in for{" "}
+                      <strong>$125 one-time</strong>. The trade-off: callers may see one number for
+                      SMS and a different number for calls, which can dent conversion.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* RIGHT SIDE – stays fairly consistent to anchor the “why” */}
+          <aside>
+            <div className="panel panel-alt">
+              <div className="panel-header-row">
+                <div className="panel-title">Why this is not “just another AI agent”</div>
+                <div className="panel-tag">Operating system view</div>
+              </div>
+              <div className="panel-body">
+                <ul className="list-tight">
+                  <li>
+                    <strong>System, not tool:</strong> We design the whole path: traffic →
+                    landing → call → booking → show → close → follow-up.
+                  </li>
+                  <li>
+                    <strong>Real-time lead routing:</strong> Leads do not sit in a Google Sheet
+                    for 15 minutes while a zap runs. They hit the system in seconds.
+                  </li>
+                  <li>
+                    <strong>Booking psychology baked in:</strong> Slot A/B offers, no-show
+                    enforcement, and pre-call value set up correctly, every time.
+                  </li>
+                  <li>
+                    <strong>Sales-aware design:</strong> The video and scripts are built to make
+                    your closer&apos;s life easier, not harder.
+                  </li>
+                  <li>
+                    <strong>Proprietary follow-up engine:</strong> The “extra” 20–40% often comes
+                    from what others completely ignore — long-tail follow-up.
+                  </li>
+                </ul>
+                <p style={{ marginTop: 8 }}>
+                  If you already have traffic and even a halfway decent offer,{" "}
+                  <strong>this is usually the highest leverage upgrade</strong> you can make.
+                </p>
+              </div>
+            </div>
+
+            <div className="panel" style={{ marginTop: 16 }}>
+              <div className="panel-header-row">
+                <div className="panel-title">How most clients start</div>
+                <div className="panel-tag">Simple entry path</div>
+              </div>
+              <div className="panel-body">
+                <ol className="list-tight">
+                  <li>
+                    Start with the <strong>Landing Bundle</strong> so traffic has a clean,
+                    compliant home.
+                  </li>
+                  <li>
+                    Turn on a <strong>basic inbound agent</strong> + starter minutes/SMS to catch
+                    calls 24/7.
+                  </li>
+                  <li>
+                    Add the <strong>Speed-to-Lead engine</strong> and Slot A/B booking logic.
+                  </li>
+                  <li>
+                    Layer in <strong>No-Show + Callback OS</strong> after the first wins.</li>
+                  <li>
+                    Graduate to the <strong>Sales OS</strong> and full SOP + video once you want
+                    to treat this like a serious revenue channel.
+                  </li>
+                </ol>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        {/* CTA BANNER */}
+        <div className="cta-banner">
+          <div>
+            Ready to see how this would plug into{" "}
+            <strong>your</strong> traffic and sales flow?
+          </div>
+          <div className="cta-actions">
+            <a href="/" className="cta-small-btn cta-small-btn--primary">
+              Trigger the live demo flow
+            </a>
+            <a
+              href="https://calendly.com/tom-vge/new-meeting"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cta-small-btn cta-small-btn--ghost"
+            >
+              Talk through my numbers with Tom
+            </a>
+          </div>
+        </div>
+
+        <footer className="footer-legal">
+          <span>© {new Date().getFullYear()} All In Digital. </span>
+          <a href="/terms" target="_blank" rel="noopener noreferrer">
+            Terms of Service
+          </a>
+          {" · "}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer">
+            Privacy Policy
+          </a>
+        </footer>
       </div>
     </main>
   );
