@@ -1413,9 +1413,7 @@ export default function Page() {
                 <div className="consent-row">
                   <input id="consent" name="consent" type="checkbox" required />
                   <span>
-                    I consent to receive marketing calls and SMS, including calls and
-                    messages sent by AI systems, from All In Digital at the number and
-                    email above. Consent is not a condition of purchase.
+                    I agree to receive SMS updates related to my inquiry from All In Digital. By providing your phone number and opting in, you agree to receive SMS updates related to your inquiry from All In Digital (such as demo links, confirmations, and appointment reminders). Message frequency may vary. Message & data rates may apply. Reply STOP to opt out and HELP for help. Consent is not a condition of purchase. We do not sell or share your mobile number with third parties for marketing or promotional purposes.
                   </span>
                 </div>
 
