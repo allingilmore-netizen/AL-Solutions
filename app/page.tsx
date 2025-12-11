@@ -545,16 +545,22 @@ export default function Page() {
           align-items: flex-start;
           gap: 8px;
           margin: 6px 0 10px;
+          padding: 10px 10px;
+          border-radius: 10px;
+          background: rgba(239, 68, 68, 0.08); /* soft red tint */
+          border: 1px solid rgba(248, 113, 113, 0.9); /* bright red border */
+          box-shadow: 0 0 0 1px rgba(127, 29, 29, 0.25);
         }
 
         .lead-form .consent-row input[type="checkbox"] {
           margin-top: 4px;
           width: auto;
+          accent-color: #ef4444; /* bright red checkbox */
         }
 
         .lead-form .consent-row span {
           font-size: 0.82rem;
-          color: #4B5563;
+          color: #7F1D1D; /* deep red text to signal importance */
         }
 
         .lead-submit-btn {
@@ -582,6 +588,12 @@ export default function Page() {
           font-size: 0.86rem;
           color: #047857;
           font-weight: 500;
+        }
+
+        .lead-sms-tip {
+          margin-top: 8px;
+          font-size: 0.78rem;
+          color: #B91C1C; /* strong red but not screaming */
         }
 
         .selector-card {
@@ -1175,6 +1187,7 @@ export default function Page() {
         .exit-consent-row input[type="checkbox"] {
           margin-top: 3px;
           width: auto;
+          accent-color: #ef4444;
         }
 
         .exit-consent-row span {
@@ -1448,6 +1461,12 @@ export default function Page() {
                     ? "Submitted – we’ll be in touch shortly"
                     : "Get My Live AI Demo"}
                 </button>
+
+                <div className="lead-sms-tip">
+                  Tip: Our live AI demo and follow-up support are delivered by SMS. If you
+                  don&apos;t allow SMS updates, we won&apos;t be able to proceed with this
+                  request.
+                </div>
 
                 {submitError && (
                   <div
