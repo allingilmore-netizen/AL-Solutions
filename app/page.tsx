@@ -1165,6 +1165,23 @@ export default function Page() {
           color: #9CA3AF;
         }
 
+        .exit-consent-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          margin: 6px 0 8px;
+        }
+
+        .exit-consent-row input[type="checkbox"] {
+          margin-top: 3px;
+          width: auto;
+        }
+
+        .exit-consent-row span {
+          font-size: 0.78rem;
+          color: #9CA3AF;
+        }
+
         .exit-submit-btn {
           margin-top: 8px;
           width: 100%;
@@ -1411,9 +1428,16 @@ export default function Page() {
                 />
 
                 <div className="consent-row">
-                  <input id="consent" name="consent" type="checkbox" required />
+                  <input id="consent" name="consent" type="checkbox" />
                   <span>
-                    I agree to receive SMS updates related to my inquiry from All In Digital. By providing your phone number and opting in, you agree to receive SMS updates related to your inquiry from All In Digital (such as demo links, confirmations, and appointment reminders). Message frequency may vary. Message & data rates may apply. Reply STOP to opt out and HELP for help. Consent is not a condition of purchase. We do not sell or share your mobile number with third parties for marketing or promotional purposes.
+                    I agree to receive SMS updates related to my inquiry from All In Digital.
+                    By providing your phone number and opting in, you agree to receive SMS
+                    updates related to your inquiry from All In Digital (such as demo links,
+                    confirmations, and follow-up information you requested). Message
+                    frequency may vary. Message &amp; data rates may apply. Reply STOP to
+                    opt out and HELP for help. Consent is not a condition of purchase. We do
+                    not sell or share your mobile number with third parties for marketing or
+                    promotional purposes.
                   </span>
                 </div>
 
@@ -1550,7 +1574,7 @@ export default function Page() {
                         {isSales ? "Qualified Meeting Booker" : "Qualified Booking Agent"}
                       </div>
                       <div className="flow-step-desc">
-                        Asks a few key questions and books onto your calendar in real time —
+                        Asks a few key questions and books onto your calendar in real time — 
                         plugged into the tools you already use.
                       </div>
                     </div>
@@ -1766,7 +1790,7 @@ export default function Page() {
                   offer an optional advanced system that sits on top of your AI workforce.
                 </p>
                 <p style={{ fontSize: "0.94rem", color: "#C4B5FD" }}>
-                  See how teams are adding 20–40% more conversions on the same lead flow —
+                  See how teams are adding 20–40% more conversions on the same lead flow — 
                   before touching ad spend.
                 </p>
               </div>
@@ -1900,10 +1924,28 @@ export default function Page() {
                 <label htmlFor="exitPhone">Mobile number</label>
                 <input id="exitPhone" name="exitPhone" type="tel" required />
 
+                <div className="exit-consent-row">
+                  <input
+                    id="exitConsent"
+                    name="exitConsent"
+                    type="checkbox"
+                  />
+                  <span>
+                    Yes, I want SMS updates related to this inquiry.
+                  </span>
+                </div>
+
                 <small>
-                  We&apos;ll send a quick link to a live AI call demo and a short summary
-                  of what an AI workforce could do for your{" "}
-                  {selectedLabel || "operation"}.
+                  I agree to receive SMS updates related to my inquiry from All In Digital.
+                  We’ll send you a text with a link to a live AI call demo and a brief
+                  summary of how an AI workforce could help your local business. By
+                  providing your phone number and opting in, you agree to receive SMS
+                  updates related to your inquiry from All In Digital (such as demo links,
+                  confirmations, and follow-up information you requested). Message
+                  frequency may vary. Message &amp; data rates may apply. Reply STOP to
+                  opt out and HELP for help. Consent is not a condition of purchase. We do
+                  not sell or share your mobile number with third parties for marketing or
+                  promotional purposes.
                 </small>
 
                 <button type="submit" className="exit-submit-btn">
