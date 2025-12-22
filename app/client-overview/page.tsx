@@ -6,12 +6,12 @@ type TierKey = "landing" | "starter" | "os" | null;
 type FunnelMode = "inbound" | "outbound";
 type IndustryKey = "generic" | "medspa" | "home" | "sales" | "other";
 
-export default function ClientOverviewPage() {
+export default function ExplainerPage() {
   const [openTier, setOpenTier] = useState<TierKey>("landing");
   const [funnelMode, setFunnelMode] = useState<FunnelMode>("inbound");
   const [industry, setIndustry] = useState<IndustryKey>("generic");
 
-  // ROI calculator state
+  // ROI calculator state – focused on THEIR numbers, not your pricing
   const [leads, setLeads] = useState("200");
   const [bookRate, setBookRate] = useState("40"); // %
   const [showRate, setShowRate] = useState("60"); // %
@@ -19,9 +19,10 @@ export default function ClientOverviewPage() {
   const [avgTicket, setAvgTicket] = useState("1500");
 
   // Improvement assumptions
-  const [bookDrop, setBookDrop] = useState("7"); // 5–10% drop
-  const [showLift, setShowLift] = useState("35"); // 20–60% lift
-  const [closeLift, setCloseLift] = useState("25"); // 20–40% lift
+  const [speedLift, setSpeedLift] = useState("200"); // % multiplier on booked
+  const [bookDrop, setBookDrop] = useState("7"); // % drop from tighter qual / no-show policy
+  const [showLift, setShowLift] = useState("35"); // additive points
+  const [closeLift, setCloseLift] = useState("25"); // additive points
 
   const parsedLeads = Number(leads) || 0;
   const parsedBookRate = Number(bookRate) || 0;
@@ -29,6 +30,7 @@ export default function ClientOverviewPage() {
   const parsedCloseRate = Number(closeRate) || 0;
   const parsedAvgTicket = Number(avgTicket) || 0;
 
+  const parsedSpeedLift = Number(speedLift) || 0;
   const parsedBookDrop = Number(bookDrop) || 0;
   const parsedShowLift = Number(showLift) || 0;
   const parsedCloseLift = Number(closeLift) || 0;
@@ -40,20 +42,41 @@ export default function ClientOverviewPage() {
   const baselineRevenue = baselineSales * parsedAvgTicket;
 
   // Improved funnel (with full SOP)
-  const improvedBookRate = parsedBookRate * (1 - parsedBookDrop / 100);
-  const improvedShowRate = parsedShowRate * (1 + parsedShowLift / 100);
-  const improvedCloseRate = parsedCloseRate * (1 + parsedCloseLift / 100);
+  // Speed-to-lead uplift is treated as a multiplier of current booked calls.
+  const speedMultiplier = parsedSpeedLift / 100; // 200 => 2x, 800 => 8x
+  const improvedBookedRaw =
+    baselineBooked * speedMultiplier * (1 - parsedBookDrop / 100);
 
-  const improvedBooked = parsedLeads * (improvedBookRate / 100);
+  const improvedBooked = Math.min(
+    parsedLeads,
+    Math.max(0, improvedBookedRaw)
+  );
+
+  const improvedShowRate = Math.min(
+    100,
+    Math.max(0, parsedShowRate + parsedShowLift)
+  );
+  const improvedCloseRate = Math.min(
+    100,
+    Math.max(0, parsedCloseRate + parsedCloseLift)
+  );
+
   const improvedShows = improvedBooked * (improvedShowRate / 100);
   const improvedSales = improvedShows * (improvedCloseRate / 100);
   const improvedRevenue = improvedSales * parsedAvgTicket;
 
-  const extraRevenue = Math.max(0, improvedRevenue - baselineRevenue);
+  const extraMonthlyRevenue = Math.max(0, improvedRevenue - baselineRevenue);
+  const extraYearlyRevenue = extraMonthlyRevenue * 12;
 
   const formatCurrency = (value: number) =>
     value.toLocaleString(undefined, {
       maximumFractionDigits: 0,
+    });
+
+  const formatCurrencyWithDecimals = (value: number) =>
+    value.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
     });
 
   const industryLabel = (() => {
@@ -72,7 +95,7 @@ export default function ClientOverviewPage() {
   })();
 
   return (
-    <main className="aid-pricing-page">
+    <main className="aid-explainer-page">
       <style>{`
         :root {
           --emerald: #047857;
@@ -91,17 +114,17 @@ export default function ClientOverviewPage() {
           color: #E5E7EB;
         }
 
-        .aid-pricing-page {
+        .aid-explainer-page {
           min-height: 100vh;
         }
 
-        .pricing-wrapper {
+        .explainer-wrapper {
           max-width: 1040px;
           margin: 0 auto;
           padding: 28px 16px 96px;
         }
 
-        .pricing-header {
+        .explainer-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -110,7 +133,7 @@ export default function ClientOverviewPage() {
         }
 
         @media (max-width: 768px) {
-          .pricing-header {
+          .explainer-header {
             flex-direction: column;
             align-items: flex-start;
           }
@@ -198,6 +221,13 @@ export default function ClientOverviewPage() {
           color: #CBD5F5;
         }
 
+        .page-subtitle-quiet {
+          font-size: 0.94rem;
+          max-width: 650px;
+          color: var(--muted);
+          margin-top: 4px;
+        }
+
         /* Industry selector */
 
         .industry-row {
@@ -278,11 +308,6 @@ export default function ClientOverviewPage() {
           color: var(--muted);
         }
 
-        .tier-pill-price {
-          font-size: 0.88rem;
-          color: #FACC15;
-        }
-
         .tier-pill--active {
           border-color: #F4D03F;
           background: radial-gradient(circle at top left, rgba(4, 120, 87, 0.6), rgba(15, 23, 42, 0.98));
@@ -290,7 +315,7 @@ export default function ClientOverviewPage() {
           transform: translateY(-1px);
         }
 
-        /* Sections */
+        /* Section */
 
         .section {
           margin-top: 28px;
@@ -324,22 +349,9 @@ export default function ClientOverviewPage() {
           max-width: 740px;
         }
 
-        .pricing-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-          gap: 18px;
-          margin-top: 16px;
-        }
-
-        @media (max-width: 900px) {
-          .pricing-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
         .card {
           border-radius: 18px;
-          padding: 16px 16px 14px;
+          padding: 16px;
           background: rgba(15, 23, 42, 0.97);
           border: 1px solid rgba(148, 163, 184, 0.7);
           box-shadow: 0 18px 50px rgba(15, 23, 42, 0.85);
@@ -359,26 +371,6 @@ export default function ClientOverviewPage() {
           font-size: 0.94rem;
           color: var(--muted);
           margin-bottom: 8px;
-        }
-
-        .inline-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 4px 10px;
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          font-size: 0.84rem;
-          color: var(--muted);
-          margin-top: 8px;
-        }
-
-        .inline-badge span {
-          width: 7px;
-          height: 7px;
-          border-radius: 999px;
-          background: #4ADE80;
-          box-shadow: 0 0 8px rgba(74, 222, 128, 0.8);
         }
 
         .card-list {
@@ -408,6 +400,19 @@ export default function ClientOverviewPage() {
           font-size: 0.84rem;
           color: var(--muted);
           margin-top: 8px;
+        }
+
+        .pricing-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+          gap: 18px;
+          margin-top: 16px;
+        }
+
+        @media (max-width: 900px) {
+          .pricing-grid {
+            grid-template-columns: 1fr;
+          }
         }
 
         /* Diagrams */
@@ -593,30 +598,15 @@ export default function ClientOverviewPage() {
           font-weight: 600;
         }
 
-        .cta-link-btn {
-          border-radius: 999px;
-          border: none;
-          padding: 9px 16px;
-          font-size: 0.96rem;
-          font-weight: 600;
-          background: linear-gradient(135deg, #047857, #22C55E);
-          color: #ECFDF5;
-          cursor: pointer;
-          box-shadow: 0 14px 36px rgba(16, 185, 129, 0.55);
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .cta-link-btn span {
-          font-size: 1.1rem;
+        .cta-note {
+          font-size: 0.88rem;
+          color: var(--muted);
         }
       `}</style>
 
-      <div className="pricing-wrapper">
+      <div className="explainer-wrapper">
         {/* Header */}
-        <header className="pricing-header">
+        <header className="explainer-header">
           <div className="brand-mark">
             <div className="brand-logo" />
             <div className="brand-text">
@@ -626,26 +616,31 @@ export default function ClientOverviewPage() {
           </div>
           <div className="header-pill">
             <div className="header-pill-dot" />
-            <span>From first click to funded, show-ready consults.</span>
+            <span>This is an overview page — not a pricing sheet.</span>
           </div>
         </header>
 
         {/* Intro */}
         <div className="page-title-block">
-          <div className="page-eyebrow">Systems Overview</div>
+          <div className="page-eyebrow">AI SALES OPERATING SYSTEM</div>
           <h1 className="page-title">
-            From <span>basic AI reception</span> to a full sales operating system.
+            How the <span>AI call & SMS system</span> actually works.
           </h1>
           <p className="page-subtitle">
-            Use this page while we talk through your world. We&apos;ll focus on how the
-            system works, where it plugs into your business, and what changes once it&apos;s
-            live &mdash; without getting stuck on line-item pricing.
+            Use this during our call. We&apos;re not talking about your investment yet —
+            we&apos;re just mapping where your leads leak, how we fix it, and what that
+            could mean for booked, showed, and closed deals.
+          </p>
+          <p className="page-subtitle-quiet">
+            After we&apos;re done talking through this, we can decide together if it makes
+            sense to plug this into your business and what the investment should be. For
+            now, just follow along and picture your numbers.
           </p>
         </div>
 
         {/* Industry selector */}
         <div className="industry-row">
-          <div className="industry-label">Which best describes your business?</div>
+          <div className="industry-label">What kind of business are you running?</div>
           <div className="industry-pills">
             <button
               type="button"
@@ -685,12 +680,11 @@ export default function ClientOverviewPage() {
             </button>
           </div>
           <div className="industry-helper">
-            We&apos;ll tailor everything on this page to:{" "}
-            <strong>{industryLabel}</strong>.
+            This framework is tuned for: <strong>{industryLabel}</strong>.
           </div>
         </div>
 
-        {/* Tier selector – Phase ladder */}
+        {/* Tier selector (no pricing text) */}
         <div className="tier-selector">
           <button
             type="button"
@@ -699,11 +693,10 @@ export default function ClientOverviewPage() {
             }
             onClick={() => setOpenTier((prev) => (prev === "landing" ? null : "landing"))}
           >
-            <div className="tier-pill-title">Phase 1 – Landing Page Foundation</div>
+            <div className="tier-pill-title">Phase 1 – Landing Foundation</div>
             <div className="tier-pill-sub">
-              Buy 1, get 2 high-converting funnels built for speed-to-lead.
+              AI-ready landing, form, and consent so every lead can be called and texted.
             </div>
-            <div className="tier-pill-price">Foundation strategy & structure</div>
           </button>
 
           <button
@@ -715,23 +708,19 @@ export default function ClientOverviewPage() {
           >
             <div className="tier-pill-title">Phase 1 – AI Agent Starter</div>
             <div className="tier-pill-sub">
-              One inbound agent, basic booking, and module-based upgrades.
+              One core agent, basic booking, plus modules for callbacks and follow-up.
             </div>
-            <div className="tier-pill-price">Starter stack overview</div>
           </button>
 
           <button
             type="button"
-            className={
-              "tier-pill" + (openTier === "os" ? " tier-pill--active" : "")
-            }
+            className={"tier-pill" + (openTier === "os" ? " tier-pill--active" : "")}
             onClick={() => setOpenTier((prev) => (prev === "os" ? null : "os"))}
           >
             <div className="tier-pill-title">Phase 2 & 3 – Full Operating System</div>
             <div className="tier-pill-sub">
-              Phase 2: Full Sales OS • Phase 3: OS + personalized pre-call video.
+              Full sales OS with NEPQ, no-show rescue, and pre-call training video.
             </div>
-            <div className="tier-pill-price">Full OS vision & roadmap</div>
           </button>
         </div>
 
@@ -739,959 +728,593 @@ export default function ClientOverviewPage() {
         <section className="section">
           <div className="section-header">
             <div>
-              <div className="section-title">Speed-to-Lead & Booking Psychology</div>
+              <div className="section-title">The Speed-to-Lead Engine</div>
               <div className="section-sub">
-                This is the core SOP we build around every system: answer fast, book
-                cleanly, anchor your no-show policy, and send a pre-call video that raises
-                your closing rate.
+                This is the backbone: answer fast, follow up longer than humans ever will,
+                and anchor expectations so people show up ready to buy.
               </div>
+            </div>
+            <div className="section-tag">
+              Goal: up to 8× more booked calls from the same leads
             </div>
           </div>
 
           <div className="diagram-grid">
             <div className="diagram-card">
               <div className="diagram-title">
-                Speed-to-Lead Sequence (up to 800% more bookings)
+                Inbound / New Lead Flow (first 5 minutes)
               </div>
               <div className="diagram-sub">
-                Both inbound and outbound flows run on the same spine. Humans won&apos;t
-                run this rhythm perfectly; the AI will.
+                Same structure whether the lead comes from a form, phone call, or referral.
               </div>
               <div className="diagram-flow">
-                <div className="diagram-node">Lead hits landing page</div>
+                <div className="diagram-node">Lead hits landing page or calls in</div>
                 <div className="diagram-arrow">→</div>
-                <div className="diagram-node">SMS in 5–10 seconds</div>
+                <div className="diagram-node">Instant SMS in 5–10 seconds</div>
                 <div className="diagram-arrow">→</div>
                 <div className="diagram-node">First call at 15–20 seconds</div>
                 <div className="diagram-arrow">→</div>
-                <div className="diagram-node">Leave voicemail if no answer</div>
+                <div className="diagram-node">Voicemail if no answer</div>
                 <div className="diagram-arrow">→</div>
                 <div className="diagram-node">Second call shortly after</div>
                 <div className="diagram-arrow">→</div>
                 <div className="diagram-node">Second voicemail (if no answer)</div>
                 <div className="diagram-arrow">→</div>
-                <div className="diagram-node">Follow-up SMS at 4 minutes</div>
+                <div className="diagram-node">Follow-up SMS around minute 4</div>
                 <div className="diagram-arrow">→</div>
                 <div className="diagram-node">
-                  15–30 call attempts & 10–15 SMS over 30–60 days
+                  10–15 touches in the first 24–48 hours
                 </div>
               </div>
               <p className="diagram-footnote">
-                Most teams touch a lead once or twice. This SOP keeps leads alive for 30–60
-                days without burning out your staff.
+                Most teams hit a new lead once or twice at random times. The system is
+                built to be ruthless about the first 4 minutes and intentional about the
+                next 30–60 days.
               </p>
             </div>
 
             <div className="diagram-card">
               <div className="diagram-title">
-                Booking Psychology: “What works best for you?”
+                Booking Psychology, No-Show Fee & Pre-Call Training
               </div>
               <div className="diagram-sub">
-                Intent-based booking, clean A/B options, and a clear no-show policy
-                anchored in the script and the pre-call video.
+                We use NEPQ-style language to not only book the appointment, but get them
+                emotionally committed to showing up and making a decision.
               </div>
               <div className="diagram-flow">
                 <div className="diagram-node">“What works best for you?”</div>
                 <div className="diagram-arrow">→</div>
                 <div className="diagram-node">
-                  Scan calendar from today forward (no backtracking)
+                  Offer Slot A / B from real availability (no fake scarcity)
                 </div>
                 <div className="diagram-arrow">→</div>
                 <div className="diagram-node">
-                  Offer Slot A/B on specific days/times
+                  Confirm date, time, and no-show / on-call fee
                 </div>
                 <div className="diagram-arrow">→</div>
                 <div className="diagram-node">
-                  Confirm time + anchor no-show policy
+                  Send SMS confirmation + pre-call training video link
                 </div>
                 <div className="diagram-arrow">→</div>
-                <div className="diagram-node">Send SMS confirmation + pre-call video</div>
-                <div className="diagram-arrow">→</div>
                 <div className="diagram-node">
-                  SMS fallback link + “read back what you booked”
+                  Reminder logic based on whether they watched the video
                 </div>
               </div>
               <p className="diagram-footnote">
-                The no-show policy SOP is a free takeaway you get from working with us. The
-                AI says it consistently; human teams usually don&apos;t — and your show
-                rate pays for that inconsistency.
+                The pre-call training video is where you explain how your process works,
+                why it matters, and what happens if they don&apos;t show or answer when
+                you&apos;re on your way or on the line.
               </p>
             </div>
           </div>
         </section>
 
-        {/* Landing package – Phase 1 */}
+        {/* Phase content: all explanation, no pricing */}
         {openTier === "landing" && (
           <section className="section">
             <div className="section-header">
               <div>
                 <div className="section-title">Phase 1 – Landing Page Foundation</div>
                 <div className="section-sub">
-                  Built specifically for AI calling and compliance — not just a “pretty
-                  site”. This is where the speed-to-lead SOP starts and where your AI
-                  agents first meet your leads.
+                  This is where everything starts: a landing page and form that are built
+                  for AI — not just “pretty design”.
                 </div>
               </div>
-              <div className="section-tag">Buy 1, get 2 live funnels</div>
+              <div className="section-tag">Goal: clean, compliant lead intake</div>
             </div>
 
             <div className="pricing-grid">
               <div className="card">
-                <div className="card-title">What We Build</div>
+                <div className="card-title">What’s Included</div>
                 <div className="card-sub">
-                  A landing experience designed around your AI calling flows, TCPA/FCC
-                  compliance, and call outcomes.
+                  The entire point is to make sure every lead can legally be called and
+                  texted, and that the info your AI needs is captured up front.
                 </div>
-
                 <ul className="card-list">
-                  <li>Conversion-optimized, AI-ready landing layout.</li>
                   <li>
-                    Built-in TCPA/FCC-compliant consent language for calls & SMS sent by AI
-                    systems.
+                    AI-ready landing layout tuned for mobile and “thumb-first”
+                    conversions.
                   </li>
-                  <li>Speed-to-lead wiring for form → SMS → calls.</li>
+                  <li>TCPA/FCC-compliant language for calls and SMS.</li>
                   <li>
-                    Form fields mapped to AI agent variables and (optionally) your CRM.
-                  </li>
-                  <li>
-                    Brand and offer positioning tailored to{" "}
-                    <strong>{industryLabel}</strong>.
+                    Form fields mapped to AI variables (name, phone, email, intent, pain,
+                    location, etc.).
                   </li>
                   <li>
-                    Optional “second funnel” variation so we can A/B test messaging,
-                    offers, or target segments.
+                    Optional integration to your CRM or a structured Google Sheet for
+                    tracking.
+                  </li>
+                  <li>
+                    Basic speed-to-lead wiring: when a form comes in, the AI and SMS know
+                    what to do.
                   </li>
                 </ul>
-
-                <div className="inline-badge">
-                  <span />
-                  Hosted & managed on our stack – no extra “tech ops” needed.
-                </div>
+                <p className="inline-note">
+                  When this is in place, every other phase (agents, callbacks, video) has a
+                  strong foundation to plug into.
+                </p>
               </div>
 
               <div className="card card-alt">
-                <div className="card-title">Ongoing Landing Management</div>
+                <div className="card-title">Where This Fits in Your Business</div>
                 <div className="card-sub">
-                  We keep the pages live, fast, and aligned as your offer and AI flows
-                  evolve.
+                  Use Phase 1 whether you&apos;re running ads, buying leads, getting
+                  referrals, or doing organic content.
                 </div>
-
                 <ul className="card-list">
-                  <li>Hosting, monitoring, and speed checks.</li>
-                  <li>Minor copy/layout tweaks as you refine your offer.</li>
-                  <li>Lead routing and outcome updates to your sheets/CRM.</li>
-                  <li>Ready to plug into more advanced agents as you upgrade.</li>
+                  <li>
+                    At the very least, it replaces “random forms” with a true conversion
+                    funnel.
+                  </li>
+                  <li>
+                    You can keep running your current workflow and simply let the AI and
+                    SMS follow up behind the scenes.
+                  </li>
+                  <li>
+                    If you don&apos;t have a real landing or form yet, this becomes your
+                    new starting point.
+                  </li>
+                  <li>
+                    If you do, this becomes the version built specifically for AI calls and
+                    compliance.
+                  </li>
                 </ul>
-
-                <div className="inline-note">
-                  If needed, we can discuss third-party funding options separately so cash
-                  flow never becomes the reason you delay a high-performing funnel.
-                </div>
               </div>
             </div>
           </section>
         )}
 
-        {/* Starter AI agent & modules – Phase 1 */}
         {openTier === "starter" && (
           <section className="section">
             <div className="section-header">
               <div>
-                <div className="section-title">Phase 1 – AI Agent Starter & Core Modules</div>
+                <div className="section-title">Phase 1 – AI Agent Starter</div>
                 <div className="section-sub">
-                  Get something live fast, then bolt on higher-performing booking and
-                  follow-up modules as you go. Think of this as your “crawl/walk” phase
-                  before Phase 2+.
+                  One core agent, smart booking, and clear upgrade paths once you see it
+                  working on real calls.
                 </div>
               </div>
-              <div className="section-tag">Great for 30–100 calls/month</div>
+              <div className="section-tag">Goal: get something live quickly</div>
             </div>
 
-            {/* Core starter + Callback + Follow-Up */}
             <div className="pricing-grid">
               <div className="card">
-                <div className="card-title">AI Agent Starter</div>
+                <div className="card-title">Core AI Agent</div>
                 <div className="card-sub">
-                  One inbound agent, basic booking via SMS link, and a clear path to
-                  upgrade later.
+                  Your “Tessa-style” agent that answers calls, handles basic discovery, and
+                  gets people booked.
                 </div>
                 <ul className="card-list">
                   <li>
-                    Activation: 1 inbound basic AI agent, basic FAQ (your website as
-                    knowledge base), basic calendar via SMS link, and 1 phone number
-                    included.
+                    One inbound AI agent with a calm, human-sounding script built around
+                    NEPQ.
                   </li>
                   <li>
-                    Call transfer setup – AI can warm transfer to owner cell, sales line,
-                    or main office when it makes sense.
+                    Basic FAQ ability from your existing website or a small custom FAQ
+                    pack.
                   </li>
                   <li>
-                    Additional calendar SMS flows – different “send calendar link by SMS”
-                    logic for new leads, reschedules, and special offers.
+                    Basic booking via SMS link (“I just texted you a link to choose your
+                    time”).
                   </li>
                   <li>
-                    Custom FAQ pack – a curated Q&A set tuned specifically for your offers
-                    and objection patterns.
-                  </li>
-                  <li>
-                    Outbound compliance add-on if you&apos;re calling from existing lists
-                    without our compliant landing pages in place.
-                  </li>
-                  <li>
-                    Designed so you can start small and expand into more complex flows
-                    without throwing anything away.
+                    One main phone number, with options to route to you or your team when
+                    needed.
                   </li>
                 </ul>
+                <p className="inline-note">
+                  This is the simplest starting point: one agent, a calendar, and a clear
+                  path to scale into callbacks and long-tail follow-up.
+                </p>
               </div>
 
               <div className="card card-alt">
                 <div className="card-title">
-                  Callback + Follow-Up Workflow Automation (Nurturing)
+                  Callback & Follow-Up Workflow Modules (Optional)
                 </div>
                 <div className="card-sub">
-                  Callback logic + long-tail nurturing sequence (what most people think of
-                  as the “nurturing agent”).
-                </div>
-
-                <ul className="card-list">
-                  <li>
-                    Callback agent – triggered when a caller requests a callback; books a
-                    follow-up 10 minutes later, a few hours later, or at a specific time.
-                  </li>
-                  <li>
-                    Automatically triggers your outbound NEPQ agent of choice to make the
-                    follow-up call at that time.
-                  </li>
-                  <li>
-                    Follow-up workflow sequence – 30 calls + 15 SMS over the next 30–60
-                    days, designed to layer on top of the Speed-to-Lead SOP.
-                  </li>
-                  <li>
-                    Can create up to ~1500% uplift in booked appointments when stacked
-                    with Speed-to-Lead and proper offer framing.
-                  </li>
-                  <li>
-                    Fully FCC/TCPA regulated: 8:00 am – 8:00 pm, no Sundays, no federal
-                    holidays.
-                  </li>
-                  <li>
-                    Typically lives inside a broader performance retainer rather than as a
-                    standalone line item.
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            {/* NEPQ / complex booking modules */}
-            <div className="pricing-grid">
-              <div className="card">
-                <div className="card-title">NEPQ Agent + Speed-to-Lead Flow</div>
-                <div className="card-sub">
-                  Your core NEPQ inbound + outbound booking engine wrapped around the
-                  Speed-to-Lead SOP and complex slot logic.
-                </div>
-
-                <ul className="card-list">
-                  <li>1 outbound NEPQ agent + 1 inbound NEPQ agent.</li>
-                  <li>
-                    Speed-to-Lead workflow automation — built to support up to ~800% lift
-                    in booked appointments when implemented correctly.
-                  </li>
-                  <li>
-                    Complex booking logic: Slot A / Slot B offer → fallback path offering C
-                    and D → E / F / G on a day the caller chooses (when 3+ slots are open).
-                  </li>
-                  <li>
-                    SMS fallback with strict “calendar link + follow-through” logic —
-                    booking link plus read-back behavior so they know what they booked.
-                  </li>
-                  <li>
-                    NEPQ tie-down behavior: training video commitment, no-show policy
-                    explanation and agreement, and a hard takeaway close when there&apos;s
-                    no real commitment.
-                  </li>
-                  <li>
-                    Appointment is only scheduled if they commit to watching the training
-                    video and respecting the no-show / on-call reschedule policy.
-                  </li>
-                  <li>
-                    Includes calendar sync with your primary booking calendar; additional
-                    calendars are easy to add as needed.
-                  </li>
-                  <li>
-                    Can be paired with light A/B testing to keep improving booking rates
-                    over time.
-                  </li>
-                </ul>
-              </div>
-
-              <div className="card card-alt">
-                <div className="card-title">
-                  Non-NEPQ Complex Booking Logic (No NEPQ Script)
-                </div>
-                <div className="card-sub">
-                  For clients who want complex booking and calendar logic, but not the full
-                  NEPQ discovery script.
-                </div>
-
-                <ul className="card-list">
-                  <li>
-                    Complex booking script & routing logic (slot-based offers, rules,
-                    routing).
-                  </li>
-                  <li>Reschedule appointment logic included.</li>
-                  <li>Cancel appointment logic included.</li>
-                  <li>
-                    Multiple calendars can be synced out of the box; we&apos;ll decide how
-                    many you need.
-                  </li>
-                  <li>
-                    Up to 2 phone numbers typically included; additional numbers available
-                    for things like multiple locations or language options.
-                  </li>
-                  <li>
-                    Optional A/B testing add-on if conversion optimization is a priority.
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Add-ons + Not Here / No-Show */}
-            <div className="pricing-grid">
-              <div className="card">
-                <div className="card-title">Add-Ons & Integrations</div>
-                <div className="card-sub">
-                  These are the little switches that make the whole system feel custom to
-                  your operation.
+                  These modules sit on top of the starter agent. You switch them on when
+                  you want deeper coverage.
                 </div>
                 <ul className="card-list">
                   <li>
-                    Call transfer setup – configure AI → human warm transfer routing
-                    (owner cell, sales line, office, etc.).
+                    <strong>Callback logic</strong> – when someone asks for a callback,
+                    they automatically get booked at a specific time or window.
                   </li>
                   <li>
-                    Additional calendar SMS link setup – additional “send calendar link by
-                    SMS” flows with the correct logic and URL.
+                    <strong>Follow-up workflow</strong> – a structured sequence of calls
+                    and SMS over 30–60 days for people who didn&apos;t book or didn&apos;t
+                    answer.
                   </li>
                   <li>
-                    Additional basic AI agents – extra basic agents with FAQ + SMS calendar
-                    link logic (e.g., service lines, support, or specialty campaigns).
+                    Designed to support up to around 15 call attempts and 10–15 SMS without
+                    feeling spammy.
                   </li>
                   <li>
-                    Additional phone numbers – for extra locations, languages, or
-                    campaigns.
-                  </li>
-                  <li>
-                    Reschedule appointment logic – automated flow to reschedule without
-                    manual intervention.
-                  </li>
-                  <li>
-                    Cancel appointment logic – automated flow to cancel, optionally with a
-                    “save the sale” path.
-                  </li>
-                  <li>
-                    Additional calendar syncs – for multi-location or multi-provider
-                    setups.
-                  </li>
-                  <li>
-                    One-off automation setups – wiring specific flows between AI, CRM,
-                    sheets, and other tools.
-                  </li>
-                  <li>
-                    Shared Google Sheet + CRM integration – webform data and NEPQ fields
-                    (pain point, deeper pain, impact, desired outcome) all stored in one
-                    place with clean call dispositions.
-                  </li>
-                  <li>
-                    After-hours routing – different flows nights & weekends.
-                  </li>
-                  <li>
-                    Multi-agent routing – route between multiple AI agents based on intent,
-                    campaign, or time of day.
+                    Can be applied to new leads, old leads, and even past no-shows.
                   </li>
                 </ul>
-              </div>
-
-              <div className="card card-alt">
-                <div className="card-title">
-                  “Not Here” Agent + No-Show Workflow Automation
-                </div>
-                <div className="card-sub">
-                  Protect every appointment where reps are already in motion — whether the
-                  client isn&apos;t on the call, isn&apos;t home, or simply doesn&apos;t
-                  show.
-                </div>
-
-                <ul className="card-list">
-                  <li>
-                    “Not Here” agent – triggered when a sales rep marks a client as “not on
-                    call,” “not home,” etc., and attempts recovery while the rep is
-                    physically there or ready.
-                  </li>
-                  <li>
-                    No-show agent – triggered by no-show outcomes via workflow rules.
-                  </li>
-                  <li>
-                    Outbound workflow sequence: 30 outbound call triggers + 15 SMS triggers
-                    over the next 30 days.
-                  </li>
-                  <li>
-                    Fully FCC/TCPA regulated: 8:00 am – 8:00 pm, no Sundays, no federal
-                    holidays.
-                  </li>
-                  <li>
-                    Often paired with pre-call video and NEPQ flows to protect reps&apos;
-                    time and keep more appointments on track.
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Usage concepts: SMS + Voice */}
-            <div className="pricing-grid">
-              <div className="card">
-                <div className="card-title">How SMS Usage Works</div>
-                <div className="card-sub">
-                  Simple credit packs so you&apos;re never guessing what your SMS bill
-                  might be.
-                </div>
-
-                <ul className="card-list">
-                  <li>
-                    SMS is billed in “credits” based on message length and content (plain
-                    text vs. emojis/special characters).
-                  </li>
-                  <li>
-                    1 SMS credit typically covers 1 text segment (up to ~160 standard
-                    characters).
-                  </li>
-                  <li>
-                    Messages with emojis or special characters count as shorter segments
-                    (around 70 characters per credit).
-                  </li>
-                  <li>
-                    You can start with a light bundle and scale up as lead volume and
-                    campaigns increase.
-                  </li>
-                  <li>
-                    We&apos;ll look at your expected volume and recommend the right tier
-                    during our call.
-                  </li>
-                </ul>
-              </div>
-
-              <div className="card card-alt">
-                <div className="card-title">How AI Call Minutes Work</div>
-                <div className="card-sub">
-                  Separate pools for standard “Core” minutes and higher-powered “Beast”
-                  minutes.
-                </div>
-
-                <ul className="card-list">
-                  <li>
-                    Core minutes – optimized for day-to-day inbound and outbound calls
-                    where speed and clarity matter most.
-                  </li>
-                  <li>
-                    Beast minutes – for deeper, more strategic calls where extra reasoning
-                    and persuasion power makes sense.
-                  </li>
-                  <li>
-                    We can design around light, moderate, or heavy call volume depending on
-                    how many reps, locations, and campaigns you have.
-                  </li>
-                  <li>
-                    If you&apos;re just getting started, we usually begin with a smaller
-                    bundle and grow from there based on real usage.
-                  </li>
-                </ul>
+                <p className="inline-note">
+                  Once you see the impact on booked calls, this is where you typically move
+                  toward the full operating system.
+                </p>
               </div>
             </div>
           </section>
         )}
 
-        {/* Phase 2 & 3 – OS + Video */}
         {openTier === "os" && (
-          <>
-            <section className="section">
-              <div className="section-header">
-                <div>
-                  <div className="section-title">Phase 2 & 3 – Full AI Operating Systems</div>
-                  <div className="section-sub">
-                    Phase 2 is your “Full Sales OS” starting stack. Phase 3 adds a
-                    personalized AI pre-call video layer on top of everything, per booking.
-                    On this page we&apos;re just focused on structure and impact — we&apos;ll
-                    talk exact investment separately.
-                  </div>
+          <section className="section">
+            <div className="section-header">
+              <div>
+                <div className="section-title">
+                  Phase 2 & 3 – Full AI Operating System
                 </div>
-                <div className="section-tag">Both anchored around one OS retainer</div>
-              </div>
-
-              <div className="pricing-grid">
-                {/* Phase 2 bundle */}
-                <div className="card">
-                  <div className="card-title">
-                    Phase 2 – “Full Sales OS” Stack (Starting Point Bundle)
-                  </div>
-                  <div className="card-sub">
-                    NEPQ + Speed-to-Lead + “Not Here / No-Show” + Callback / Follow-Up +
-                    Pre-Call Training Video.
-                  </div>
-
-                  <ul className="card-list">
-                    <li>1 outbound NEPQ agent + 1 inbound NEPQ agent.</li>
-                    <li>
-                      Speed-to-Lead workflow (first 5 minutes of new lead intake) across
-                      phone + SMS.
-                    </li>
-                    <li>
-                      Complex booking logic: Slot A/B offers → C/D fallback → E/F/G options
-                      on the day the caller chooses (when 3+ slots are open) plus SMS
-                      fallback.
-                    </li>
-                    <li>
-                      “Not Here” agent + No-Show workflow: 30 calls + 15 SMS over 30 days
-                      to rescue missed and “not home” calls.
-                    </li>
-                    <li>
-                      Callback agent + Follow-Up workflow: 30 calls + 15 SMS over 30–60
-                      days for callback requests and long-tail nurturing.
-                    </li>
-                    <li>
-                      One core pre-call training video (around 5 minutes / ~10 slides)
-                      sent to all bookings to anchor value and your no-show policy.
-                    </li>
-                    <li>
-                      Reschedule appointment logic and cancel appointment logic available,
-                      including an optional “save the sale” variant that uses the caller&apos;s
-                      own pain points.
-                    </li>
-                    <li>
-                      Core OS typically sits inside a single monthly retainer that covers
-                      maintenance, optimization, and support.
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Phase 3 bundle */}
-                <div className="card card-alt">
-                  <div className="card-title">
-                    Phase 3 – Everything + Personalized Pre-Call Video Per Booking
-                  </div>
-                  <div className="card-sub">
-                    Full NEPQ OS plus AI custom pre-call video generated for each booked
-                    appointment, with deep tracking and cancellation protection.
-                  </div>
-
-                  <ul className="card-list">
-                    <li>
-                      Includes everything in Phase 2: inbound + outbound NEPQ agents,
-                      Speed-to-Lead flows, “Not Here / No-Show” flows, callback + follow-up
-                      flows, and training video tie-down logic.
-                    </li>
-                    <li>
-                      Adds AI custom pre-call video per booked appointment — script and
-                      visuals tailored to each caller&apos;s pain point, deeper pain,
-                      impact/gap, and desired outcome.
-                    </li>
-                    <li>
-                      Tracking layer: unique link per caller, view-through tracking, and
-                      behavior-based SMS logic (different reminders for people who watched
-                      vs. didn&apos;t).
-                    </li>
-                    <li>
-                      Reschedule and cancel appointment logic both included, with
-                      salesmanship scripting to prevent unnecessary cancellations.
-                    </li>
-                    <li>
-                      Supports multiple calendars (locations/providers) plus a dedicated
-                      callback calendar.
-                    </li>
-                    <li>
-                      This is the “flagship” version — a full NEPQ sales OS plus a
-                      per-booking personalized video engine that runs on top.
-                    </li>
-                  </ul>
+                <div className="section-sub">
+                  This is where we’re not just answering calls — we’re building a full
+                  speed-to-lead, NEPQ, pre-call video, and no-show / “not here” rescue
+                  system.
                 </div>
               </div>
-            </section>
+              <div className="section-tag">Goal: a real sales OS, not a single agent</div>
+            </div>
 
-            {/* Pre-Call Video (standard 1-to-many) */}
-            <section className="section">
-              <div className="section-header">
-                <div>
-                  <div className="section-title">
-                    Pre-Call Video – One-Time Build (Standard, Not Per-Booking Custom)
-                  </div>
-                  <div className="section-sub">
-                    A single training video you send to all booked clients (and sometimes
-                    as a hard-close follow-up when they ask for more info).
-                  </div>
+            <div className="pricing-grid">
+              <div className="card">
+                <div className="card-title">Phase 2 – Full Sales OS</div>
+                <div className="card-sub">
+                  Everything needed around the call to turn leads into booked, showed, and
+                  closed revenue.
                 </div>
+                <ul className="card-list">
+                  <li>
+                    Inbound & outbound NEPQ agents tuned for your offer and objections.
+                  </li>
+                  <li>
+                    Speed-to-lead flows wired into your landing pages, forms, and inbound
+                    calls.
+                  </li>
+                  <li>
+                    Complex booking logic: A/B slot offers, fallback options, same-day and
+                    future-day logic, and “read back” confirmation.
+                  </li>
+                  <li>
+                    “Not here” and no-show agents that run rescue attempts and route notes
+                    back to your reps.
+                  </li>
+                  <li>
+                    Callback workflow for “call me later” and long-tail nurturing on leads
+                    that don&apos;t book right away.
+                  </li>
+                  <li>
+                    One pre-call training video that explains your process and anchors the
+                    no-show / on-call fee.
+                  </li>
+                  <li>
+                    Calendar syncing across your main sales calendar (plus callback
+                    calendars if needed).
+                  </li>
+                </ul>
+                <p className="inline-note">
+                  Think of Phase 2 as “everything your best rep wishes you did around the
+                  call” — scripted and automated.
+                </p>
               </div>
 
-              <div className="pricing-grid">
-                <div className="card">
-                  <div className="card-title">Pre-Call Training Video (1-to-Many)</div>
-                  <div className="card-sub">
-                    Framed to set expectations, anchor the no-show/on-call policy, and
-                    make your offer feel like a no-brainer before the call.
-                  </div>
-                  <ul className="card-list">
-                    <li>
-                      Short format: around 5 minutes, roughly 10 slides/scenes hitting the
-                      main pillars of your offer.
-                    </li>
-                    <li>
-                      Long format: around 30 minutes, roughly 30 slides/scenes with deeper
-                      story, proof, pricing context, and case studies.
-                    </li>
-                    <li>
-                      Clear “here&apos;s what will happen on the call” framing so people
-                      show up prepared and pre-sold.
-                    </li>
-                    <li>
-                      Can be used across inbound, callbacks, and no-show recovery, not just
-                      new leads.
-                    </li>
-                  </ul>
+              <div className="card card-alt">
+                <div className="card-title">
+                  Phase 3 – AI Custom Pre-Call Video Per Booking
                 </div>
-
-                <div className="card card-alt">
-                  <div className="card-title">Unique Links + Tracking (Optional)</div>
-                  <div className="card-sub">
-                    Layer on tracking for who watched, how long they watched, and tie it
-                    into your reminder logic.
-                  </div>
-                  <ul className="card-list">
-                    <li>
-                      Each client gets a unique video link; viewership is tracked by
-                      caller.
-                    </li>
-                    <li>
-                      Tracks whether they watched and roughly how long they watched.
-                    </li>
-                    <li>
-                      Triggers a dynamic 30-minute prior appointment reminder SMS based on
-                      view data (different copy if they didn&apos;t watch).
-                    </li>
-                    <li>
-                      Light monthly maintenance keeps tracking, links, and reminder logic
-                      up to date.
-                    </li>
-                  </ul>
+                <div className="card-sub">
+                  Phase 3 adds a personalized video layer for each booked client, based on
+                  what the agent learns on the call.
                 </div>
+                <ul className="card-list">
+                  <li>
+                    AI script and video tailored to each caller&apos;s situation, pain, and
+                    desired outcome.
+                  </li>
+                  <li>
+                    Unique link per booking, with tracking: who watched, how long they
+                    watched, and how that ties into show and close.
+                  </li>
+                  <li>
+                    Dynamic reminder logic: different follow-up if they did or didn&apos;t
+                    watch their video.
+                  </li>
+                  <li>
+                    Optional A/B testing: test short vs long versions, message angles, and
+                    different positioning for different lead types.
+                  </li>
+                  <li>
+                    Designed to feed more qualified, mentally committed people into your
+                    calendar — not just more appointments.
+                  </li>
+                </ul>
+                <p className="inline-note">
+                  If Phase 2 is your sales OS, Phase 3 is the “custom video sales rep” that
+                  sits in front of it and warms up every single call.
+                </p>
               </div>
-            </section>
-
-            {/* AI Custom Pre-Call Video Credits (Phase 3) */}
-            <section className="section">
-              <div className="section-header">
-                <div>
-                  <div className="section-title">
-                    AI Custom Pre-Call Video Credits (Phase 3 Usage)
-                  </div>
-                  <div className="section-sub">
-                    In Phase 3, each booking that gets a custom video consumes 1 credit.
-                    Credits never expire; you simply draw from the wallet as calls are
-                    booked.
-                  </div>
-                </div>
-              </div>
-
-              <div className="pricing-grid">
-                <div className="card">
-                  <div className="card-title">How Credits Work</div>
-                  <div className="card-sub">
-                    Each client has a wallet of Basic, Core, and Epic credits. The AI uses
-                    1 credit per video, per booking, based on which tier you choose.
-                  </div>
-                  <ul className="card-list">
-                    <li>
-                      Credit wallet (per client) – three balances: Basic, Core, and Epic
-                      credits. Credits never expire.
-                    </li>
-                    <li>
-                      Per-booking consumption – if a booking is set to Basic, it uses 1
-                      Basic credit; if Core, 1 Core credit; if Epic, 1 Epic credit.
-                    </li>
-                    <li>
-                      If they don&apos;t have the needed credit, we can show a “buy
-                      credits” option or fall back to a more lightweight tier, depending on
-                      how you want to run it.
-                    </li>
-                    <li>
-                      A/B testing subscriptions are available to constantly test and
-                      improve video variants (scripts, thumbnails, hooks, CTAs).
-                    </li>
-                    <li>
-                      The subscription covers optimization and revisions; the credits
-                      themselves are pure usage that you draw down over time.
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="card card-alt">
-                  <div className="card-title">Credit Tiers (No Pricing Shown Here)</div>
-                  <div className="card-sub">
-                    We&apos;ll select credit tiers together based on your average deal
-                    size, call volume, and how aggressive you want your pre-call video
-                    strategy to be.
-                  </div>
-
-                  <ul className="card-list">
-                    <li>
-                      <strong>Basic Tier</strong> – ≈3 minute custom script & generated
-                      video for shorter clips and simple offers.
-                    </li>
-                    <li>
-                      <strong>Core Tier</strong> – ≈5 minute custom script & generated
-                      video for full pre-call walkthroughs.
-                    </li>
-                    <li>
-                      <strong>Epic Tier</strong> – ≈15 minute custom script & generated
-                      video for deeper story, proof, and multi-step offers.
-                    </li>
-                    <li>
-                      Credit packs can be purchased in singles, small bundles, or larger
-                      blocks; bigger packs drive the effective per-credit cost down.
-                    </li>
-                    <li>
-                      On our call, we&apos;ll map a sample month of bookings and decide how
-                      many credits you actually need.
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </section>
-
-            {/* ROI Calculator – no explicit pricing, just impact */}
-            <section className="section">
-              <div className="section-header">
-                <div>
-                  <div className="section-title">ROI &amp; Impact Snapshot</div>
-                  <div className="section-sub">
-                    Plug in your own leads, booking, show rate, close rate, and average
-                    ticket. This doesn&apos;t lock you into anything — it simply shows what
-                    a well-run AI-driven SOP could add to your monthly revenue using the
-                    leads you already have.
-                  </div>
-                </div>
-                <div className="pill-toggle-group">
-                  <button
-                    type="button"
-                    className={
-                      "pill-toggle-btn" +
-                      (funnelMode === "inbound" ? " pill-toggle-btn--active" : "")
-                    }
-                    onClick={() => setFunnelMode("inbound")}
-                  >
-                    Inbound Funnel
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      "pill-toggle-btn" +
-                      (funnelMode === "outbound" ? " pill-toggle-btn--active" : "")
-                    }
-                    onClick={() => setFunnelMode("outbound")}
-                  >
-                    Outbound Funnel
-                  </button>
-                </div>
-              </div>
-
-              <div className="roi-grid">
-                <div className="card">
-                  <div className="card-title">
-                    Your Current {funnelMode === "inbound" ? "Inbound" : "Outbound"} Funnel
-                  </div>
-                  <div className="card-sub">
-                    Use rough estimates. This is about directionally seeing where money is
-                    being left on the table.
-                  </div>
-
-                  <div className="input-grid">
-                    <div className="field">
-                      <label>Monthly leads / inbound calls</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={leads}
-                        onChange={(e) => setLeads(e.target.value)}
-                      />
-                    </div>
-                    <div className="field">
-                      <label>Lead → Booked ratio (%)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={bookRate}
-                        onChange={(e) => setBookRate(e.target.value)}
-                      />
-                      <small>
-                        If 40 of 100 leads book, enter 40.
-                      </small>
-                    </div>
-                    <div className="field">
-                      <label>Booked → Show ratio (%)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={showRate}
-                        onChange={(e) => setShowRate(e.target.value)}
-                      />
-                    </div>
-                    <div className="field">
-                      <label>Show → Close ratio (%)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={closeRate}
-                        onChange={(e) => setCloseRate(e.target.value)}
-                      />
-                      <small>
-                        In some medical/dental flows this can be closer to 100.
-                      </small>
-                    </div>
-                    <div className="field">
-                      <label>Average ticket / deal size</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={avgTicket}
-                        onChange={(e) => setAvgTicket(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="inline-note" style={{ marginTop: 10 }}>
-                    This is what you&apos;re doing today with the leads you already have.
-                  </div>
-
-                  <div className="roi-metrics">
-                    <div>
-                      <span className="metric-label">Booked per month:</span>{" "}
-                      <span className="metric-value">
-                        {baselineBooked.toFixed(1)} bookings
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Shows per month:</span>{" "}
-                      <span className="metric-value">
-                        {baselineShows.toFixed(1)} kept appointments
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Sales per month:</span>{" "}
-                      <span className="metric-value">
-                        {baselineSales.toFixed(1)} closed deals
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Est. monthly revenue now:</span>{" "}
-                      <span className="metric-value">
-                        ${formatCurrency(baselineRevenue)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card card-alt">
-                  <div className="card-title">With Full SOP Installed</div>
-                  <div className="card-sub">
-                    We assume a small drop in booking rate (more friction from a strong
-                    no-show policy), but a big lift in show and close rates once the system
-                    is fully dialed in.
-                  </div>
-
-                  <div className="input-grid">
-                    <div className="field">
-                      <label>Lead → Booked drop (%)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={bookDrop}
-                        onChange={(e) => setBookDrop(e.target.value)}
-                      />
-                      <small>We usually see a 5–10% drop.</small>
-                    </div>
-                    <div className="field">
-                      <label>Show rate lift (%)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={200}
-                        value={showLift}
-                        onChange={(e) => setShowLift(e.target.value)}
-                      />
-                      <small>Typical range is 20–60% lift.</small>
-                    </div>
-                    <div className="field">
-                      <label>Close rate lift (%)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={200}
-                        value={closeLift}
-                        onChange={(e) => setCloseLift(e.target.value)}
-                      />
-                      <small>Typical range is 20–40% lift.</small>
-                    </div>
-                  </div>
-
-                  <div className="roi-metrics">
-                    <div>
-                      <span className="metric-label">Bookings with SOP:</span>{" "}
-                      <span className="metric-value">
-                        {improvedBooked.toFixed(1)} / month
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Shows with SOP:</span>{" "}
-                      <span className="metric-value">
-                        {improvedShows.toFixed(1)} / month
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Sales with SOP:</span>{" "}
-                      <span className="metric-value">
-                        {improvedSales.toFixed(1)} / month
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Est. monthly revenue with SOP:</span>{" "}
-                      <span className="metric-value metric-highlight">
-                        ${formatCurrency(improvedRevenue)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Extra revenue / month:</span>{" "}
-                      <span className="metric-value metric-highlight">
-                        ${formatCurrency(extraRevenue)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="cta-footer">
-                <div className="cta-text">
-                  Once we see what the <span>extra monthly revenue</span> looks like, we
-                  can design an investment that feels conservative and still lets the system
-                  pay for itself.
-                </div>
-                <a href="tel:+12396880201" className="cta-link-btn">
-                  Talk through your numbers <span>↗</span>
-                </a>
-              </div>
-            </section>
-          </>
+            </div>
+          </section>
         )}
+
+        {/* ROI / Impact calculator – focused on THEIR revenue, not your pricing */}
+        <section className="section">
+          <div className="section-header">
+            <div>
+              <div className="section-title">
+                Impact Calculator – What This Could Mean for You
+              </div>
+              <div className="section-sub">
+                Plug in rough numbers for your world. Ignore perfection. The idea is to see
+                what happens if your booking, show, and close rates all move together.
+              </div>
+            </div>
+            <div className="pill-toggle-group">
+              <button
+                type="button"
+                className={
+                  "pill-toggle-btn" +
+                  (funnelMode === "inbound" ? " pill-toggle-btn--active" : "")
+                }
+                onClick={() => setFunnelMode("inbound")}
+              >
+                Inbound Funnel
+              </button>
+              <button
+                type="button"
+                className={
+                  "pill-toggle-btn" +
+                  (funnelMode === "outbound" ? " pill-toggle-btn--active" : "")
+                }
+                onClick={() => setFunnelMode("outbound")}
+              >
+                Outbound Funnel
+              </button>
+            </div>
+          </div>
+
+          <div className="roi-grid">
+            <div className="card">
+              <div className="card-title">
+                Your Current {funnelMode === "inbound" ? "Inbound" : "Outbound"} Funnel
+              </div>
+              <div className="card-sub">
+                Use rough monthly averages. Even ballpark numbers will show whether you’re
+                leaking a little — or a lot.
+              </div>
+
+              <div className="input-grid">
+                <div className="field">
+                  <label>Leads / calls per month</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={leads}
+                    onChange={(e) => setLeads(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Lead → Booked (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={bookRate}
+                    onChange={(e) => setBookRate(e.target.value)}
+                  />
+                  <small>If 40 of 100 leads book, enter 40.</small>
+                </div>
+                <div className="field">
+                  <label>Booked → Show (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={showRate}
+                    onChange={(e) => setShowRate(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Show → Close (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={closeRate}
+                    onChange={(e) => setCloseRate(e.target.value)}
+                  />
+                  <small>
+                    For some medical/dental flows, this might actually be closer to 100.
+                  </small>
+                </div>
+                <div className="field">
+                  <label>Average ticket / deal size</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={avgTicket}
+                    onChange={(e) => setAvgTicket(e.target.value)}
+                  />
+                  <small>Whatever “one sale” is worth to you.</small>
+                </div>
+              </div>
+
+              <div className="roi-metrics">
+                <div>
+                  <span className="metric-label">Booked per month:</span>{" "}
+                  <span className="metric-value">
+                    {baselineBooked.toFixed(1)} appointments
+                  </span>
+                </div>
+                <div>
+                  <span className="metric-label">Shows per month:</span>{" "}
+                  <span className="metric-value">
+                    {baselineShows.toFixed(1)} kept appointments
+                  </span>
+                </div>
+                <div>
+                  <span className="metric-label">Sales per month:</span>{" "}
+                  <span className="metric-value">
+                    {baselineSales.toFixed(1)} closed deals
+                  </span>
+                </div>
+                <div>
+                  <span className="metric-label">Estimated monthly revenue now:</span>{" "}
+                  <span className="metric-value">
+                    {baselineRevenue > 0 ? `~$${formatCurrency(baselineRevenue)}` : "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="card card-alt">
+              <div className="card-title">
+                With Full Speed-to-Lead + Follow-Up + Pre-Call System
+              </div>
+              <div className="card-sub">
+                Here’s where you can play with what happens if we fix speed-to-lead, show
+                rate, and close rate together.
+              </div>
+
+              <div className="input-grid">
+                <div className="field">
+                  <label>Speed-to-lead booking uplift (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1500}
+                    value={speedLift}
+                    onChange={(e) => setSpeedLift(e.target.value)}
+                  />
+                  <small>
+                    100 = keep bookings the same.
+                    <br />
+                    200 = roughly 2× your current bookings.
+                    <br />
+                    800 = extreme case (almost no one is being called fast enough now).
+                  </small>
+                </div>
+                <div className="field">
+                  <label>Lead → Booked drop (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={bookDrop}
+                    onChange={(e) => setBookDrop(e.target.value)}
+                  />
+                  <small>Small drop from stronger qualifiers (often 5–10).</small>
+                </div>
+                <div className="field">
+                  <label>Show rate uplift (points)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={showLift}
+                    onChange={(e) => setShowLift(e.target.value)}
+                  />
+                  <small>
+                    Example: 60 + 35 points = 95% show (pre-call video + no-show fee).
+                  </small>
+                </div>
+                <div className="field">
+                  <label>Close rate uplift (points)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={closeLift}
+                    onChange={(e) => setCloseLift(e.target.value)}
+                  />
+                  <small>
+                    Example: 25 + 25 points = 50% close when everything is dialed in.
+                  </small>
+                </div>
+              </div>
+
+              <div className="roi-metrics">
+                <div>
+                  <span className="metric-label">
+                    Bookings with full system (after uplift + qualifiers):
+                  </span>{" "}
+                  <span className="metric-value">
+                    {improvedBooked.toFixed(1)} appointments / month
+                  </span>
+                </div>
+                <div>
+                  <span className="metric-label">Shows with full system:</span>{" "}
+                  <span className="metric-value">
+                    {improvedShows.toFixed(1)} kept appointments / month
+                  </span>
+                </div>
+                <div>
+                  <span className="metric-label">Sales with full system:</span>{" "}
+                  <span className="metric-value">
+                    {improvedSales.toFixed(1)} closed deals / month
+                  </span>
+                </div>
+                <div>
+                  <span className="metric-label">Estimated monthly revenue:</span>{" "}
+                  <span className="metric-value metric-highlight">
+                    {improvedRevenue > 0 ? `~$${formatCurrency(improvedRevenue)}` : "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="metric-label">Extra revenue / month (same leads):</span>{" "}
+                  <span className="metric-value metric-highlight">
+                    {extraMonthlyRevenue > 0
+                      ? `~$${formatCurrency(extraMonthlyRevenue)}`
+                      : "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="metric-label">Extra revenue / year (same leads):</span>{" "}
+                  <span className="metric-value metric-highlight">
+                    {extraYearlyRevenue > 0
+                      ? `~$${formatCurrency(extraYearlyRevenue)}`
+                      : "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="cta-footer">
+            <div className="cta-text">
+              On our call, we&apos;ll look at your real numbers and decide{" "}
+              <span>whether the extra revenue</span> this creates justifies building the
+              system — and how big or small it should start.
+            </div>
+            <div className="cta-note">
+              No decisions from this page alone. This is just a shared scoreboard so we can
+              think clearly together.
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   );
