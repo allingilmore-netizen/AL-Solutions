@@ -1251,45 +1251,50 @@ export default function PricingPage() {
             <div className="pricing-grid">
               <div className="card">
                 <div className="card-title">SMS Plans (Monthly)</div>
+                <div className="card-sub">
+                  SMS credit packs you can scale up or down as your volume changes.
+                </div>
                 <table className="price-table">
                   <thead>
                     <tr>
-                      <th>Plan</th>
-                      <th>Included SMS</th>
-                      <th>Overage</th>
+                      <th>Charge</th>
+                      <th>Number of SMS Credits</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td>SMS Lite</td>
-                      <td>50</td>
-                      <td>$0.15/SMS + $15 fee</td>
+                      <td>$3.50</td>
+                      <td>80</td>
                     </tr>
                     <tr>
-                      <td>SMS Starter</td>
-                      <td>100</td>
-                      <td>$0.15/SMS + $15 fee</td>
+                      <td>$8.00</td>
+                      <td>250</td>
                     </tr>
                     <tr>
-                      <td>SMS Boost</td>
-                      <td>200</td>
-                      <td>$0.14/SMS + $15 fee</td>
+                      <td>$17.00</td>
+                      <td>600</td>
                     </tr>
                     <tr>
-                      <td>SMS Growth</td>
-                      <td>400</td>
-                      <td>$0.13/SMS + $15 fee</td>
+                      <td>$26.00</td>
+                      <td>1,200</td>
                     </tr>
                     <tr>
-                      <td>SMS Pro</td>
-                      <td>800</td>
-                      <td>$0.12/SMS + $15 fee</td>
+                      <td>$44.00</td>
+                      <td>2,500</td>
+                    </tr>
+                    <tr>
+                      <td>$98.00</td>
+                      <td>6,000</td>
                     </tr>
                   </tbody>
                 </table>
                 <div className="inline-note">
-                  Example: SMS Lite at $8/mo covers 50 SMS — enough for 50 booking-link
-                  texts if you&apos;re just testing.
+                  28% auto renew discount at 10 SMS credit remaining.
+                </div>
+                <div className="inline-note">
+                  1 SMS credit covers 1 text segment: up to 160 standard characters. If a
+                  message is longer, it may use 2+ credits. Messages with emojis/special
+                  characters may allow 70 characters per credit.
                 </div>
               </div>
 
