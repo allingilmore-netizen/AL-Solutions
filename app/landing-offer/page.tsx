@@ -19,10 +19,10 @@ export default function PricingPage() {
   const [avgTicket, setAvgTicket] = useState("1500");
 
   // Improvement assumptions
-  const [bookDrop, setBookDrop] = useState("7"); // 5–10% drop from stronger qualification / no-show policy
-  const [speedLift, setSpeedLift] = useState("200"); // % lift in bookings from speed-to-lead + follow-up
-  const [showLift, setShowLift] = useState("35"); // 20–60% lift
-  const [closeLift, setCloseLift] = useState("25"); // 20–40% lift
+  const [bookDrop, setBookDrop] = useState("7"); // % drop from tighter qual / no-show policy
+  const [speedLift, setSpeedLift] = useState("200"); // % uplift on booked (treated as multiplier: 200 = 2x)
+  const [showLift, setShowLift] = useState("35"); // additive % points on show rate
+  const [closeLift, setCloseLift] = useState("25"); // additive % points on close rate
 
   const parsedLeads = Number(leads) || 0;
   const parsedBookRate = Number(bookRate) || 0;
@@ -42,20 +42,30 @@ export default function PricingPage() {
   const baselineRevenue = baselineSales * parsedAvgTicket;
 
   // Improved funnel (with full SOP)
-  // 1) small drop from tighter qualification / no-show policy
-  // 2) big lift from Speed-to-Lead + long-tail follow-up
-  const improvedBookRateRaw =
-    parsedBookRate *
-    (1 - parsedBookDrop / 100) *
-    (1 + parsedSpeedLift / 100);
+  // 1) Speed-to-lead uplift: treat as a MULTIPLIER on current booked
+  //    Example: 200% = 2x, 800% = 8x
+  // 2) Then apply a small drop from stronger qualification / no-show policy.
+  const speedMultiplier = parsedSpeedLift / 100; // 200% -> 2.0
+  const improvedBookedRaw =
+    baselineBooked * speedMultiplier * (1 - parsedBookDrop / 100);
 
-  // Clamp between 0 and 100 so it never goes insane even if they type 800%+
-  const improvedBookRate = Math.min(100, Math.max(0, improvedBookRateRaw));
+  // You can never book more appointments than leads
+  const improvedBooked = Math.min(
+    parsedLeads,
+    Math.max(0, improvedBookedRaw)
+  );
 
-  const improvedShowRate = parsedShowRate * (1 + parsedShowLift / 100);
-  const improvedCloseRate = parsedCloseRate * (1 + parsedCloseLift / 100);
+  // Show & close “uplift” are treated as additive percentage points
+  // Example: 60% + 35% = 95% show; 25% + 25% = 50% close
+  const improvedShowRate = Math.min(
+    100,
+    Math.max(0, parsedShowRate + parsedShowLift)
+  );
+  const improvedCloseRate = Math.min(
+    100,
+    Math.max(0, parsedCloseRate + parsedCloseLift)
+  );
 
-  const improvedBooked = parsedLeads * (improvedBookRate / 100);
   const improvedShows = improvedBooked * (improvedShowRate / 100);
   const improvedSales = improvedShows * (improvedCloseRate / 100);
   const improvedRevenue = improvedSales * parsedAvgTicket;
@@ -916,8 +926,8 @@ export default function PricingPage() {
                 <ul className="card-list">
                   <li>Conversion-optimized, AI-ready landing layout.</li>
                   <li>
-                    Built-in TCPA/FCC-compliant consent language for calls & SMS sent by AI
-                    systems.
+                    Built-in TCPA/FCC-compliant consent language for calls &amp; SMS sent
+                    by AI systems.
                   </li>
                   <li>Speed-to-lead wiring for form → SMS → calls.</li>
                   <li>
@@ -931,7 +941,7 @@ export default function PricingPage() {
 
                 <div className="inline-badge">
                   <span />
-                  Hosted & managed on our stack – no extra “tech ops” needed.
+                  Hosted &amp; managed on our stack – no extra “tech ops” needed.
                 </div>
               </div>
 
@@ -966,7 +976,7 @@ export default function PricingPage() {
           <section className="section">
             <div className="section-header">
               <div>
-                <div className="section-title">Phase 1 – AI Agent Starter & Core Modules</div>
+                <div className="section-title">Phase 1 – AI Agent Starter &amp; Core Modules</div>
                 <div className="section-sub">
                   Get something live fast, then bolt on higher-performing booking and
                   follow-up modules as you go.
@@ -1017,7 +1027,7 @@ export default function PricingPage() {
                 </ul>
 
                 <div className="inline-note">
-                  Lightest version: landing page + activation + a small SMS & minutes
+                  Lightest version: landing page + activation + a small SMS &amp; minutes
                   plan — perfect if you&apos;re doing ±50 appointments per month.
                 </div>
               </div>
@@ -1032,7 +1042,7 @@ export default function PricingPage() {
                 </div>
                 <div className="price-main">$1,700</div>
                 <div className="price-subline">One-time build</div>
-                <div className="price-subline">$197/mo automation & maintenance</div>
+                <div className="price-subline">$197/mo automation &amp; maintenance</div>
 
                 <ul className="card-list">
                   <li>
@@ -1059,7 +1069,7 @@ export default function PricingPage() {
                     holidays.
                   </li>
                   <li>
-                    <strong>$197/mo</strong> required for automation cost & ongoing
+                    <strong>$197/mo</strong> required for automation cost &amp; ongoing
                     maintenance (can live inside a bundled “performance retainer” if you
                     prefer).
                   </li>
@@ -1130,11 +1140,11 @@ export default function PricingPage() {
                 </div>
                 <div className="price-main">$2,600</div>
                 <div className="price-subline">One-time build</div>
-                <div className="price-subline">$197/mo workflows & maintenance</div>
+                <div className="price-subline">$197/mo workflows &amp; maintenance</div>
 
                 <ul className="card-list">
                   <li>
-                    Complex booking script & routing logic (slot-based offers, rules,
+                    Complex booking script &amp; routing logic (slot-based offers, rules,
                     routing).
                   </li>
                   <li>Reschedule appointment logic included.</li>
@@ -1160,7 +1170,7 @@ export default function PricingPage() {
             {/* Add-ons + Not Here / No-Show */}
             <div className="pricing-grid">
               <div className="card">
-                <div className="card-title">Add-Ons & Integrations</div>
+                <div className="card-title">Add-Ons &amp; Integrations</div>
                 <div className="card-sub">
                   These are the little switches that make the whole system feel custom to
                   your operation.
@@ -1210,8 +1220,8 @@ export default function PricingPage() {
                     booked, custom outcomes).
                   </li>
                   <li>
-                    <strong>$50 – After-Hours Routing</strong> — different flows nights &amp;
-                    weekends.
+                    <strong>$50 – After-Hours Routing</strong> — different flows nights
+                    &amp; weekends.
                   </li>
                   <li>
                     <strong>$150–$300 – Multi-Agent Routing</strong> — route between
@@ -1394,7 +1404,7 @@ export default function PricingPage() {
             <section className="section">
               <div className="section-header">
                 <div>
-                  <div className="section-title">Phase 2 & 3 – Full AI Operating Systems</div>
+                  <div className="section-title">Phase 2 &amp; 3 – Full AI Operating Systems</div>
                   <div className="section-sub">
                     Phase 2 is your “Full Sales OS” starting stack. Phase 3 adds a
                     personalized AI pre-call video layer on top of everything, per booking.
@@ -1579,7 +1589,7 @@ export default function PricingPage() {
                       view data (different copy if they didn&apos;t watch).
                     </li>
                     <li>
-                      <strong>$197/month</strong> – tracking & reminder maintenance.
+                      <strong>$197/month</strong> – tracking &amp; reminder maintenance.
                     </li>
                   </ul>
                 </div>
@@ -1633,7 +1643,7 @@ export default function PricingPage() {
                           + 2 small revisions per week (typically 1 Core + 1 Epic).
                         </li>
                         <li>
-                          Subscription covers <strong>optimization & revisions</strong>, not
+                          Subscription covers <strong>optimization &amp; revisions</strong>, not
                           credits; credits are pure usage.
                         </li>
                       </ul>
@@ -1649,7 +1659,7 @@ export default function PricingPage() {
                   </div>
 
                   <div className="price-subline">
-                    <strong>Basic Tier</strong> (≈3 minutes custom script & generated video)
+                    <strong>Basic Tier</strong> (≈3 minutes custom script &amp; generated video)
                   </div>
                   <table className="price-table">
                     <thead>
@@ -1689,7 +1699,7 @@ export default function PricingPage() {
                   </table>
 
                   <div className="price-subline" style={{ marginTop: 10 }}>
-                    <strong>Core Tier</strong> (≈5 minutes custom script & generated video)
+                    <strong>Core Tier</strong> (≈5 minutes custom script &amp; generated video)
                   </div>
                   <table className="price-table">
                     <thead>
@@ -1729,7 +1739,7 @@ export default function PricingPage() {
                   </table>
 
                   <div className="price-subline" style={{ marginTop: 10 }}>
-                    <strong>Epic Tier</strong> (≈15 minutes custom script & generated video)
+                    <strong>Epic Tier</strong> (≈15 minutes custom script &amp; generated video)
                   </div>
                   <table className="price-table">
                     <thead>
@@ -1910,13 +1920,13 @@ export default function PricingPage() {
                 <div className="card card-alt">
                   <div className="card-title">With Full SOP Installed (Phase 2+)</div>
                   <div className="card-sub">
-                    We assume a small drop in booking rate (more friction from the no-show
-                    policy), but a big lift from Speed-to-Lead, show rate, and close rate.
+                    Speed-to-lead and long-tail follow-up multiply your booked calls, then
+                    the no-show policy and better framing lift show and close.
                   </div>
 
                   <div className="input-grid">
                     <div className="field">
-                      <label>Speed-to-lead booking lift (%)</label>
+                      <label>Speed-to-lead booking uplift (%)</label>
                       <input
                         type="number"
                         min={0}
@@ -1925,8 +1935,8 @@ export default function PricingPage() {
                         onChange={(e) => setSpeedLift(e.target.value)}
                       />
                       <small>
-                        Example: 200 = about 3x bookings. 800 is an aggressive “no one is
-                        calling in time” scenario.
+                        100 = no change. 200 = 2x your current bookings. 800 = 8x (extreme
+                        “no one is calling in time” case).
                       </small>
                     </div>
                     <div className="field">
@@ -1941,26 +1951,30 @@ export default function PricingPage() {
                       <small>We usually see a 5–10% drop from stronger qualifiers.</small>
                     </div>
                     <div className="field">
-                      <label>Show rate lift (%)</label>
+                      <label>Show rate uplift (points)</label>
                       <input
                         type="number"
                         min={0}
-                        max={200}
+                        max={100}
                         value={showLift}
                         onChange={(e) => setShowLift(e.target.value)}
                       />
-                      <small>Typical range is 20–60% lift.</small>
+                      <small>
+                        Treated as additive. Example: 60% + 35 points = 95% show.
+                      </small>
                     </div>
                     <div className="field">
-                      <label>Close rate lift (%)</label>
+                      <label>Close rate uplift (points)</label>
                       <input
                         type="number"
                         min={0}
-                        max={200}
+                        max={100}
                         value={closeLift}
                         onChange={(e) => setCloseLift(e.target.value)}
                       />
-                      <small>Typical range is 20–40% lift.</small>
+                      <small>
+                        Example: 25% + 25 points = 50% close when the full SOP is in play.
+                      </small>
                     </div>
                   </div>
 
