@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type TierKey = "landing" | "starter" | "os" | "enterprise" | null;
+type TierKey = "landing" | "starter" | "os" | null;
 type FunnelMode = "inbound" | "outbound";
 type IndustryKey = "generic" | "medspa" | "home" | "sales" | "other";
 
@@ -51,7 +51,7 @@ export default function PricingPage() {
 
   const extraRevenue = Math.max(0, improvedRevenue - baselineRevenue);
 
-  // Core SOP cost assumptions
+  // Core SOP cost assumptions (Phase 2 baseline)
   const setupCost = 6200;
   const monthlyOpsCost = 1250;
   const monthsToPayback = extraRevenue > 0 ? setupCost / extraRevenue : Infinity;
@@ -827,7 +827,7 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* Tier selector */}
+        {/* Tier selector – Phase ladder */}
         <div className="tier-selector">
           <button
             type="button"
@@ -836,7 +836,7 @@ export default function PricingPage() {
             }
             onClick={() => setOpenTier((prev) => (prev === "landing" ? null : "landing"))}
           >
-            <div className="tier-pill-title">Landing Page Foundation</div>
+            <div className="tier-pill-title">Phase 1 – Landing Page Foundation</div>
             <div className="tier-pill-sub">
               Buy 1, get 2 high-converting funnels built for speed-to-lead.
             </div>
@@ -850,31 +850,28 @@ export default function PricingPage() {
             }
             onClick={() => setOpenTier((prev) => (prev === "starter" ? null : "starter"))}
           >
-            <div className="tier-pill-title">AI Agent Starter</div>
+            <div className="tier-pill-title">Phase 1 – AI Agent Starter</div>
             <div className="tier-pill-sub">
               One inbound agent, basic booking, and real call coverage.
             </div>
             <div className="tier-pill-price">
-              $35 activation + voice & SMS plans + add-ons
+              $35 activation + SMS plan + add-ons
             </div>
           </button>
 
           <button
             type="button"
             className={
-              "tier-pill" +
-              (openTier === "os" || openTier === "enterprise"
-                ? " tier-pill--active"
-                : "")
+              "tier-pill" + (openTier === "os" ? " tier-pill--active" : "")
             }
             onClick={() => setOpenTier((prev) => (prev === "os" ? null : "os"))}
           >
-            <div className="tier-pill-title">Full Operating System</div>
+            <div className="tier-pill-title">Phase 2 & 3 – Full Operating System</div>
             <div className="tier-pill-sub">
-              Booking, pre-call video, sales, finance, nurture & dispatch — all wired.
+              Phase 2: Speed-to-lead OS • Phase 3: OS + personalized pre-call video.
             </div>
             <div className="tier-pill-price">
-              From $6,200 build-out + $1,250/mo, scaling to full OS & enterprise.
+              From $6,200–$13,500 build-out + $1,250/mo
             </div>
           </button>
         </div>
@@ -964,12 +961,12 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* Landing package */}
+        {/* Landing package – Phase 1 */}
         {openTier === "landing" && (
           <section className="section">
             <div className="section-header">
               <div>
-                <div className="section-title">Landing Page Foundation</div>
+                <div className="section-title">Phase 1 – Landing Page Foundation</div>
                 <div className="section-sub">
                   Built specifically for AI calling and compliance — not just a “pretty
                   site”. This is where the speed-to-lead SOP starts.
@@ -1036,12 +1033,12 @@ export default function PricingPage() {
           </section>
         )}
 
-        {/* Starter AI agent & plans */}
+        {/* Starter AI agent & plans – Phase 1 */}
         {openTier === "starter" && (
           <section className="section">
             <div className="section-header">
               <div>
-                <div className="section-title">AI Agent Starter & Base Plans</div>
+                <div className="section-title">Phase 1 – AI Agent Starter & Base Plans</div>
                 <div className="section-sub">
                   This is the “get something live fast” tier — one inbound agent, basic
                   booking, and enough SMS to test real calls.
@@ -1061,7 +1058,7 @@ export default function PricingPage() {
                   <li>
                     <strong>$35 Activation Fee</strong> — 1 inbound AI agent, 1 phone
                     number, basic FAQ (your website as knowledge base), basic calendar
-                    connection.
+                    connection via SMS link.
                   </li>
                   <li>
                     <strong>$80 Live Transfer Setup (per phone)</strong> — transfer from AI
@@ -1085,8 +1082,8 @@ export default function PricingPage() {
                 </ul>
 
                 <div className="inline-note">
-                  The lightest version is: landing page + activation + small voice/SMS
-                  plan — perfect if you&apos;re doing ~50 appointments a month.
+                  The lightest version is: landing page + activation + small SMS plan —
+                  perfect if you&apos;re doing ~50 appointments a month.
                 </div>
               </div>
 
@@ -1098,7 +1095,7 @@ export default function PricingPage() {
                 </div>
                 <div className="price-main">$1,700</div>
                 <div className="price-subline">Setup</div>
-                <div className="price-subline">$197/mo + minutes & SMS plan</div>
+                <div className="price-subline">$197/mo + SMS plan</div>
 
                 <ul className="card-list">
                   <li>
@@ -1109,7 +1106,7 @@ export default function PricingPage() {
                     requested time.
                   </li>
                   <li>
-                    15–30 call attempts + 10–15 SMS over 30–60 days until the lead books,
+                    15–30 call attempts & 10–15 SMS over 30–60 days until the lead books,
                     says no, or truly dies.
                   </li>
                   <li>
@@ -1124,64 +1121,8 @@ export default function PricingPage() {
               </div>
             </div>
 
-            {/* Voice & SMS plans */}
+            {/* SMS plans only – minutes kept off-site */}
             <div className="pricing-grid">
-              <div className="card">
-                <div className="card-title">AI Voice Plans (Monthly)</div>
-                <table className="price-table">
-                  <thead>
-                    <tr>
-                      <th>Plan</th>
-                      <th>Minutes</th>
-                      <th>Rate / min</th>
-                      <th>Overage</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Starter Lite</td>
-                      <td>160</td>
-                      <td>$0.35</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>Starter</td>
-                      <td>280</td>
-                      <td>$0.28</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>Growth</td>
-                      <td>710</td>
-                      <td>$0.22</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>Pro</td>
-                      <td>1,700</td>
-                      <td>$0.17</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>Enterprise</td>
-                      <td>5,300</td>
-                      <td>$0.12</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                    <tr>
-                      <td>Ultra Enterprise</td>
-                      <td>12,000</td>
-                      <td>$0.09</td>
-                      <td>$15 overage fee</td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div className="inline-note">
-                  This is where your cost for training calls, QA calls, and live prospect
-                  calls comes from. We&apos;ll help you choose a sensible starting tier.
-                </div>
-              </div>
-
               <div className="card card-alt">
                 <div className="card-title">SMS Plans (Monthly)</div>
                 <table className="price-table">
@@ -1233,7 +1174,7 @@ export default function PricingPage() {
                 <div className="card-title">Add-Ons & Integrations</div>
                 <ul className="card-list">
                   <li>
-                    <strong>Calendar Setup – $35 / person / calendar</strong>  
+                    <strong>Calendar Setup – $35 / person / calendar</strong>{" "}
                     (Cal.com, Calendly, Acuity, GHL, etc.).
                   </li>
                   <li>
@@ -1300,7 +1241,7 @@ export default function PricingPage() {
                 </div>
                 <div className="price-main">$1,700</div>
                 <div className="price-subline">Setup</div>
-                <div className="price-subline">$197/mo + minutes & SMS plan</div>
+                <div className="price-subline">$197/mo + SMS plan</div>
                 <ul className="card-list">
                   <li>
                     Triggers when someone cancels late or doesn&apos;t show for their
@@ -1325,7 +1266,7 @@ export default function PricingPage() {
                 </div>
                 <div className="price-main">$1,700</div>
                 <div className="price-subline">Setup</div>
-                <div className="price-subline">$197/mo + minutes & SMS plan</div>
+                <div className="price-subline">$197/mo + SMS plan</div>
                 <ul className="card-list">
                   <li>
                     Kicks in after the 4-minute SMS if the lead still hasn&apos;t booked.
@@ -1344,28 +1285,29 @@ export default function PricingPage() {
           </section>
         )}
 
-        {/* Operating system tiers + ROI */}
-        {(openTier === "os" || openTier === "enterprise") && (
+        {/* Operating system tiers + ROI – Phase 2 & 3 */}
+        {openTier === "os" && (
           <>
             <section className="section">
               <div className="section-header">
                 <div>
-                  <div className="section-title">Full AI Operating Systems</div>
+                  <div className="section-title">Phase 2 & 3 – Full AI Operating Systems</div>
                   <div className="section-sub">
-                    When you want the complete SOP — landing, booking, pre-call video,
-                    sales, finance, dispatch, callbacks, no-shows, and nurture — all
-                    working together.
+                    Phase 2: your speed-to-lead OS wrapped around your existing sales pros.
+                    Phase 3: everything from Phase 2 plus fully personalized pre-call
+                    videos for every booking.
                   </div>
                 </div>
-                <div className="section-tag">Designed for real volume</div>
+                <div className="section-tag">Both anchored at $1,250/mo</div>
               </div>
 
               <div className="pricing-grid">
+                {/* Phase 2 */}
                 <div className="card">
-                  <div className="card-title">Speed-to-Lead OS (Core SOP)</div>
+                  <div className="card-title">Phase 2 – Speed-to-Lead Operating System</div>
                   <div className="card-sub">
-                    For teams that want the entire booking &amp; show-rate machine wrapped
-                    around their existing sales pros.
+                    For teams that want the entire booking & show-rate machine wrapped
+                    around their existing sales closers.
                   </div>
                   <div className="price-main">$6,200</div>
                   <div className="price-subline">Core SOP build-out</div>
@@ -1373,175 +1315,92 @@ export default function PricingPage() {
 
                   <ul className="card-list">
                     <li>
-                      <strong>Slot A/B booking agent</strong> (~15–20 minutes) with “what
-                      works best” and multiple A/B offers until a time is chosen.
+                      <strong>NEPQ inbound + outbound booking agents</strong> tied to your
+                      calendars.
                     </li>
                     <li>
-                      <strong>Pre-call video strategy</strong> (10–15 minutes) using
-                      tools like Sora-style video editing — story, credibility, reviews,
-                      and why your price is 2–10x less than the value delivered.
+                      <strong>Speed-to-lead SOP</strong> (SMS in seconds, calls in
+                      minutes, 30–60 day multi-touch cadence).
                     </li>
                     <li>
-                      <strong>Complex booking builds</strong> at{" "}
-                      <strong>$800–$1,250 per agent</strong> for advanced slot A/B flows,
-                      plus <strong>$260</strong> one-time for persuasive SMS fallback
-                      scripting that forces on-the-spot confirmation.
+                      <strong>No-show & “Not Here” recovery flows</strong> to rebook lost
+                      appointments.
                     </li>
                     <li>
-                      <strong>No-show fee SOP</strong> — scripted so the AI anchors the
-                      $100 fee 100% of the time; humans don&apos;t.
+                      <strong>Callback & follow-up agents</strong> for “call me later”
+                      leads.
                     </li>
                     <li>
-                      <strong>SMS fallbacks</strong> pushing them to book now and read
-                      back what they booked before the call ends.
+                      <strong>Pre-call training video strategy</strong> (shared to all
+                      bookings) so people show up pre-framed and ready.
                     </li>
                     <li>
-                      <strong>Callback &amp; no-show logic</strong> wired into your
-                      calendars, with the 30–60 day cadence baked in.
+                      <strong>No-show fee SOP</strong> – AI anchors your $100 policy 100%
+                      of the time.
                     </li>
                     <li>
-                      Script refinement and weekly A/B testing based on actual call
-                      recordings and outcomes — this is your “always-on sales lab”.
+                      Script refinement & weekly A/B testing based on real calls and
+                      outcomes.
                     </li>
                   </ul>
 
                   <div className="inline-note">
-                    Pre-call video + no-show fee alone can increase show ratio by 20–60%,
-                    and sales by 20–40%, before you touch ad spend.
+                    This is the baseline package your ROI calculator is tied to: $6,200
+                    build + $1,250/mo, paid for by the extra shows & closed deals.
                   </div>
                 </div>
 
+                {/* Phase 3 */}
                 <div className="card card-alt">
-                  <div className="card-title">OS &amp; Enterprise Tiers</div>
-                  <div className="card-sub">
-                    For full-cycle sales teams or operations that want AI in every stage of
-                    the customer journey.
+                  <div className="card-title">
+                    Phase 3 – OS + Personalized Pre-Call Video for Every Booking
                   </div>
+                  <div className="card-sub">
+                    Everything in Phase 2, plus fully personalized AI-powered pre-call
+                    videos tailored to each prospect&apos;s pain, deeper pain, impact, and
+                    desired outcome.
+                  </div>
+                  <div className="price-main">$13,500</div>
+                  <div className="price-subline">Full OS + video orchestration build-out</div>
+                  <div className="price-subline">$1,250/mo ongoing optimization</div>
 
-                  <div className="accordion">
-                    <div className="accordion-item">
-                      <button
-                        type="button"
-                        className="accordion-header-btn"
-                        onClick={() =>
-                          setOpenTier((prev) => (prev === "os" ? null : "os"))
-                        }
-                      >
-                        <div className="accordion-header-main">
-                          <span className="accordion-label">
-                            Full End-to-End AI Operating System
-                          </span>
-                          <span className="accordion-price">
-                            $12,500–$20,000 build-out • $3,500–$4,400/mo
-                          </span>
-                        </div>
-                        <span className="accordion-chevron">
-                          {openTier === "os" ? "▾" : "▸"}
-                        </span>
-                      </button>
-                      {openTier === "os" && (
-                        <div className="accordion-body">
-                          <p>
-                            Ideal when you want booking, pre-call video, sales, finance,
-                            and dispatch all handled inside one AI system:
-                          </p>
-                          <ul className="accordion-list">
-                            <li>
-                              <strong>20–30 minute booking agent</strong> for deep
-                              discovery, pain, and qualification — not just “name &amp;
-                              time”.
-                            </li>
-                            <li>
-                              <strong>15–25 minute pre-call video</strong> — full story,
-                              authority, proof, and the no-show logic visually anchored.
-                            </li>
-                            <li>
-                              <strong>60 minute sales agent</strong> broken into clear
-                              10-minute stages to avoid hallucinations and keep the call
-                              tight.
-                            </li>
-                            <li>
-                              <strong>10–15 minute finance/closer agent</strong> for
-                              options, approvals, and payment link flows.
-                            </li>
-                            <li>
-                              <strong>Dispatcher/operations agent</strong> for delivery,
-                              field routing, ETAs, and rescheduling.
-                            </li>
-                            <li>
-                              <strong>Outbound-only booking agent option:</strong>{" "}
-                              $2,600 setup + $494/mo for weekly A/B testing, anchored on
-                              the no-show fee.
-                            </li>
-                            <li>
-                              <strong>Pre-call video only:</strong> $1,250–$4,400 if you
-                              just want the video asset built around your offer.
-                            </li>
-                            <li>
-                              <strong>Sales-only AI agent:</strong> $4,400 setup +
-                              $620/mo for ongoing A/B testing and script refinement.
-                            </li>
-                            <li>
-                              <strong>Dispatcher-only agent:</strong> $2,600 setup +
-                              $297/mo for continuous tuning around uptime and routing.
-                            </li>
-                          </ul>
-                        </div>
-                      )}
-                    </div>
+                  <ul className="card-list">
+                    <li>
+                      Includes <strong>all Phase 2 agents & workflows</strong> (NEPQ, speed
+                      to lead, callbacks, no-show, nurture).
+                    </li>
+                    <li>
+                      <strong>Custom pre-call video generation</strong> for every booking,
+                      built from 3 tiers:
+                      Basic (≈3 minutes), Core (≈5 minutes), and Epic (≈15 minutes).
+                    </li>
+                    <li>
+                      <strong>Credit wallet system</strong> (Basic/Core/Epic credits per
+                      client; 1 credit used per booking when video is requested).
+                    </li>
+                    <li>
+                      <strong>Unique tracking links</strong> so you know who watched, how
+                      long they watched, and which rep they&apos;re assigned to.
+                    </li>
+                    <li>
+                      <strong>Dynamic reminder logic</strong> – different 30-minute
+                      reminder SMS if they watched vs. didn&apos;t watch.
+                    </li>
+                    <li>
+                      <strong>Salesmanship cancellation logic</strong> that pulls in pain,
+                      deeper pain, impact, and desired outcome before letting them cancel.
+                    </li>
+                    <li>
+                      Optional <strong>A/B testing service</strong> for pre-call video
+                      variants: $750/mo or $1,250/mo depending on revision volume (credits
+                      billed separately).
+                    </li>
+                  </ul>
 
-                    <div className="accordion-item">
-                      <button
-                        type="button"
-                        className="accordion-header-btn"
-                        onClick={() =>
-                          setOpenTier((prev) =>
-                            prev === "enterprise" ? null : "enterprise"
-                          )
-                        }
-                      >
-                        <div className="accordion-header-main">
-                          <span className="accordion-label">
-                            Enterprise AI Department (Custom)
-                          </span>
-                          <span className="accordion-price">
-                            $25,000–$70,000 build-out • $6,000–$12,000/mo
-                          </span>
-                        </div>
-                        <span className="accordion-chevron">
-                          {openTier === "enterprise" ? "▾" : "▸"}
-                        </span>
-                      </button>
-                      {openTier === "enterprise" && (
-                        <div className="accordion-body">
-                          <p>
-                            For 50–200+ inbound leads per day, multi-location operations,
-                            or full in-house sales teams that want AI across every touch:
-                          </p>
-                          <ul className="accordion-list">
-                            <li>
-                              Multi-agent architecture across inbound, booking, no-show
-                              recovery, outbound, sales, finance, dispatch, and post-sale.
-                            </li>
-                            <li>
-                              Omnichannel coverage (phone + SMS to start, with room to
-                              expand).
-                            </li>
-                            <li>
-                              Deep CRM, billing, and scheduling integrations.
-                            </li>
-                            <li>
-                              Advanced routing and segmentation for brands, locations, and
-                              tiers of prospects.
-                            </li>
-                            <li>
-                              Performance dashboards and revenue attribution so leadership
-                              can see why the system is paying for itself.
-                            </li>
-                          </ul>
-                        </div>
-                      )}
-                    </div>
+                  <div className="inline-note">
+                    Phase 3 is your “flagship” offer for serious teams who want an AI
+                    booking & video engine that feels 1:1 personalized at scale, while the
+                    core retainer stays a simple $1,250/mo.
                   </div>
                 </div>
               </div>
@@ -1566,41 +1425,43 @@ export default function PricingPage() {
                       <strong>Booking agent:</strong> 15–30 days.
                     </li>
                     <li>
-                      <strong>Pre-call video:</strong> 30–60 days (once story, assets, and
-                      offer are dialed in).
+                      <strong>Pre-call video (Phase 2 shared asset):</strong> 30–60 days
+                      once story, assets, and offer are dialed in.
                     </li>
                     <li>
-                      <strong>Dispatcher &amp; sales agents:</strong> 60–90 days.
+                      <strong>Personalized pre-call video engine (Phase 3):</strong>{" "}
+                      usually 45–90 days after data is flowing.
                     </li>
                     <li>
-                      <strong>Callback &amp; no-show agents:</strong> usually 45–90 days as
-                      data starts flowing.
+                      <strong>Callback &amp; no-show agents:</strong> 45–90 days as call
+                      and outcome data builds.
                     </li>
                   </ul>
                   <div className="inline-note">
-                    You&apos;re generating minutes and SMS usage as each piece comes
-                    online, instead of waiting until the entire OS is finished.
+                    You&apos;re generating usage and revenue as each piece comes online,
+                    not waiting for everything to be perfect before it starts paying you
+                    back.
                   </div>
                 </div>
 
                 <div className="card card-alt">
                   <div className="card-title">Funding &amp; Cash Flow</div>
                   <div className="card-sub">
-                    For full OS builds, many clients prefer to finance the setup and pay it
-                    down as the extra revenue comes in.
+                    Many clients use funding or existing profit to cover the setup, then
+                    let the extra recovered revenue pay for the $1,250/mo OS retainer.
                   </div>
                   <ul className="card-list">
                     <li>
-                      We can refer you to funding marketplaces (like Fiona) to search
-                      offers and cover the build-out.
+                      We can refer you to funding marketplaces (like Fiona) so setup can
+                      be financed instead of pulled from operating cash.
                     </li>
                     <li>
-                      Your ongoing monthly OS package (e.g. $1,250–$4,400/mo) is intended
-                      to be paid from the extra revenue the system recovers.
+                      Your <strong>$1,250/mo</strong> retainer is intentionally set below
+                      what even a modest lift in shows & closes can create.
                     </li>
                     <li>
-                      The ROI calculator below shows how quickly a conservative lift can
-                      cover the core SOP.
+                      The ROI calculator below is wired to the Phase 2 baseline: $6,200
+                      setup + $1,250/mo.
                     </li>
                   </ul>
                 </div>
@@ -1615,7 +1476,8 @@ export default function PricingPage() {
                   <div className="section-sub">
                     Plug in your own leads, booking, show rate, close rate, and average
                     ticket. See what the full SOP could generate — and how fast the{" "}
-                    <strong>$6,200</strong> core build can pay for itself.
+                    <strong>$6,200</strong> core build can pay for itself with a{" "}
+                    <strong>$1,250/mo</strong> OS retainer.
                   </div>
                 </div>
                 <div className="pill-toggle-group">
@@ -1743,7 +1605,7 @@ export default function PricingPage() {
                 </div>
 
                 <div className="card card-alt">
-                  <div className="card-title">With Full SOP Installed</div>
+                  <div className="card-title">With Full SOP Installed (Phase 2+)</div>
                   <div className="card-sub">
                     We assume a small drop in booking rate (more friction from the no-show
                     policy), but a big lift in show and close rates.
@@ -1853,10 +1715,7 @@ export default function PricingPage() {
                   When the <span>extra monthly revenue</span> is bigger than{" "}
                   <span>$1,250</span>, the OS is designed to pay for itself — and then some.
                 </div>
-                <a
-                  href="tel:+12396880201"
-                  className="cta-link-btn"
-                >
+                <a href="tel:+12396880201" className="cta-link-btn">
                   Talk through your numbers <span>↗</span>
                 </a>
               </div>
