@@ -19,7 +19,8 @@ export default function PricingPage() {
   const [avgTicket, setAvgTicket] = useState("1500");
 
   // Improvement assumptions
-  const [bookDrop, setBookDrop] = useState("7"); // 5–10% drop
+  const [bookDrop, setBookDrop] = useState("7"); // 5–10% drop from stronger qualification / no-show policy
+  const [speedLift, setSpeedLift] = useState("200"); // % lift in bookings from speed-to-lead + follow-up
   const [showLift, setShowLift] = useState("35"); // 20–60% lift
   const [closeLift, setCloseLift] = useState("25"); // 20–40% lift
 
@@ -30,6 +31,7 @@ export default function PricingPage() {
   const parsedAvgTicket = Number(avgTicket) || 0;
 
   const parsedBookDrop = Number(bookDrop) || 0;
+  const parsedSpeedLift = Number(speedLift) || 0;
   const parsedShowLift = Number(showLift) || 0;
   const parsedCloseLift = Number(closeLift) || 0;
 
@@ -40,7 +42,16 @@ export default function PricingPage() {
   const baselineRevenue = baselineSales * parsedAvgTicket;
 
   // Improved funnel (with full SOP)
-  const improvedBookRate = parsedBookRate * (1 - parsedBookDrop / 100);
+  // 1) small drop from tighter qualification / no-show policy
+  // 2) big lift from Speed-to-Lead + long-tail follow-up
+  const improvedBookRateRaw =
+    parsedBookRate *
+    (1 - parsedBookDrop / 100) *
+    (1 + parsedSpeedLift / 100);
+
+  // Clamp between 0 and 100 so it never goes insane even if they type 800%+
+  const improvedBookRate = Math.min(100, Math.max(0, improvedBookRateRaw));
+
   const improvedShowRate = parsedShowRate * (1 + parsedShowLift / 100);
   const improvedCloseRate = parsedCloseRate * (1 + parsedCloseLift / 100);
 
@@ -1072,7 +1083,8 @@ export default function PricingPage() {
                   <li>1 Outbound NEPQ Agent + 1 Inbound NEPQ Agent.</li>
                   <li>
                     Speed-to-Lead workflow automation — built to support up to ~800% lift
-                    in booked appointments when implemented correctly.
+                    in booked appointments when implemented correctly (especially when your
+                    current speed-to-lead is weak).
                   </li>
                   <li>
                     Complex booking logic: Slot A / Slot B offer → fallback path offering C
@@ -1198,7 +1210,7 @@ export default function PricingPage() {
                     booked, custom outcomes).
                   </li>
                   <li>
-                    <strong>$50 – After-Hours Routing</strong> — different flows nights &
+                    <strong>$50 – After-Hours Routing</strong> — different flows nights &amp;
                     weekends.
                   </li>
                   <li>
@@ -1252,13 +1264,14 @@ export default function PricingPage() {
               <div className="card">
                 <div className="card-title">SMS Plans (Monthly)</div>
                 <div className="card-sub">
-                  SMS credit packs you can scale up or down as your volume changes.
+                  Credit-based SMS packs with optional auto-renew so you&apos;re never
+                  surprised by the bill.
                 </div>
                 <table className="price-table">
                   <thead>
                     <tr>
-                      <th>Charge</th>
-                      <th>Number of SMS Credits</th>
+                      <th>Monthly charge</th>
+                      <th>SMS credits</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1289,12 +1302,13 @@ export default function PricingPage() {
                   </tbody>
                 </table>
                 <div className="inline-note">
-                  28% auto renew discount at 10 SMS credit remaining.
+                  1 SMS credit covers 1 text segment: up to 160 standard characters. If a
+                  message is longer, it may use 2+ credits. Messages with emojis or special
+                  characters may use around 70 characters per credit.
                 </div>
                 <div className="inline-note">
-                  1 SMS credit covers 1 text segment: up to 160 standard characters. If a
-                  message is longer, it may use 2+ credits. Messages with emojis/special
-                  characters may allow 70 characters per credit.
+                  Optional: 28% auto-renew discount when your balance hits 10 SMS credits
+                  (automatic top-up).
                 </div>
               </div>
 
@@ -1897,10 +1911,24 @@ export default function PricingPage() {
                   <div className="card-title">With Full SOP Installed (Phase 2+)</div>
                   <div className="card-sub">
                     We assume a small drop in booking rate (more friction from the no-show
-                    policy), but a big lift in show and close rates.
+                    policy), but a big lift from Speed-to-Lead, show rate, and close rate.
                   </div>
 
                   <div className="input-grid">
+                    <div className="field">
+                      <label>Speed-to-lead booking lift (%)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={1500}
+                        value={speedLift}
+                        onChange={(e) => setSpeedLift(e.target.value)}
+                      />
+                      <small>
+                        Example: 200 = about 3x bookings. 800 is an aggressive “no one is
+                        calling in time” scenario.
+                      </small>
+                    </div>
                     <div className="field">
                       <label>Lead → Booked drop (%)</label>
                       <input
@@ -1910,7 +1938,7 @@ export default function PricingPage() {
                         value={bookDrop}
                         onChange={(e) => setBookDrop(e.target.value)}
                       />
-                      <small>We usually see a 5–10% drop.</small>
+                      <small>We usually see a 5–10% drop from stronger qualifiers.</small>
                     </div>
                     <div className="field">
                       <label>Show rate lift (%)</label>
@@ -1938,7 +1966,9 @@ export default function PricingPage() {
 
                   <div className="roi-metrics">
                     <div>
-                      <span className="metric-label">Bookings with SOP:</span>{" "}
+                      <span className="metric-label">
+                        Bookings with SOP (after Speed-to-Lead + drop):
+                      </span>{" "}
                       <span className="metric-value">
                         {improvedBooked.toFixed(1)} / month
                       </span>
