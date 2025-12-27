@@ -50,10 +50,7 @@ export default function PricingPage() {
     baselineBooked * speedMultiplier * (1 - parsedBookDrop / 100);
 
   // You can never book more appointments than leads
-  const improvedBooked = Math.min(
-    parsedLeads,
-    Math.max(0, improvedBookedRaw)
-  );
+  const improvedBooked = Math.min(parsedLeads, Math.max(0, improvedBookedRaw));
 
   // Show & close “uplift” are treated as additive percentage points
   // Example: 60% + 35% = 95% show; 25% + 25% = 50% close
@@ -482,6 +479,44 @@ export default function PricingPage() {
           border-bottom: none;
         }
 
+        /* Pill callouts */
+
+        .callout-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          margin-top: 10px;
+          align-items: center;
+        }
+
+        .callout-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          background: rgba(15, 23, 42, 0.75);
+          font-size: 0.86rem;
+          color: #E5E7EB;
+        }
+
+        .callout-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: radial-gradient(circle at 30% 20%, #BBF7D0 0, #22C55E 40%, #166534 100%);
+          box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
+        }
+
+        .callout-dot-gold {
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: radial-gradient(circle at 30% 20%, #FDE68A 0, #F4D03F 45%, #B45309 100%);
+          box-shadow: 0 0 10px rgba(244, 208, 63, 0.55);
+        }
+
         /* Diagrams */
 
         .diagram-grid {
@@ -769,9 +804,7 @@ export default function PricingPage() {
         <div className="tier-selector">
           <button
             type="button"
-            className={
-              "tier-pill" + (openTier === "landing" ? " tier-pill--active" : "")
-            }
+            className={"tier-pill" + (openTier === "landing" ? " tier-pill--active" : "")}
             onClick={() => setOpenTier((prev) => (prev === "landing" ? null : "landing"))}
           >
             <div className="tier-pill-title">Phase 1 – Landing Page Foundation</div>
@@ -783,34 +816,26 @@ export default function PricingPage() {
 
           <button
             type="button"
-            className={
-              "tier-pill" + (openTier === "starter" ? " tier-pill--active" : "")
-            }
+            className={"tier-pill" + (openTier === "starter" ? " tier-pill--active" : "")}
             onClick={() => setOpenTier((prev) => (prev === "starter" ? null : "starter"))}
           >
             <div className="tier-pill-title">Phase 1 – AI Agent Starter</div>
             <div className="tier-pill-sub">
               One inbound agent, basic booking, and module-based upgrades.
             </div>
-            <div className="tier-pill-price">
-              $35 activation + usage plans + add-ons
-            </div>
+            <div className="tier-pill-price">$35 activation + usage plans + add-ons</div>
           </button>
 
           <button
             type="button"
-            className={
-              "tier-pill" + (openTier === "os" ? " tier-pill--active" : "")
-            }
+            className={"tier-pill" + (openTier === "os" ? " tier-pill--active" : "")}
             onClick={() => setOpenTier((prev) => (prev === "os" ? null : "os"))}
           >
             <div className="tier-pill-title">Phase 2 & 3 – Full Operating System</div>
             <div className="tier-pill-sub">
               Phase 2: Full Sales OS • Phase 3: OS + personalized pre-call video.
             </div>
-            <div className="tier-pill-price">
-              From $6,200–$13,500 build-out + $1,250/mo
-            </div>
+            <div className="tier-pill-price">From $6,200–$13,500 build-out + $1,250/mo</div>
           </button>
         </div>
 
@@ -930,12 +955,9 @@ export default function PricingPage() {
                     by AI systems.
                   </li>
                   <li>Speed-to-lead wiring for form → SMS → calls.</li>
+                  <li>Form fields mapped to AI agent variables and (optionally) your CRM.</li>
                   <li>
-                    Form fields mapped to AI agent variables and (optionally) your CRM.
-                  </li>
-                  <li>
-                    Brand and offer positioning tailored to{" "}
-                    <strong>{industryLabel}</strong>.
+                    Brand and offer positioning tailored to <strong>{industryLabel}</strong>.
                   </li>
                 </ul>
 
@@ -976,7 +998,9 @@ export default function PricingPage() {
           <section className="section">
             <div className="section-header">
               <div>
-                <div className="section-title">Phase 1 – AI Agent Starter &amp; Core Modules</div>
+                <div className="section-title">
+                  Phase 1 – AI Agent Starter &amp; Core Modules
+                </div>
                 <div className="section-sub">
                   Get something live fast, then bolt on higher-performing booking and
                   follow-up modules as you go.
@@ -1009,9 +1033,8 @@ export default function PricingPage() {
                     reschedule vs special offer).
                   </li>
                   <li>
-                    <strong>$265 – Additional Basic AI Agent</strong> (inbound or
-                    outbound) — extra simple intake, customer service, or SMS booking
-                    agents.
+                    <strong>$265 – Additional Basic AI Agent</strong> (inbound or outbound)
+                    — extra simple intake, customer service, or SMS booking agents.
                   </li>
                   <li>
                     <strong>Basic FAQ</strong> = linking your existing website.
@@ -1027,8 +1050,8 @@ export default function PricingPage() {
                 </ul>
 
                 <div className="inline-note">
-                  Lightest version: landing page + activation + a small SMS &amp; minutes
-                  plan — perfect if you&apos;re doing ±50 appointments per month.
+                  Lightest version: landing page + activation + a small SMS &amp; credits
+                  pack — perfect if you&apos;re doing ±50 appointments per month.
                 </div>
               </div>
 
@@ -1046,23 +1069,17 @@ export default function PricingPage() {
 
                 <ul className="card-list">
                   <li>
-                    <strong>Callback Agent</strong>  
-                    Triggered when a caller requests a callback; books a follow-up:
-                    ~10 minutes later, ~3 hours later, or at a specific time the caller
-                    requests.
+                    <strong>Callback Agent</strong> — triggered when a caller requests a
+                    callback; books a follow-up: ~10 minutes later, ~3 hours later, or at a
+                    specific time the caller requests.
                   </li>
                   <li>
                     Automatically <strong>triggers your outbound NEPQ agent</strong> of
                     choice to make the follow-up call at that time.
                   </li>
                   <li>
-                    <strong>Follow-Up Workflow Sequence</strong>  
-                    30 calls + 15 SMS over the next 30–60 days, designed to layer on top
-                    of the Speed-to-Lead SOP.
-                  </li>
-                  <li>
-                    Can create up to <strong>~1500% uplift in booked appointments</strong>{" "}
-                    when stacked with Speed-to-Lead.
+                    <strong>Follow-Up Workflow Sequence</strong> — 30 calls + 15 SMS over
+                    the next 30–60 days, designed to layer on top of the Speed-to-Lead SOP.
                   </li>
                   <li>
                     Fully FCC/TCPA regulated: 8:00 am – 8:00 pm, no Sundays, no federal
@@ -1070,8 +1087,7 @@ export default function PricingPage() {
                   </li>
                   <li>
                     <strong>$197/mo</strong> required for automation cost &amp; ongoing
-                    maintenance (can live inside a bundled “performance retainer” if you
-                    prefer).
+                    maintenance.
                   </li>
                 </ul>
               </div>
@@ -1093,26 +1109,15 @@ export default function PricingPage() {
                   <li>1 Outbound NEPQ Agent + 1 Inbound NEPQ Agent.</li>
                   <li>
                     Speed-to-Lead workflow automation — built to support up to ~800% lift
-                    in booked appointments when implemented correctly (especially when your
-                    current speed-to-lead is weak).
+                    in booked appointments when implemented correctly.
                   </li>
                   <li>
                     Complex booking logic: Slot A / Slot B offer → fallback path offering C
-                    and D → E / F / G on a day the caller chooses (when 3+ slots are open).
-                  </li>
-                  <li>
-                    SMS fallback with strict “calendar link + follow-through” logic —
-                    booking link plus read-back behavior so they know what they booked.
-                  </li>
-                  <li>
-                    NEPQ tie-down behavior: training video commitment, no-show fee
-                    explanation and agreement, and a hard takeaway close when there&apos;s
-                    no real commitment.
+                    and D → E / F / G on a day the caller chooses.
                   </li>
                   <li>
                     Appointment is <strong>only</strong> scheduled if they commit to
-                    watching the training video and respecting the no-show / on-call
-                    reschedule fee.
+                    watching the training video and respecting the no-show policy.
                   </li>
                   <li>
                     <strong>1 calendar sync included</strong> (Google Calendar or
@@ -1143,18 +1148,13 @@ export default function PricingPage() {
                 <div className="price-subline">$197/mo workflows &amp; maintenance</div>
 
                 <ul className="card-list">
-                  <li>
-                    Complex booking script &amp; routing logic (slot-based offers, rules,
-                    routing).
-                  </li>
+                  <li>Complex booking script &amp; routing logic (slot-based offers, rules, routing).</li>
                   <li>Reschedule appointment logic included.</li>
                   <li>Cancel appointment logic included.</li>
+                  <li><strong>2 calendar syncs included</strong> out of the box.</li>
                   <li>
-                    <strong>2 calendar syncs included</strong> out of the box.
-                  </li>
-                  <li>
-                    Up to <strong>2 phone numbers</strong> included; each additional
-                    number: <strong>$10/month</strong>.
+                    Up to <strong>2 phone numbers</strong> included; each additional number:
+                    <strong> $10/month</strong>.
                   </li>
                   <li>
                     <strong>$350</strong> per additional calendar sync beyond the first 2.
@@ -1177,9 +1177,8 @@ export default function PricingPage() {
                 </div>
                 <ul className="card-list">
                   <li>
-                    <strong>$80 – Call Transfer Setup</strong> (per phone / destination,
-                    one time) – configure AI → human warm transfer routing (owner cell,
-                    sales line, office, etc.).
+                    <strong>$80 – Call Transfer Setup</strong> (per destination, one time)
+                    – configure AI → human warm transfer routing.
                   </li>
                   <li>
                     <strong>$80 – Additional Calendar SMS Link Setup</strong> (per link,
@@ -1187,57 +1186,36 @@ export default function PricingPage() {
                     correct logic and URL.
                   </li>
                   <li>
-                    <strong>$265 – Additional Basic AI Agent</strong> (inbound or
-                    outbound, one time) – extra basic agents with FAQ + SMS calendar link
-                    logic.
+                    <strong>$265 – Additional Basic AI Agent</strong> (inbound or outbound,
+                    one time) – extra basic agents with FAQ + SMS calendar link logic.
                   </li>
                   <li>
-                    <strong>$10/month – Per Additional Phone Number</strong> – 1 number is
-                    included with the $35 activation; each extra number (locations,
-                    languages, campaigns) is $10/mo.
+                    <strong>$10/month – Per Additional Phone Number</strong> – each extra number
+                    (locations, languages, campaigns).
                   </li>
+                  <li><strong>$350 – Reschedule Appointment Logic</strong> (one time).</li>
+                  <li><strong>$350 – Cancel Appointment Logic</strong> (one time).</li>
                   <li>
-                    <strong>$350 – Reschedule Appointment Logic</strong> (one time).
+                    <strong>$350 – Per Additional Calendar Sync</strong> (one time per calendar).
                   </li>
+                  <li><strong>$35 – Per Automation Setup</strong> — one-time wiring of specific flows.</li>
                   <li>
-                    <strong>$350 – Cancel Appointment Logic</strong> (one time).
+                    <strong>$170 setup + $17/month + $350 one-time CRM integration</strong> — shared Google Sheet
+                    capturing webform + outcomes.
                   </li>
+                  <li><strong>$50 – After-Hours Routing</strong> — different flows nights &amp; weekends.</li>
                   <li>
-                    <strong>$350 – Per Additional Calendar Sync</strong> (one time per
-                    calendar).
-                  </li>
-                  <li>
-                    <strong>$35 – Per Automation Setup</strong> — one-time wiring of
-                    specific flows.
-                  </li>
-                  <li>
-                    <strong>
-                      $170 setup + $17/month + $350 one-time CRM integration
-                    </strong>{" "}
-                    — detailed shared Google Sheet capturing webform data (name, email,
-                    phone, consent yes/no) plus NEPQ data (pain point, deeper pain,
-                    impact, desired outcome) and call dispositions (DNC, booked, not
-                    booked, custom outcomes).
-                  </li>
-                  <li>
-                    <strong>$50 – After-Hours Routing</strong> — different flows nights
-                    &amp; weekends.
-                  </li>
-                  <li>
-                    <strong>$150–$300 – Multi-Agent Routing</strong> — route between
-                    multiple AI agents based on intent, campaign, or time of day.
+                    <strong>$150–$300 – Multi-Agent Routing</strong> — route between multiple AI agents based on
+                    intent, campaign, or time of day.
                   </li>
                 </ul>
               </div>
 
               <div className="card card-alt">
-                <div className="card-title">
-                  “Not Here” Agent + No-Show Workflow Automation
-                </div>
+                <div className="card-title">“Not Here” Agent + No-Show Workflow Automation</div>
                 <div className="card-sub">
-                  Protect every appointment where reps are already in motion — whether the
-                  client isn&apos;t on the call, isn&apos;t home, or simply doesn&apos;t
-                  show.
+                  Protect every appointment where reps are already in motion — whether the client isn&apos;t
+                  on the call, isn&apos;t home, or simply doesn&apos;t show.
                 </div>
                 <div className="price-main">$1,700</div>
                 <div className="price-subline">One-time build</div>
@@ -1245,37 +1223,26 @@ export default function PricingPage() {
 
                 <ul className="card-list">
                   <li>
-                    <strong>“Not Here” Agent</strong> – triggered when a sales rep marks a
-                    client as “not on call,” “not home,” etc., and attempts recovery while
-                    the rep is physically there or ready.
+                    <strong>“Not Here” Agent</strong> – triggered when a rep marks a client as “not on call,”
+                    “not home,” etc., and attempts recovery while the rep is physically there or ready.
                   </li>
+                  <li><strong>No-Show Agent</strong> – triggered by no-show outcomes via workflow rules.</li>
                   <li>
-                    <strong>No-Show Agent</strong> – triggered by no-show outcomes via
-                    workflow rules.
+                    Outbound workflow sequence: <strong>30 outbound call triggers</strong> +{" "}
+                    <strong>15 SMS triggers</strong> over the next 30 days.
                   </li>
-                  <li>
-                    Outbound workflow sequence: <strong>30 outbound call triggers</strong>{" "}
-                    + <strong>15 SMS triggers</strong> over the next 30 days.
-                  </li>
-                  <li>
-                    Fully FCC/TCPA regulated: 8:00 am – 8:00 pm, no Sundays, no federal
-                    holidays.
-                  </li>
-                  <li>
-                    <strong>$497/month</strong> required for maintenance and ongoing A/B
-                    testing on script, cadence, and offer angles.
-                  </li>
+                  <li>Fully FCC/TCPA regulated: 8:00 am – 8:00 pm, no Sundays, no federal holidays.</li>
+                  <li><strong>$497/month</strong> required for maintenance and ongoing A/B testing.</li>
                 </ul>
               </div>
             </div>
 
-            {/* Usage plans: SMS + Voice */}
+            {/* Usage plans: SMS + Voice (UPDATED) */}
             <div className="pricing-grid">
               <div className="card">
                 <div className="card-title">SMS Plans (Monthly)</div>
                 <div className="card-sub">
-                  Credit-based SMS packs with optional auto-renew so you&apos;re never
-                  surprised by the bill.
+                  Credit-based SMS packs with optional auto-renew so you&apos;re never surprised by the bill.
                 </div>
                 <table className="price-table">
                   <thead>
@@ -1285,113 +1252,79 @@ export default function PricingPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td>$3.50</td>
-                      <td>80</td>
-                    </tr>
-                    <tr>
-                      <td>$8.00</td>
-                      <td>250</td>
-                    </tr>
-                    <tr>
-                      <td>$17.00</td>
-                      <td>600</td>
-                    </tr>
-                    <tr>
-                      <td>$26.00</td>
-                      <td>1,200</td>
-                    </tr>
-                    <tr>
-                      <td>$44.00</td>
-                      <td>2,500</td>
-                    </tr>
-                    <tr>
-                      <td>$98.00</td>
-                      <td>6,000</td>
-                    </tr>
+                    <tr><td>$3.50</td><td>80</td></tr>
+                    <tr><td>$8.00</td><td>250</td></tr>
+                    <tr><td>$17.00</td><td>600</td></tr>
+                    <tr><td>$26.00</td><td>1,200</td></tr>
+                    <tr><td>$44.00</td><td>2,500</td></tr>
+                    <tr><td>$98.00</td><td>6,000</td></tr>
                   </tbody>
                 </table>
                 <div className="inline-note">
-                  1 SMS credit covers 1 text segment: up to 160 standard characters. If a
-                  message is longer, it may use 2+ credits. Messages with emojis or special
-                  characters may use around 70 characters per credit.
+                  1 SMS credit covers 1 text segment: up to 160 standard characters. If a message is longer,
+                  it may use 2+ credits. Messages with emojis or special characters may use around 70 characters per credit.
                 </div>
                 <div className="inline-note">
-                  Optional: 28% auto-renew discount when your balance hits 10 SMS credits
-                  (automatic top-up).
+                  Optional: 28% auto-renew discount when your balance hits 10 SMS credits (automatic top-up).
                 </div>
               </div>
 
               <div className="card card-alt">
-                <div className="card-title">AI Voice Plans (Monthly)</div>
+                <div className="card-title">AI Voice Credits (Auto-Refill)</div>
                 <div className="card-sub">
-                  Core minutes for standard models, and BEAST minutes for high-end LLM
-                  mode when you need extra depth.
+                  One wallet. CORE uses <strong>1 credit</strong> per minute. If a call ever touches BEAST,
+                  the entire call consumes credits at <strong>2.5×</strong>.
                 </div>
 
-                <div className="price-subline" style={{ marginTop: 4 }}>
-                  <strong>CORE Minutes</strong>
+                <div className="callout-row">
+                  <div className="callout-pill"><span className="callout-dot" /> Auto refill when <strong>20 credits</strong> remain</div>
+                  <div className="callout-pill"><span className="callout-dot-gold" /> Credits never expire (while active)</div>
                 </div>
-                <table className="price-table">
+
+                <table className="price-table" style={{ marginTop: 10 }}>
                   <thead>
                     <tr>
-                      <th>Plan</th>
-                      <th>Minutes</th>
-                      <th>Overage</th>
+                      <th>Charge</th>
+                      <th>Core Credits</th>
+                      <th>Beast Credits</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td>$53 – Starter Lite</td>
-                      <td>160</td>
-                      <td>$0.35/min + $15 overage fee</td>
+                      <td>$35.00</td>
+                      <td>80</td>
+                      <td>32</td>
                     </tr>
                     <tr>
-                      <td>$98 – Starter</td>
-                      <td>280</td>
-                      <td>$0.28/min + $15 overage fee</td>
+                      <td>$62.00</td>
+                      <td>170</td>
+                      <td>68</td>
                     </tr>
                     <tr>
-                      <td>$197 – Growth</td>
-                      <td>710</td>
-                      <td>$0.22/min + $15 overage fee</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                <div className="price-subline" style={{ marginTop: 10 }}>
-                  <strong>BEAST Minutes (High-End LLM Mode)</strong>
-                </div>
-                <table className="price-table">
-                  <thead>
-                    <tr>
-                      <th>Plan</th>
-                      <th>Minutes</th>
-                      <th>Overage</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>$125 – Starter Lite</td>
-                      <td>160</td>
-                      <td>$0.80/min + $15 fee</td>
+                      <td>$80.00</td>
+                      <td>260</td>
+                      <td>104</td>
                     </tr>
                     <tr>
-                      <td>$224 – Starter</td>
-                      <td>280</td>
-                      <td>$0.65/min + $15 fee</td>
+                      <td>$98.00</td>
+                      <td>350</td>
+                      <td>140</td>
                     </tr>
                     <tr>
-                      <td>$458 – Growth</td>
-                      <td>710</td>
-                      <td>$0.53/min + $15 fee</td>
+                      <td>$197.00</td>
+                      <td>800</td>
+                      <td>320</td>
                     </tr>
                   </tbody>
                 </table>
 
                 <div className="inline-note">
-                  Higher tiers and custom per-minute pricing are available for more complex
-                  agents; those are scoped 1:1 based on complexity and volume.
+                  <strong>CORE</strong> = lower-cost LLM mode for most workflows.{" "}
+                  <strong>BEAST</strong> = higher-end LLM mode for deeper reasoning and more complex flows.
+                </div>
+                <div className="inline-note">
+                  *Beast Credits shown are the equivalent wallet value when billed at <strong>2.5×</strong>{" "}
+                  (example: 80 Core Credits = 32 Beast Credits).
                 </div>
               </div>
             </div>
@@ -1400,386 +1333,57 @@ export default function PricingPage() {
 
         {/* Phase 2 & 3 – OS + Video */}
         {openTier === "os" && (
-          <>
-            <section className="section">
-              <div className="section-header">
-                <div>
-                  <div className="section-title">Phase 2 &amp; 3 – Full AI Operating Systems</div>
-                  <div className="section-sub">
-                    Phase 2 is your “Full Sales OS” starting stack. Phase 3 adds a
-                    personalized AI pre-call video layer on top of everything, per booking.
-                  </div>
-                </div>
-                <div className="section-tag">Both anchored at $1,250/mo</div>
-              </div>
-
-              <div className="pricing-grid">
-                {/* Phase 2 bundle */}
-                <div className="card">
-                  <div className="card-title">
-                    Phase 2 – “Full Sales OS” Stack (Starting Point Bundle)
-                  </div>
-                  <div className="card-sub">
-                    NEPQ + Speed-to-Lead + “Not Here / No-Show” + Callback / Follow-Up +
-                    Pre-Call Training Video.
-                  </div>
-                  <div className="price-main">$6,200</div>
-                  <div className="price-subline">One-time core build</div>
-                  <div className="price-subline">
-                    $7,280 with tracking add-on (unique links + tracking)
-                  </div>
-                  <div className="price-subline">$1,250/mo typical OS retainer</div>
-
-                  <ul className="card-list">
-                    <li>1 Outbound NEPQ Agent + 1 Inbound NEPQ Agent.</li>
-                    <li>
-                      Speed-to-Lead workflow (first 5 minutes of new lead intake) across
-                      phone + SMS.
-                    </li>
-                    <li>
-                      Complex booking logic: Slot A/B offers → C/D fallback → E/F/G options
-                      on the day the caller chooses (when 3+ slots are open) plus SMS
-                      fallback.
-                    </li>
-                    <li>
-                      “Not Here” Agent + No-Show workflow: 30 calls + 15 SMS over 30 days
-                      to rescue missed and “not home” calls.
-                    </li>
-                    <li>
-                      Callback Agent + Follow-Up workflow: 30 calls + 15 SMS over 30–60
-                      days for callback requests and long-tail nurturing.
-                    </li>
-                    <li>
-                      1 Pre-Call Training Video (≈5 minutes / ~10 slides) sent to all
-                      bookings to anchor value and the no-show policy.
-                    </li>
-                    <li>
-                      <strong>$350 – Reschedule Appointment Logic</strong> (one time).
-                    </li>
-                    <li>
-                      <strong>$350 – Cancel Appointment Logic</strong> (one time) plus{" "}
-                      <strong>optional $350</strong> extra for “salesmanship” scripting
-                      that pulls in pain, deeper pain, impact, and desired outcome to
-                      prevent unnecessary cancellations.
-                    </li>
-                    <li>
-                      <strong>1 main calendar sync included</strong> (+ callback calendar).
-                      Additional calendars: <strong>$350</strong> one time per calendar.
-                    </li>
-                    <li>
-                      You can bundle everything into a single{" "}
-                      <strong>Performance Retainer</strong> (e.g. $497–$1,250/month
-                      depending on which modules you turn on). Full Phase 2 OS is
-                      typically anchored at <strong>$1,250/mo</strong>.
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Phase 3 bundle */}
-                <div className="card card-alt">
-                  <div className="card-title">
-                    Phase 3 – Everything + Personalized Pre-Call Video Per Booking
-                  </div>
-                  <div className="card-sub">
-                    Full NEPQ OS plus AI custom pre-call video generated for each booked
-                    appointment, with deep tracking and cancellation protection.
-                  </div>
-                  <div className="price-main">$13,500</div>
-                  <div className="price-subline">
-                    One-time build (includes everything from Phase 2)
-                  </div>
-                  <div className="price-subline">$1,250/mo ongoing optimization</div>
-
-                  <ul className="card-list">
-                    <li>
-                      Includes everything in Phase 2: inbound + outbound NEPQ agents,
-                      Speed-to-Lead flows, “Not Here / No-Show” flows, callback + follow-up
-                      flows, and training video tie-down logic.
-                    </li>
-                    <li>
-                      Adds <strong>AI Custom Pre-Call Video per booked appointment</strong>{" "}
-                      — script and visuals tailored to each caller&apos;s pain point,
-                      deeper pain, impact/gap, and desired outcome.
-                    </li>
-                    <li>
-                      <strong>Tracking layer:</strong> unique link per caller, view-through
-                      tracking, and behavior-based SMS logic (different reminders for
-                      people who watched vs. didn&apos;t).
-                    </li>
-                    <li>
-                      <strong>Reschedule Appointment Logic – included</strong>.
-                    </li>
-                    <li>
-                      <strong>Cancel Appointment Logic – included</strong> with
-                      salesmanship scripting that pulls in pain, deeper pain, impact, and
-                      desired outcome to help prevent unnecessary cancellations.
-                    </li>
-                    <li>
-                      Calendars: includes <strong>2 calendars</strong> (+ callback
-                      calendar). Each additional calendar sync is <strong>$350</strong>{" "}
-                      one time per calendar.
-                    </li>
-                    <li>
-                      Phase 3 is your <strong>flagship</strong> – a full NEPQ sales OS plus
-                      a per-booking personalized video engine that runs on top.
-                    </li>
-                  </ul>
+          <section className="section">
+            <div className="section-header">
+              <div>
+                <div className="section-title">Phase 2 &amp; 3 – Full AI Operating Systems</div>
+                <div className="section-sub">
+                  Phase 2 is your “Full Sales OS” starting stack. Phase 3 adds a personalized AI pre-call video layer on top of everything, per booking.
                 </div>
               </div>
-            </section>
+              <div className="section-tag">Both anchored at $1,250/mo</div>
+            </div>
 
-            {/* Pre-Call Video (standard 1-to-many) */}
-            <section className="section">
-              <div className="section-header">
-                <div>
-                  <div className="section-title">
-                    Pre-Call Video – One-Time Build (Standard, Not Per-Booking Custom)
-                  </div>
-                  <div className="section-sub">
-                    A single training video you send to all booked clients (and sometimes
-                    as a hard-close follow-up when they ask for more info).
-                  </div>
+            <div className="pricing-grid">
+              {/* Phase 2 bundle */}
+              <div className="card">
+                <div className="card-title">Phase 2 – “Full Sales OS” Stack (Starting Point Bundle)</div>
+                <div className="card-sub">
+                  NEPQ + Speed-to-Lead + “Not Here / No-Show” + Callback / Follow-Up + Pre-Call Training Video.
                 </div>
+                <div className="price-main">$6,200</div>
+                <div className="price-subline">One-time core build</div>
+                <div className="price-subline">$7,280 with tracking add-on (unique links + tracking)</div>
+                <div className="price-subline">$1,250/mo typical OS retainer</div>
+
+                <ul className="card-list">
+                  <li>1 Outbound NEPQ Agent + 1 Inbound NEPQ Agent.</li>
+                  <li>Speed-to-Lead workflow (first 5 minutes of new lead intake) across phone + SMS.</li>
+                  <li>Complex booking logic: Slot A/B offers → C/D fallback → E/F/G options + SMS fallback.</li>
+                  <li>“Not Here” Agent + No-Show workflow: 30 calls + 15 SMS over 30 days.</li>
+                  <li>Callback Agent + Follow-Up workflow: 30 calls + 15 SMS over 30–60 days.</li>
+                  <li>1 Pre-Call Training Video (≈5 minutes / ~10 slides) sent to all bookings.</li>
+                </ul>
               </div>
 
-              <div className="pricing-grid">
-                <div className="card">
-                  <div className="card-title">Pre-Call Training Video (1-to-Many)</div>
-                  <div className="card-sub">
-                    Framed to set expectations, anchor the no-show/on-call fee, and make
-                    your offer feel like a no-brainer before the call.
-                  </div>
-                  <ul className="card-list">
-                    <li>
-                      <strong>$1,250 – Short Version</strong> (~5 minutes, ~10 slides /
-                      scenes).
-                    </li>
-                    <li>
-                      <strong>$4,400 – Long Version</strong> (~30 minutes, ~30 slides /
-                      scenes).
-                    </li>
-                    <li>
-                      Stories, proof, pricing context, and clear “here&apos;s what will
-                      happen on the call” framing.
-                    </li>
-                    <li>
-                      Can be used across inbound, callbacks, and no-show recovery, not just
-                      new leads.
-                    </li>
-                  </ul>
+              {/* Phase 3 bundle */}
+              <div className="card card-alt">
+                <div className="card-title">Phase 3 – Everything + Personalized Pre-Call Video Per Booking</div>
+                <div className="card-sub">
+                  Full NEPQ OS plus AI custom pre-call video generated for each booked appointment, with deep tracking and cancellation protection.
                 </div>
+                <div className="price-main">$13,500</div>
+                <div className="price-subline">One-time build (includes everything from Phase 2)</div>
+                <div className="price-subline">$1,250/mo ongoing optimization</div>
 
-                <div className="card card-alt">
-                  <div className="card-title">Unique Links + Tracking (Optional)</div>
-                  <div className="card-sub">
-                    Layer on tracking for who watched, how long they watched, and tie it
-                    into your reminder logic.
-                  </div>
-                  <ul className="card-list">
-                    <li>
-                      <strong>$1,250 – Tracking Setup</strong> – each client gets a unique
-                      link; viewership is tracked by caller.
-                    </li>
-                    <li>
-                      Tracks <strong>if</strong> they watched and roughly{" "}
-                      <strong>how long</strong> they watched.
-                    </li>
-                    <li>
-                      Triggers a dynamic 30-minute prior appointment reminder SMS based on
-                      view data (different copy if they didn&apos;t watch).
-                    </li>
-                    <li>
-                      <strong>$197/month</strong> – tracking &amp; reminder maintenance.
-                    </li>
-                  </ul>
-                </div>
+                <ul className="card-list">
+                  <li>Everything in Phase 2 included.</li>
+                  <li>AI Custom Pre-Call Video per booked appointment.</li>
+                  <li>Tracking layer: unique link per caller, view-through tracking, behavior-based SMS logic.</li>
+                  <li>Includes reschedule/cancel logic (scoped per build).</li>
+                </ul>
               </div>
-            </section>
-
-            {/* AI Custom Pre-Call Video Credits (Phase 3) */}
-            <section className="section">
-              <div className="section-header">
-                <div>
-                  <div className="section-title">
-                    AI Custom Pre-Call Video Credits (Phase 3 Usage)
-                  </div>
-                  <div className="section-sub">
-                    In Phase 3, each booking that gets a custom video consumes 1 credit.
-                    Credits never expire; you simply draw from the wallet as calls are
-                    booked.
-                  </div>
-                </div>
-              </div>
-
-              <div className="pricing-grid">
-                <div className="card">
-                  <div className="card-title">How Credits Work</div>
-                  <div className="card-sub">
-                    Each client has a wallet of Basic, Core, and Epic credits. The AI uses
-                    1 credit per video, per booking, based on which tier you choose.
-                  </div>
-                  <ul className="card-list">
-                    <li>
-                      <strong>Credit Wallet (per client)</strong> – three balances:
-                      basic_credits, core_credits, epic_credits. Credits never expire.
-                    </li>
-                    <li>
-                      <strong>Per Booking Consumption</strong> – if variant = Basic, deduct
-                      1 Basic credit; if Core, 1 Core credit; if Epic, 1 Epic credit.
-                    </li>
-                    <li>
-                      If they don&apos;t have the needed credit, we can show a “Buy
-                      credits” option or fall back to a cheaper tier (your call).
-                    </li>
-                    <li>
-                      <strong>A/B Testing (Optional Subscription)</strong>
-                      <ul className="card-list" style={{ marginTop: 6 }}>
-                        <li>
-                          <strong>$750/month – A/B Package</strong> – testing + reporting +
-                          1 small revision per week total (across the test).
-                        </li>
-                        <li>
-                          <strong>$1,250/month – A/B Package</strong> – testing + reporting
-                          + 2 small revisions per week (typically 1 Core + 1 Epic).
-                        </li>
-                        <li>
-                          Subscription covers <strong>optimization &amp; revisions</strong>, not
-                          credits; credits are pure usage.
-                        </li>
-                      </ul>
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="card card-alt">
-                  <div className="card-title">Credit Pricing</div>
-                  <div className="card-sub">
-                    Basic for short clips, Core for 5-minute walkthroughs, Epic for deeper
-                    15-minute persuasion.
-                  </div>
-
-                  <div className="price-subline">
-                    <strong>Basic Tier</strong> (≈3 minutes custom script &amp; generated video)
-                  </div>
-                  <table className="price-table">
-                    <thead>
-                      <tr>
-                        <th>Pack</th>
-                        <th>Price</th>
-                        <th>Effective / credit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>1</td>
-                        <td>$21.50</td>
-                        <td>$21.50</td>
-                      </tr>
-                      <tr>
-                        <td>10</td>
-                        <td>$170</td>
-                        <td>$17.00</td>
-                      </tr>
-                      <tr>
-                        <td>50</td>
-                        <td>$620</td>
-                        <td>$12.40</td>
-                      </tr>
-                      <tr>
-                        <td>100</td>
-                        <td>$890</td>
-                        <td>$8.90</td>
-                      </tr>
-                      <tr>
-                        <td>300</td>
-                        <td>$1,358</td>
-                        <td>$4.53</td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  <div className="price-subline" style={{ marginTop: 10 }}>
-                    <strong>Core Tier</strong> (≈5 minutes custom script &amp; generated video)
-                  </div>
-                  <table className="price-table">
-                    <thead>
-                      <tr>
-                        <th>Pack</th>
-                        <th>Price</th>
-                        <th>Effective / credit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>1</td>
-                        <td>$35</td>
-                        <td>$35.00</td>
-                      </tr>
-                      <tr>
-                        <td>10</td>
-                        <td>$215</td>
-                        <td>$21.50</td>
-                      </tr>
-                      <tr>
-                        <td>50</td>
-                        <td>$755</td>
-                        <td>$15.10</td>
-                      </tr>
-                      <tr>
-                        <td>100</td>
-                        <td>$1,178</td>
-                        <td>$11.78</td>
-                      </tr>
-                      <tr>
-                        <td>300</td>
-                        <td>$1,997</td>
-                        <td>$6.66</td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  <div className="price-subline" style={{ marginTop: 10 }}>
-                    <strong>Epic Tier</strong> (≈15 minutes custom script &amp; generated video)
-                  </div>
-                  <table className="price-table">
-                    <thead>
-                      <tr>
-                        <th>Pack</th>
-                        <th>Price</th>
-                        <th>Effective / credit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>1</td>
-                        <td>$62</td>
-                        <td>$62.00</td>
-                      </tr>
-                      <tr>
-                        <td>10</td>
-                        <td>$439</td>
-                        <td>$43.90</td>
-                      </tr>
-                      <tr>
-                        <td>50</td>
-                        <td>$1,565</td>
-                        <td>$31.30</td>
-                      </tr>
-                      <tr>
-                        <td>100</td>
-                        <td>$2,393</td>
-                        <td>$23.93</td>
-                      </tr>
-                      <tr>
-                        <td>300</td>
-                        <td>$4,994</td>
-                        <td>$16.65</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
+            </div>
 
             {/* ROI Calculator – tied to Phase 2 baseline */}
             <section className="section">
@@ -1787,18 +1391,15 @@ export default function PricingPage() {
                 <div>
                   <div className="section-title">ROI &amp; Payback Calculator</div>
                   <div className="section-sub">
-                    Plug in your own leads, booking, show rate, close rate, and average
-                    ticket. See what the full SOP could generate — and how fast the{" "}
-                    <strong>$6,200</strong> Phase 2 build with a{" "}
-                    <strong>$1,250/mo</strong> OS retainer can pay for itself.
+                    Plug in your own leads, booking, show rate, close rate, and average ticket. See what the full SOP could generate — and how fast the{" "}
+                    <strong>$6,200</strong> Phase 2 build with a <strong>$1,250/mo</strong> OS retainer can pay for itself.
                   </div>
                 </div>
                 <div className="pill-toggle-group">
                   <button
                     type="button"
                     className={
-                      "pill-toggle-btn" +
-                      (funnelMode === "inbound" ? " pill-toggle-btn--active" : "")
+                      "pill-toggle-btn" + (funnelMode === "inbound" ? " pill-toggle-btn--active" : "")
                     }
                     onClick={() => setFunnelMode("inbound")}
                   >
@@ -1807,8 +1408,7 @@ export default function PricingPage() {
                   <button
                     type="button"
                     className={
-                      "pill-toggle-btn" +
-                      (funnelMode === "outbound" ? " pill-toggle-btn--active" : "")
+                      "pill-toggle-btn" + (funnelMode === "outbound" ? " pill-toggle-btn--active" : "")
                     }
                     onClick={() => setFunnelMode("outbound")}
                   >
@@ -1823,8 +1423,7 @@ export default function PricingPage() {
                     Your Current {funnelMode === "inbound" ? "Inbound" : "Outbound"} Funnel
                   </div>
                   <div className="card-sub">
-                    This doesn&apos;t need to be perfect — estimates are enough to see the
-                    gap.
+                    This doesn&apos;t need to be perfect — estimates are enough to see the gap.
                   </div>
 
                   <div className="input-grid">
@@ -1870,8 +1469,7 @@ export default function PricingPage() {
                         onChange={(e) => setCloseRate(e.target.value)}
                       />
                       <small>
-                        In some medical/dental flows this can be closer to{" "}
-                        <strong>100%</strong>.
+                        In some medical/dental flows this can be closer to <strong>100%</strong>.
                       </small>
                     </div>
                     <div className="field">
@@ -1892,27 +1490,19 @@ export default function PricingPage() {
                   <div className="roi-metrics">
                     <div>
                       <span className="metric-label">Booked per month:</span>{" "}
-                      <span className="metric-value">
-                        {baselineBooked.toFixed(1)} bookings
-                      </span>
+                      <span className="metric-value">{baselineBooked.toFixed(1)} bookings</span>
                     </div>
                     <div>
                       <span className="metric-label">Shows per month:</span>{" "}
-                      <span className="metric-value">
-                        {baselineShows.toFixed(1)} kept appointments
-                      </span>
+                      <span className="metric-value">{baselineShows.toFixed(1)} kept appointments</span>
                     </div>
                     <div>
                       <span className="metric-label">Sales per month:</span>{" "}
-                      <span className="metric-value">
-                        {baselineSales.toFixed(1)} closed deals
-                      </span>
+                      <span className="metric-value">{baselineSales.toFixed(1)} closed deals</span>
                     </div>
                     <div>
                       <span className="metric-label">Est. monthly revenue now:</span>{" "}
-                      <span className="metric-value">
-                        ${formatCurrency(baselineRevenue)}
-                      </span>
+                      <span className="metric-value">${formatCurrency(baselineRevenue)}</span>
                     </div>
                   </div>
                 </div>
@@ -1920,8 +1510,7 @@ export default function PricingPage() {
                 <div className="card card-alt">
                   <div className="card-title">With Full SOP Installed (Phase 2+)</div>
                   <div className="card-sub">
-                    Speed-to-lead and long-tail follow-up multiply your booked calls, then
-                    the no-show policy and better framing lift show and close.
+                    Speed-to-lead and long-tail follow-up multiply your booked calls, then the no-show policy and better framing lift show and close.
                   </div>
 
                   <div className="input-grid">
@@ -1935,8 +1524,7 @@ export default function PricingPage() {
                         onChange={(e) => setSpeedLift(e.target.value)}
                       />
                       <small>
-                        100 = no change. 200 = 2x your current bookings. 800 = 8x (extreme
-                        “no one is calling in time” case).
+                        100 = no change. 200 = 2x your current bookings. 800 = 8x.
                       </small>
                     </div>
                     <div className="field">
@@ -1959,9 +1547,7 @@ export default function PricingPage() {
                         value={showLift}
                         onChange={(e) => setShowLift(e.target.value)}
                       />
-                      <small>
-                        Treated as additive. Example: 60% + 35 points = 95% show.
-                      </small>
+                      <small>Treated as additive. Example: 60% + 35 points = 95% show.</small>
                     </div>
                     <div className="field">
                       <label>Close rate uplift (points)</label>
@@ -1972,32 +1558,22 @@ export default function PricingPage() {
                         value={closeLift}
                         onChange={(e) => setCloseLift(e.target.value)}
                       />
-                      <small>
-                        Example: 25% + 25 points = 50% close when the full SOP is in play.
-                      </small>
+                      <small>Example: 25% + 25 points = 50% close.</small>
                     </div>
                   </div>
 
                   <div className="roi-metrics">
                     <div>
-                      <span className="metric-label">
-                        Bookings with SOP (after Speed-to-Lead + drop):
-                      </span>{" "}
-                      <span className="metric-value">
-                        {improvedBooked.toFixed(1)} / month
-                      </span>
+                      <span className="metric-label">Bookings with SOP:</span>{" "}
+                      <span className="metric-value">{improvedBooked.toFixed(1)} / month</span>
                     </div>
                     <div>
                       <span className="metric-label">Shows with SOP:</span>{" "}
-                      <span className="metric-value">
-                        {improvedShows.toFixed(1)} / month
-                      </span>
+                      <span className="metric-value">{improvedShows.toFixed(1)} / month</span>
                     </div>
                     <div>
                       <span className="metric-label">Sales with SOP:</span>{" "}
-                      <span className="metric-value">
-                        {improvedSales.toFixed(1)} / month
-                      </span>
+                      <span className="metric-value">{improvedSales.toFixed(1)} / month</span>
                     </div>
                     <div>
                       <span className="metric-label">Est. monthly revenue with SOP:</span>{" "}
@@ -2016,9 +1592,7 @@ export default function PricingPage() {
                       <span
                         className={
                           "metric-value " +
-                          (monthsToPayback === Infinity
-                            ? "metric-danger"
-                            : "metric-highlight")
+                          (monthsToPayback === Infinity ? "metric-danger" : "metric-highlight")
                         }
                       >
                         {monthsToPayback === Infinity
@@ -2032,10 +1606,8 @@ export default function PricingPage() {
                           Months until SOP + $1,250/mo is fully covered:
                         </span>{" "}
                         <span className="metric-value metric-highlight">
-                          {formatCurrencyWithDecimals(
-                            (setupCost + monthlyOpsCost * 6) / extraRevenue
-                          )}{" "}
-                          months (assuming 6 months of ops)
+                          {formatCurrencyWithDecimals((setupCost + monthlyOpsCost * 6) / extraRevenue)} months
+                          (assuming 6 months of ops)
                         </span>
                       </div>
                     )}
@@ -2045,15 +1617,14 @@ export default function PricingPage() {
 
               <div className="cta-footer">
                 <div className="cta-text">
-                  When the <span>extra monthly revenue</span> is bigger than{" "}
-                  <span>$1,250</span>, the OS is designed to pay for itself — and then some.
+                  When the <span>extra monthly revenue</span> is bigger than <span>$1,250</span>, the OS is designed to pay for itself — and then some.
                 </div>
                 <a href="tel:+12396880201" className="cta-link-btn">
                   Talk through your numbers <span>↗</span>
                 </a>
               </div>
             </section>
-          </>
+          </section>
         )}
       </div>
     </main>
