@@ -1,30 +1,56 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
-type IndustryTrack = "sales" | "local" | null;
+type Track = "sales" | "local" | null;
+type Step = "pick" | "details";
+
+const BRAND = {
+  emerald: "#047857",
+  emeraldDark: "#065f46",
+  gold: "#F4D03F",
+  charcoal: "#0F172A",
+  muted: "#9CA3AF",
+  deepBg: "#020617",
+};
+
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
 
 /**
- * Helper to send lead data to your Next.js API route,
- * which then calls Thoughtly.
+ * Lead submit:
+ * - If NEXT_PUBLIC_LEAD_WEBHOOK_URL is set, POSTs to that endpoint.
+ * - Otherwise POSTs to /api/lead (placeholder).
+ *
+ * No vendor/tool names are mentioned on-page. This is just the front door.
  */
-async function sendLeadToThoughtly(formData: FormData) {
-  const firstName = formData.get("firstName") as string | null;
-  const email = formData.get("email") as string | null;
-  const phone = formData.get("phone") as string | null;
+async function sendLead(formData: FormData) {
+  const firstName = String(formData.get("firstName") || "").trim();
+  const email = String(formData.get("email") || "").trim();
+  const phone = String(formData.get("phone") || "").trim();
+  const businessType = String(formData.get("businessType") || "").trim();
+  const website = String(formData.get("website") || "").trim();
+  const track = String(formData.get("track") || "").trim();
+  const consent = formData.get("consent") === "on";
 
   const payload = {
-    name: firstName,
     firstName,
+    name: firstName,
     email,
     phone,
-    consent: formData.get("consent") === "on",
+    businessType,
+    website,
+    track, // "sales" | "local"
+    consent,
     source: "Landing Page – Web Form",
+    createdAt: new Date().toISOString(),
   };
 
-  console.log("Sending payload to Thoughtly:", payload);
+  const directWebhook = process.env.NEXT_PUBLIC_LEAD_WEBHOOK_URL;
+  const url = directWebhook && directWebhook.length > 10 ? directWebhook : "/api/lead";
 
-  const res = await fetch("/api/thoughtly-webhook", {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -34,272 +60,234 @@ async function sendLeadToThoughtly(formData: FormData) {
   try {
     data = await res.json();
   } catch {
-    // response may not be JSON; that's OK
+    // non-JSON ok
   }
 
   return { ok: res.ok && (data?.ok ?? true), data };
 }
 
-export default function Page() {
-  const [industryTrack, setIndustryTrack] = useState<IndustryTrack>(null);
-  const [hasContinued, setHasContinued] = useState(false);
-  const [isRoiOpen, setIsRoiOpen] = useState(false);
-  const [isExitIntentOpen, setIsExitIntentOpen] = useState(false);
-  const [hasExitIntentShown, setHasExitIntentShown] = useState(false);
-  const [formSubmitted, setFormSubmitted] = useState(false);
-  const [exitFormSubmitted, setExitFormSubmitted] = useState(false);
+function SectionHeading(props: { kicker: string; title: string; sub?: string }) {
+  return (
+    <div className="secHead fade-on-scroll">
+      <div className="kicker">{props.kicker}</div>
+      <h2 className="h2">{props.title}</h2>
+      {props.sub ? <p className="sub">{props.sub}</p> : null}
+    </div>
+  );
+}
 
-  // Form UX state for main lead form
+function Pill(props: { active?: boolean; onClick?: () => void; children: any }) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      className={cx("pill", props.active && "pillActive")}
+    >
+      {props.children}
+    </button>
+  );
+}
+
+function Accordion(props: { title: string; children: any; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(Boolean(props.defaultOpen));
+  return (
+    <div className={cx("acc", open && "accOpen")}>
+      <button
+        type="button"
+        className="accBtn"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div className="accTitle">{props.title}</div>
+        <div className="accIcon">{open ? "–" : "+"}</div>
+      </button>
+      {open ? <div className="accBody">{props.children}</div> : null}
+    </div>
+  );
+}
+
+type DemoPhase =
+  | "idle"
+  | "submitted"
+  | "sms_countdown"
+  | "sms_sent"
+  | "call_countdown"
+  | "call_now";
+
+export default function Page() {
+  const [track, setTrack] = useState<Track>(null);
+  const [step, setStep] = useState<Step>("pick");
+
+  // form UX
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
-  /**
-   * ROI Calculator (Upgraded to match your new claims)
-   * Baseline:
-   * Leads -> Booked -> Shows -> Closed -> Revenue
-   * Scenario:
-   * - Speed-to-lead: up to 800% increase in booked appts (modeled as up to 8x total)
-   * - Speed + Follow-up: up to 1500% increase (modeled as up to 15x total)
-   * - Show rate uplift: +20 to +60 percentage points
-   * - Close rate uplift: +20 to +40 percentage points
-   */
-  const [monthlyLeads, setMonthlyLeads] = useState("200");
-  const [bookRate, setBookRate] = useState("10");
-  const [showRate, setShowRate] = useState("30");
-  const [closeRate, setCloseRate] = useState("14");
-  const [avgDealSize, setAvgDealSize] = useState("1500");
+  // script expand
+  const [showScriptOutline, setShowScriptOutline] = useState(true);
+  const [showPersonalization, setShowPersonalization] = useState(false);
 
-  const [bookingLiftMode, setBookingLiftMode] = useState<"none" | "800" | "1500">(
-    "800"
-  );
-  const [showUpliftPts, setShowUpliftPts] = useState("20"); // 0–60
-  const [closeUpliftPts, setCloseUpliftPts] = useState("20"); // 0–40
+  // cadence toggle (NEW)
+  const [showFullCadence, setShowFullCadence] = useState(false);
 
-  // Refs for exit-intent logic (not for scrolling)
-  const hasEngagedRef = useRef(false);
-  const hasExitIntentRef = useRef(false);
-  const isExitOpenRef = useRef(false);
-  const lastScrollYRef = useRef(0);
+  // Demo countdown UX
+  const [demoPhase, setDemoPhase] = useState<DemoPhase>("idle");
+  const [smsSeconds, setSmsSeconds] = useState<number>(5);
+  const [callSeconds, setCallSeconds] = useState<number>(20);
 
-  // Helper: hash jump for scroll-to-section
-  const jumpToId = (id: string) => {
+  const trackLabel = useMemo(() => {
+    if (track === "sales") return "Sales Teams";
+    if (track === "local") return "Local Businesses";
+    return "your business";
+  }, [track]);
+
+  const trackSub = useMemo(() => {
+    if (track === "sales") return "Demos, discovery calls, consults, pipelines.";
+    if (track === "local") return "Med spa, dental, home services, showrooms, etc.";
+    return "Pick one so the examples match your world.";
+  }, [track]);
+
+  const jumpTo = (id: string) => {
     if (typeof window === "undefined") return;
-    const hash = `#${id}`;
-    if (window.location.hash === hash) {
-      window.location.hash = "";
-    }
-    window.location.hash = hash;
-  };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    // Engagement threshold: 7 seconds OR scroll 250px
-    const engagementTimer = window.setTimeout(() => {
-      if (!hasEngagedRef.current) {
-        hasEngagedRef.current = true;
-      }
-    }, 7000);
-
-    const handleScroll = () => {
-      const y = window.scrollY || window.pageYOffset || 0;
-
-      if (!hasEngagedRef.current && y > 250) {
-        hasEngagedRef.current = true;
-      }
-
-      const previousY = lastScrollYRef.current;
-      const delta = previousY - y;
-      const scrollingUp = y < previousY;
-      const isMobile = window.innerWidth < 1024;
-
-      // Mobile exit-intent: upward scroll near top after engagement
-      if (
-        isMobile &&
-        hasEngagedRef.current &&
-        scrollingUp &&
-        delta > 30 &&
-        y < 300 &&
-        !hasExitIntentRef.current &&
-        !isExitOpenRef.current
-      ) {
-        hasExitIntentRef.current = true;
-        isExitOpenRef.current = true;
-        setHasExitIntentShown(true);
-        setIsExitIntentOpen(true);
-      }
-
-      lastScrollYRef.current = y;
-    };
-
-    const handleMouseLeave = (event: MouseEvent) => {
-      const isDesktop = window.innerWidth >= 1024;
-      if (
-        isDesktop &&
-        event.clientY <= 0 &&
-        hasEngagedRef.current &&
-        !hasExitIntentRef.current &&
-        !isExitOpenRef.current
-      ) {
-        hasExitIntentRef.current = true;
-        isExitOpenRef.current = true;
-        setHasExitIntentShown(true);
-        setIsExitIntentOpen(true);
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    document.addEventListener("mouseleave", handleMouseLeave);
-
-    return () => {
-      window.clearTimeout(engagementTimer);
-      window.removeEventListener("scroll", handleScroll);
-      document.removeEventListener("mouseleave", handleMouseLeave);
-    };
-  }, []);
-
-  // Scroll-based fade-in for elements
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const elements = document.querySelectorAll<HTMLElement>(".fade-on-scroll");
-    if (!elements.length) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const target = entry.target as HTMLElement;
-          if (entry.isIntersecting) {
-            target.classList.add("is-visible");
-            observer.unobserve(target);
-          }
-        });
-      },
-      { threshold: 0.18 }
-    );
-
-    elements.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, [hasContinued]);
-
-  const handleTrackSelect = (track: IndustryTrack) => {
-    setIndustryTrack(track);
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const handleContinue = () => {
-    if (!industryTrack) return;
-    setHasContinued(true);
-    if (typeof window !== "undefined") {
-      setTimeout(() => {
-        jumpToId("ai-workforce-block");
-      }, 80);
-    }
+    if (!track) return;
+    setStep("details");
+    setTimeout(() => jumpTo("leadForm"), 50);
   };
 
-  /**
-   * UPDATED: main lead form submission
-   * - No reset() call at all (prevents null reset error)
-   * - Calls sendLeadToThoughtly (your API route)
-   * - Handles loading + error
-   */
-  const handleLeadSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (!submitted) return;
+
+    if (demoPhase === "submitted") {
+      setSmsSeconds(5);
+      setCallSeconds(20);
+      setDemoPhase("sms_countdown");
+      return;
+    }
+
+    if (demoPhase === "sms_countdown") {
+      const t = window.setInterval(() => {
+        setSmsSeconds((s) => {
+          if (s <= 1) {
+            window.clearInterval(t);
+            setDemoPhase("sms_sent");
+            return 0;
+          }
+          return s - 1;
+        });
+      }, 1000);
+      return () => window.clearInterval(t);
+    }
+
+    if (demoPhase === "sms_sent") {
+      const t = window.setTimeout(() => setDemoPhase("call_countdown"), 700);
+      return () => window.clearTimeout(t);
+    }
+
+    if (demoPhase === "call_countdown") {
+      const t = window.setInterval(() => {
+        setCallSeconds((s) => {
+          if (s <= 1) {
+            window.clearInterval(t);
+            setDemoPhase("call_now");
+            return 0;
+          }
+          return s - 1;
+        });
+      }, 1000);
+      return () => window.clearInterval(t);
+    }
+  }, [submitted, demoPhase]);
+
+  const demoStatus = useMemo(() => {
+    if (!submitted) return null;
+
+    if (demoPhase === "sms_countdown") {
+      return {
+        title: "Demo running…",
+        line1: `Text in ${smsSeconds}s`,
+        line2: `Then a call ~15–20s after the text.`,
+        accent: "emerald",
+      };
+    }
+    if (demoPhase === "sms_sent") {
+      return {
+        title: "Text sent ✅",
+        line1: "Now triggering your call…",
+        line2: "Answer to experience the booking flow.",
+        accent: "gold",
+      };
+    }
+    if (demoPhase === "call_countdown") {
+      return {
+        title: "Call on the way…",
+        line1: `Call in ${callSeconds}s`,
+        line2: "If missed, the follow-up cadence continues automatically.",
+        accent: "emerald",
+      };
+    }
+    if (demoPhase === "call_now") {
+      return {
+        title: "Call should be coming in now 📞",
+        line1: "Answer the call to route into the AI booking flow.",
+        line2: "If you miss it, you’ll see the next touches fire.",
+        accent: "gold",
+      };
+    }
+
+    return {
+      title: "Submitted ✅",
+      line1: "Watch for the text first.",
+      line2: "Then the call comes right after.",
+      accent: "emerald",
+    };
+  }, [submitted, demoPhase, smsSeconds, callSeconds]);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    const form = e.currentTarget;
-
     setIsSubmitting(true);
     setSubmitError(null);
-    setSubmitSuccess(false);
-
-    const formData = new FormData(form);
 
     try {
-      const result = await sendLeadToThoughtly(formData);
+      const form = e.currentTarget;
+      const fd = new FormData(form);
+      fd.set("track", track ?? "");
+
+      const result = await sendLead(fd);
 
       if (!result.ok) {
-        console.error("Webhook error", result.data);
         setSubmitError("Something went wrong. Please try again.");
+        setSubmitted(false);
+        setDemoPhase("idle");
       } else {
-        setSubmitSuccess(true);
-        setFormSubmitted(true);
+        setSubmitted(true);
+        setDemoPhase("submitted");
       }
     } catch (err) {
-      console.error("Error calling /api/thoughtly-webhook", err);
+      console.error(err);
       setSubmitError("Something went wrong. Please try again.");
+      setSubmitted(false);
+      setDemoPhase("idle");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleExitLeadSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setExitFormSubmitted(true);
-  };
-
-  const openRoi = () => setIsRoiOpen(true);
-  const closeRoi = () => setIsRoiOpen(false);
-
-  const closeExitIntent = () => {
-    setIsExitIntentOpen(false);
-    isExitOpenRef.current = false;
-  };
-
-  const selectedLabel =
-    industryTrack === "sales"
-      ? "Sales Teams"
-      : industryTrack === "local"
-      ? "Local Businesses"
-      : "";
-
-  const isSales = industryTrack === "sales";
-
-  // ROI math
-  const parsedMonthlyLeads = Number(monthlyLeads) || 0;
-  const parsedBookRate = Number(bookRate) || 0;
-  const parsedShowRate = Number(showRate) || 0;
-  const parsedCloseRate = Number(closeRate) || 0;
-  const parsedAvgDealSize = Number(avgDealSize) || 0;
-
-  const parsedShowUpliftPts = Math.max(0, Math.min(60, Number(showUpliftPts) || 0));
-  const parsedCloseUpliftPts = Math.max(0, Math.min(40, Number(closeUpliftPts) || 0));
-
-  const bookingMultiplier =
-    bookingLiftMode === "none" ? 1 : bookingLiftMode === "800" ? 8 : 15;
-
-  const baselineBooked = parsedMonthlyLeads * (parsedBookRate / 100);
-  const baselineShows = baselineBooked * (parsedShowRate / 100);
-  const baselineClosed = baselineShows * (parsedCloseRate / 100);
-  const baselineRevenue = baselineClosed * parsedAvgDealSize;
-
-  const projectedBooked = baselineBooked * bookingMultiplier;
-
-  const projectedShowRate = Math.max(
-    0,
-    Math.min(100, parsedShowRate + parsedShowUpliftPts)
-  );
-  const projectedCloseRate = Math.max(
-    0,
-    Math.min(100, parsedCloseRate + parsedCloseUpliftPts)
-  );
-
-  const projectedShows = projectedBooked * (projectedShowRate / 100);
-  const projectedClosed = projectedShows * (projectedCloseRate / 100);
-  const projectedRevenue = projectedClosed * parsedAvgDealSize;
-
-  const extraRevenue = projectedRevenue - baselineRevenue;
-
   return (
-    <main className="aid-page">
+    <main className="page">
       <style>{`
         :root {
-          --emerald: #047857;
-          --emerald-dark: #065f46;
-          --gold: #F4D03F;
-          --charcoal: #0F172A;
-          --offwhite: #F9FAFB;
-          --text-muted: #9CA3AF;
+          --emerald: ${BRAND.emerald};
+          --emeraldDark: ${BRAND.emeraldDark};
+          --gold: ${BRAND.gold};
+          --charcoal: ${BRAND.charcoal};
+          --muted: ${BRAND.muted};
+          --deepBg: ${BRAND.deepBg};
         }
 
         body {
@@ -307,72 +295,63 @@ export default function Page() {
           font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
           background: radial-gradient(circle at top, #022c22 0, #020617 55%, #000000 100%);
           color: #E5E7EB;
-          font-size: 23px;
+          font-size: 20px;
         }
 
-        .aid-page {
-          min-height: 100vh;
-        }
+        .page { min-height: 100vh; }
 
-        .aid-wrapper {
+        .wrap {
           max-width: 1120px;
           margin: 0 auto;
-          padding: 32px 16px 112px;
+          padding: 28px 16px 110px;
         }
 
-        .page-header {
+        .header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 16px;
-          margin-bottom: 32px;
+          gap: 14px;
+          margin-bottom: 22px;
         }
 
-        .brand-mark {
+        .brand {
           display: inline-flex;
           align-items: center;
           gap: 10px;
         }
 
-        .brand-logo {
-          width: 34px;
-          height: 34px;
-          border-radius: 10px;
-          background: radial-gradient(circle at 30% 20%, #6EE7B7 0, #047857 45%, #022c22 100%);
+        .logo {
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          background: radial-gradient(circle at 30% 20%, #6EE7B7 0, var(--emerald) 45%, #022c22 100%);
           box-shadow: 0 12px 28px rgba(5, 150, 105, 0.45);
         }
 
-        .brand-text {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .brand-name {
-          font-weight: 700;
-          letter-spacing: 0.09em;
+        .brandText { display: flex; flex-direction: column; }
+        .brandName {
+          font-weight: 800;
+          letter-spacing: 0.10em;
           font-size: 0.98rem;
           text-transform: uppercase;
         }
-
-        .brand-tagline {
+        .brandTag {
           font-size: 0.86rem;
-          color: var(--text-muted);
+          color: var(--muted);
         }
 
-        .header-pill {
+        .pillTop {
           border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          padding: 8px 18px;
+          border: 1px solid rgba(148,163,184,0.6);
+          padding: 8px 14px;
           font-size: 0.9rem;
+          background: rgba(15,23,42,0.7);
+          backdrop-filter: blur(12px);
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          background: rgba(15, 23, 42, 0.7);
-          backdrop-filter: blur(12px);
-          color: #E5E7EB;
         }
-
-        .header-pill-dot {
+        .dot {
           width: 9px;
           height: 9px;
           border-radius: 999px;
@@ -380,993 +359,366 @@ export default function Page() {
           box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
         }
 
-        .hero-section {
-          border-radius: 24px;
-          padding: 32px 24px 28px;
-          background: radial-gradient(circle at top left, rgba(4, 120, 87, 0.4), rgba(15, 23, 42, 0.95));
-          border: 1px solid rgba(148, 163, 184, 0.35);
-          box-shadow:
-            0 24px 80px rgba(15, 23, 42, 0.85),
-            0 0 0 1px rgba(15, 23, 42, 0.7);
+        @media (max-width: 780px) {
+          .header { flex-direction: column; align-items: flex-start; }
         }
 
-        .aid-grid {
+        .hero {
+          border-radius: 24px;
+          padding: 26px 22px;
+          background: radial-gradient(circle at top left, rgba(4, 120, 87, 0.40), rgba(15, 23, 42, 0.95));
+          border: 1px solid rgba(148, 163, 184, 0.35);
+          box-shadow: 0 24px 80px rgba(15, 23, 42, 0.85), 0 0 0 1px rgba(15, 23, 42, 0.7);
+        }
+
+        .grid {
           display: grid;
           grid-template-columns: 1.15fr 0.95fr;
-          gap: 32px;
-          align-items: flex-start;
+          gap: 22px;
+          align-items: start;
         }
+        @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
 
-        @media (max-width: 900px) {
-          .aid-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .hero-section {
-            padding: 24px 18px 22px;
-          }
-        }
-
-        .hero-eyebrow {
+        .eyebrow {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 6px 14px;
+          padding: 6px 12px;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.8);
-          border: 1px solid rgba(148, 163, 184, 0.5);
+          background: rgba(15,23,42,0.8);
+          border: 1px solid rgba(148,163,184,0.5);
           font-size: 0.9rem;
-          color: var(--text-muted);
-          margin-bottom: 16px;
+          color: var(--muted);
+          margin-bottom: 12px;
         }
 
-        .hero-eyebrow span {
+        .eyebrow span {
           padding: 2px 9px;
           border-radius: 999px;
           background: rgba(4, 120, 87, 0.18);
           color: #A7F3D0;
-          font-weight: 600;
+          font-weight: 700;
           font-size: 0.85rem;
         }
 
-        .hero-title {
-          font-size: clamp(2.3rem, 3.6vw, 3.1rem);
-          line-height: 1.08;
+        .h1 {
+          margin: 0 0 12px;
+          font-size: clamp(2.1rem, 3.3vw, 3.0rem);
+          line-height: 1.06;
           letter-spacing: -0.04em;
-          margin: 0 0 16px;
         }
 
-        .hero-highlight {
-          background: linear-gradient(120deg, #F4D03F, #F9A826);
+        .hl {
+          background: linear-gradient(120deg, var(--gold), #F9A826);
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
         }
 
-        .hero-subtitle {
-          font-size: 1.1rem;
+        .p {
+          margin: 0 0 14px;
+          font-size: 1.05rem;
           line-height: 1.65;
           color: #CBD5F5;
-          max-width: 560px;
-          margin-bottom: 18px;
+          max-width: 650px;
         }
 
-        /* NEW: Metrics strip (your 800% / 1500% / show / close claims) */
-        .metric-strip {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
-          margin: 14px 0 18px;
-        }
-
-        @media (max-width: 700px) {
-          .metric-strip {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .metric-card {
-          border-radius: 16px;
-          padding: 12px 12px 10px;
-          border: 1px solid rgba(148, 163, 184, 0.55);
-          background: rgba(15, 23, 42, 0.85);
-          box-shadow: 0 12px 30px rgba(15, 23, 42, 0.65);
-        }
-
-        .metric-top {
-          display: flex;
-          align-items: baseline;
-          justify-content: space-between;
-          gap: 10px;
-          margin-bottom: 6px;
-        }
-
-        .metric-value {
-          font-weight: 800;
-          letter-spacing: -0.03em;
-          font-size: 1.15rem;
-          color: #F4D03F;
-        }
-
-        .metric-title {
-          font-size: 0.92rem;
-          font-weight: 650;
-          color: #E5E7EB;
-        }
-
-        .metric-desc {
-          font-size: 0.86rem;
-          color: var(--text-muted);
-          line-height: 1.45;
-        }
-
-        .metric-note {
-          margin-top: 6px;
-          font-size: 0.78rem;
-          color: rgba(156, 163, 175, 0.95);
-        }
-
-        .hero-ctas {
+        .ctaRow {
           display: flex;
           flex-wrap: wrap;
-          gap: 12px;
+          gap: 10px;
+          margin-top: 14px;
           align-items: center;
-          margin-bottom: 18px;
         }
 
-        .primary-cta,
-        .secondary-cta {
+        .btnPrimary, .btnGhost {
           border-radius: 999px;
           border: none;
           cursor: pointer;
-          font-weight: 600;
+          font-weight: 800;
           font-size: 1rem;
-          padding: 11px 20px;
+          padding: 11px 18px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
           text-decoration: none;
-          transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+          transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, opacity 0.15s ease;
         }
 
-        .primary-cta {
-          background: linear-gradient(135deg, #047857, #22C55E);
+        .btnPrimary {
+          background: linear-gradient(135deg, var(--emerald), #22C55E);
           color: #ECFDF5;
           box-shadow: 0 14px 40px rgba(16, 185, 129, 0.45);
         }
+        .btnPrimary:hover { transform: translateY(-1px); box-shadow: 0 18px 52px rgba(16, 185, 129, 0.65); }
 
-        .primary-cta:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 18px 52px rgba(16, 185, 129, 0.65);
-        }
-
-        .secondary-cta {
-          background: rgba(15, 23, 42, 0.8);
-          border: 1px solid rgba(148, 163, 184, 0.7);
+        .btnGhost {
+          background: rgba(15,23,42,0.8);
+          border: 1px solid rgba(148,163,184,0.7);
           color: #E5E7EB;
+          font-weight: 800;
         }
+        .btnGhost:hover { background: rgba(15,23,42,1); transform: translateY(-1px); }
 
-        .secondary-cta:hover {
-          background: rgba(15, 23, 42, 1);
-          transform: translateY(-1px);
-        }
-
-        .hero-badges {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          font-size: 0.9rem;
-        }
-
-        .hero-badge {
+        .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 0.9rem; }
+        .badge {
           padding: 5px 11px;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.85);
-          border: 1px solid rgba(148, 163, 184, 0.5);
-          color: var(--text-muted);
+          background: rgba(15,23,42,0.85);
+          border: 1px solid rgba(148,163,184,0.5);
+          color: var(--muted);
         }
 
-        .hero-note {
-          margin-top: 10px;
-          font-size: 0.86rem;
-          color: var(--text-muted);
-        }
-
-        .hero-note span {
-          color: #FBBF24;
-          font-weight: 600;
-        }
-
-        .hero-side {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .lead-form {
-          background: #FFFFFF;
+        .trackCard {
+          background: rgba(15,23,42,0.98);
           border-radius: 18px;
-          padding: 20px 18px 18px;
-          color: #0F172A;
-          box-shadow:
-            0 20px 60px rgba(15, 23, 42, 0.45),
-            0 0 0 1px rgba(148, 163, 184, 0.35);
-          scroll-margin-top: 120px;
+          padding: 14px 14px 12px;
+          border: 1px solid rgba(148,163,184,0.55);
+          box-shadow: 0 12px 30px rgba(15,23,42,0.95);
+          margin-top: 12px;
+        }
+        .trackTitle { font-size: 1rem; font-weight: 900; margin-bottom: 2px; }
+        .trackSub { font-size: 0.9rem; color: var(--muted); margin-bottom: 10px; }
+        .pillRow { display: flex; flex-wrap: wrap; gap: 8px; }
+
+        .pill {
+          padding: 7px 12px;
+          border-radius: 999px;
+          border: 1px solid rgba(148,163,184,0.8);
+          font-size: 0.9rem;
+          background: rgba(15,23,42,0.95);
+          color: #E5E7EB;
+          cursor: pointer;
+          font-weight: 800;
+        }
+        .pillActive {
+          background: rgba(4, 120, 87, 0.9);
+          border-color: var(--gold);
+          color: #ECFDF5;
         }
 
-        .lead-form h2 {
+        .continueRow {
+          display: flex;
+          gap: 10px;
+          margin-top: 12px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .continueNote {
+          font-size: 0.86rem;
+          color: rgba(203, 213, 245, 0.85);
+        }
+
+        .formCard {
+          background: #FFFFFF;
+          color: #0F172A;
+          border-radius: 18px;
+          padding: 18px 16px 16px;
+          box-shadow: 0 20px 60px rgba(15, 23, 42, 0.45), 0 0 0 1px rgba(148, 163, 184, 0.35);
+        }
+        .formCard h3 {
           margin: 0 0 6px;
-          font-size: 1.2rem;
-          letter-spacing: 0.06em;
+          font-size: 1.1rem;
+          letter-spacing: 0.08em;
           text-transform: uppercase;
           color: #111827;
         }
+        .formCard p { margin: 0 0 12px; font-size: 0.95rem; color: #4B5563; }
 
-        .lead-form p {
-          margin: 0 0 12px;
-          font-size: 0.96rem;
-          color: #4B5563;
-        }
-
-        .lead-form label {
-          display: block;
-          font-size: 0.9rem;
-          font-weight: 500;
-          margin-bottom: 3px;
-        }
-
-        .lead-form input,
-        .lead-form select {
+        label { display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 3px; }
+        input {
           width: 100%;
           padding: 9px 10px;
-          border-radius: 9px;
+          border-radius: 10px;
           border: 1px solid #D1D5DB;
           font-size: 0.96rem;
           margin-bottom: 10px;
           outline: none;
-          transition: border-color 0.14s ease, box-shadow 0.14s ease;
         }
+        input:focus { border-color: var(--emerald); box-shadow: 0 0 0 1px rgba(4, 120, 87, 0.35); }
 
-        .lead-form input:focus,
-        .lead-form select:focus {
-          border-color: #047857;
-          box-shadow: 0 0 0 1px rgba(4, 120, 87, 0.35);
-        }
-
-        .lead-form .consent-row {
+        .consentRow {
           display: flex;
           align-items: flex-start;
-          gap: 8px;
-          margin: 6px 0 10px;
+          gap: 10px;
+          margin: 8px 0 10px;
           padding: 10px 10px;
-          border-radius: 10px;
+          border-radius: 12px;
           background: rgba(239, 68, 68, 0.08);
           border: 1px solid rgba(248, 113, 113, 0.9);
-          box-shadow: 0 0 0 1px rgba(127, 29, 29, 0.25);
+          box-shadow: 0 0 0 1px rgba(127, 29, 29, 0.20);
         }
-
-        .lead-form .consent-row input[type="checkbox"] {
+        .consentRow input[type="checkbox"] {
           margin-top: 4px;
           width: auto;
           accent-color: #ef4444;
         }
-
-        .lead-form .consent-row span {
+        .consentText {
           font-size: 0.82rem;
           color: #7F1D1D;
+          line-height: 1.35;
         }
 
-        .lead-submit-btn {
+        .submitBtn {
           width: 100%;
           border-radius: 999px;
           border: none;
           padding: 10px 12px;
-          font-size: 0.98rem;
-          font-weight: 600;
+          font-size: 1rem;
+          font-weight: 900;
           cursor: pointer;
-          background: linear-gradient(135deg, #047857, #059669);
+          background: linear-gradient(135deg, var(--emerald), #059669);
           color: #ECFDF5;
           box-shadow: 0 16px 40px rgba(5, 150, 105, 0.4);
-          transition: transform 0.16s ease, box-shadow 0.16s ease;
-          margin-top: 2px;
-        }
-
-        .lead-submit-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 20px 52px rgba(5, 150, 105, 0.55);
-        }
-
-        .lead-thankyou {
-          margin-top: 8px;
-          font-size: 0.86rem;
-          color: #047857;
-          font-weight: 500;
-        }
-
-        .lead-sms-tip {
-          margin-top: 8px;
-          font-size: 0.78rem;
-          color: #B91C1C;
-        }
-
-        .selector-card {
-          background: rgba(15, 23, 42, 0.98);
-          border-radius: 16px;
-          padding: 16px 15px 13px;
-          border: 1px solid rgba(148, 163, 184, 0.55);
-        }
-
-        .selector-title {
-          font-size: 0.96rem;
-          font-weight: 600;
-          margin-bottom: 4px;
-        }
-
-        .selector-sub {
-          font-size: 0.88rem;
-          color: var(--text-muted);
-          margin-bottom: 10px;
-        }
-
-        .selector-buttons {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
-          margin-bottom: 10px;
-        }
-
-        .selector-button {
-          position: relative;
-          border-radius: 14px;
-          border: 2px solid rgba(148, 163, 184, 0.7);
-          background: linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.9));
-          color: #E5E7EB;
-          padding: 10px 12px 9px;
-          text-align: left;
-          font-size: 0.9rem;
-          cursor: pointer;
-          transition:
-            border-color 0.15s ease,
-            background 0.15s ease,
-            transform 0.12s ease,
-            box-shadow 0.12s ease;
-          display: flex;
-          flex-direction: column;
-          box-shadow: 0 12px 30px rgba(15, 23, 42, 0.95);
-        }
-
-        .selector-button strong {
-          display: block;
-          font-size: 0.96rem;
-          margin-bottom: 3px;
-        }
-
-        .selector-button span {
-          font-size: 0.82rem;
-          color: var(--text-muted);
-        }
-
-        .selector-button::after {
-          content: "Tap to select";
-          margin-top: 4px;
-          font-size: 0.76rem;
-          color: var(--text-muted);
-          opacity: 0.9;
-        }
-
-        .selector-button--active {
-          border-color: #F4D03F;
-          background: linear-gradient(145deg, rgba(4, 120, 87, 1), rgba(15, 23, 42, 0.98));
-          box-shadow: 0 18px 40px rgba(4, 120, 87, 0.7);
-          transform: translateY(-2px);
-        }
-
-        .selector-button--active::after {
-          content: "Selected";
-          color: #F4D03F;
-          font-weight: 600;
-        }
-
-        .selector-button:hover {
-          box-shadow: 0 16px 34px rgba(15, 23, 42, 0.9);
-          transform: translateY(-1px);
-        }
-
-        .selector-button:active {
-          transform: translateY(0);
-          box-shadow: 0 8px 16px rgba(15, 23, 42, 0.85);
-        }
-
-        .selector-continue {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .continue-btn {
-          border-radius: 999px;
-          border: none;
-          padding: 9px 15px;
-          font-size: 0.9rem;
-          font-weight: 600;
-          background: var(--gold);
-          color: #111827;
-          cursor: pointer;
-          box-shadow: 0 10px 26px rgba(180, 83, 9, 0.45);
           transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
-          display: inline-flex;
+        }
+        .submitBtn:hover { transform: translateY(-1px); box-shadow: 0 20px 52px rgba(5, 150, 105, 0.55); }
+        .submitBtn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+        .formNote { margin-top: 10px; font-size: 0.78rem; color: #B91C1C; }
+        .success { margin-top: 10px; font-size: 0.86rem; color: var(--emerald); font-weight: 800; }
+        .error { margin-top: 10px; font-size: 0.86rem; color: #ef4444; font-weight: 800; }
+
+        .demoPanel {
+          margin-top: 12px;
+          border-radius: 14px;
+          padding: 10px 12px;
+          border: 1px solid rgba(15,23,42,0.15);
+          background: rgba(15,23,42,0.04);
+        }
+        .demoTop {
+          display: flex;
           align-items: center;
-          gap: 6px;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 6px;
         }
-
-        .continue-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 16px 34px rgba(180, 83, 9, 0.65);
+        .demoTitle { font-weight: 900; font-size: 0.95rem; color: #0F172A; }
+        .demoBadge {
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 0.78rem;
+          font-weight: 1000;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #0F172A;
+          border: 1px solid rgba(15,23,42,0.12);
+          background: rgba(244, 208, 63, 0.40);
         }
+        .demoBadge.emerald { background: rgba(4, 120, 87, 0.14); color: #065F46; }
+        .demoBadge.gold { background: rgba(244, 208, 63, 0.50); color: #92400E; }
+        .demoLine { font-size: 0.88rem; color: #334155; line-height: 1.35; }
 
-        .continue-btn:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-          box-shadow: none;
-        }
-
-        .selector-helper {
-          margin-top: 6px;
-          font-size: 0.84rem;
-          color: var(--text-muted);
-        }
-
-        /* Reveal block */
-
-        .reveal-wrapper {
-          margin-top: 36px;
-          scroll-margin-top: 120px;
-        }
-
-        .reveal-intro {
-          text-align: center;
-          margin-bottom: 20px;
-        }
-
-        .reveal-kicker {
+        .section { margin-top: 34px; }
+        .secHead { margin-bottom: 14px; }
+        .kicker {
           font-size: 0.9rem;
           text-transform: uppercase;
           letter-spacing: 0.16em;
-          color: var(--text-muted);
+          color: var(--muted);
           margin-bottom: 6px;
         }
-
-        .reveal-heading {
-          font-size: 1.7rem;
-          margin-bottom: 8px;
-        }
-
-        .reveal-sub {
-          font-size: 1.05rem;
-          color: #CBD5F5;
-          max-width: 660px;
-          margin: 0 auto;
-        }
-
-        .pill-tag {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 5px 11px;
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          font-size: 0.88rem;
-          color: var(--text-muted);
-          margin-bottom: 10px;
-        }
-
-        .pill-tag span {
-          font-weight: 600;
-          color: #E5E7EB;
-        }
-
-        /* NEW: performance cards under reveal intro */
-        .performance-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 12px;
-          margin: 18px 0 18px;
-        }
-
-        @media (max-width: 900px) {
-          .performance-grid {
-            grid-template-columns: 1fr 1fr;
-          }
-        }
-
-        @media (max-width: 560px) {
-          .performance-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .performance-card {
-          border-radius: 16px;
-          padding: 12px 12px 10px;
-          background: rgba(15, 23, 42, 0.96);
-          border: 1px solid rgba(148, 163, 184, 0.6);
-        }
-
-        .performance-tag {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 4px 10px;
-          border-radius: 999px;
-          font-size: 0.8rem;
-          border: 1px solid rgba(148, 163, 184, 0.55);
-          color: var(--text-muted);
-          margin-bottom: 8px;
-        }
-
-        .performance-tag b {
-          color: #F4D03F;
-        }
-
-        .performance-title {
-          font-size: 0.96rem;
-          font-weight: 700;
-          margin-bottom: 6px;
-        }
-
-        .performance-desc {
-          font-size: 0.86rem;
-          color: var(--text-muted);
-          line-height: 1.45;
-        }
-
-        .reveal-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-          gap: 22px;
-          align-items: flex-start;
-        }
-
-        @media (max-width: 900px) {
-          .reveal-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .panel {
-          border-radius: 18px;
-          padding: 18px 16px 14px;
-          background: radial-gradient(circle at top, rgba(15, 118, 110, 0.35), rgba(15, 23, 42, 0.98));
-          border: 1px solid rgba(148, 163, 184, 0.55);
-          box-shadow: 0 20px 60px rgba(15, 23, 42, 0.75);
-        }
-
-        .panel-alt {
-          background: radial-gradient(circle at top, rgba(24, 24, 27, 0.9), rgba(15, 23, 42, 0.98));
-        }
-
-        .panel-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-          margin-bottom: 10px;
-        }
-
-        .panel-title {
-          font-size: 1.05rem;
-          font-weight: 600;
-        }
-
-        .panel-label {
-          font-size: 0.84rem;
-          padding: 3px 9px;
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.55);
-          color: var(--text-muted);
-        }
-
-        .flow-section {
-          margin-bottom: 14px;
-        }
-
-        .flow-section h4 {
-          font-size: 0.94rem;
-          text-transform: uppercase;
-          letter-spacing: 0.14em;
-          margin-bottom: 4px;
-          color: #A5B4FC;
-        }
-
-        .flow-section p {
-          margin: 0 0 6px;
-          font-size: 0.98rem;
-          color: #E5E7EB;
-        }
-
-        .flow-steps {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          gap: 8px;
-        }
-
-        .flow-step {
-          padding: 9px 11px;
-          border-radius: 12px;
-          background: rgba(15, 23, 42, 0.9);
-          border: 1px solid rgba(148, 163, 184, 0.5);
-        }
-
-        .flow-step-title {
-          font-size: 0.98rem;
-          font-weight: 600;
-          margin-bottom: 2px;
-        }
-
-        .flow-step-desc {
-          font-size: 0.9rem;
-          color: var(--text-muted);
-        }
-
-        .arrow-down {
-          text-align: center;
-          font-size: 0.86rem;
-          color: #64748B;
-          padding: 2px 0;
-        }
-
-        .panel-list {
-          list-style: none;
-          padding: 0;
+        .h2 { margin: 0 0 8px; font-size: 1.65rem; letter-spacing: -0.02em; }
+        .sub {
           margin: 0;
+          color: #CBD5F5;
+          font-size: 1.02rem;
+          line-height: 1.6;
+          max-width: 860px;
+        }
+
+        .cards2 {
           display: grid;
-          gap: 6px;
+          grid-template-columns: 1.2fr 1fr;
+          gap: 14px;
+          align-items: start;
         }
+        @media (max-width: 900px) { .cards2 { grid-template-columns: 1fr; } }
 
-        .panel-list li {
-          padding-left: 18px;
-          position: relative;
-          font-size: 0.98rem;
-          color: #E5E7EB;
-        }
-
-        .panel-list li::before {
-          content: "•";
-          position: absolute;
-          left: 4px;
-          top: 0;
-          color: #F4D03F;
-        }
-
-        .section-row {
-          margin-top: 24px;
-          display: grid;
-          grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-          gap: 22px;
-          align-items: flex-start;
-        }
-
-        @media (max-width: 900px) {
-          .section-row {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .phase-grid {
+        .cards3 {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 14px;
+          gap: 12px;
+          align-items: start;
         }
+        @media (max-width: 900px) { .cards3 { grid-template-columns: 1fr; } }
 
-        @media (max-width: 900px) {
-          .phase-grid {
-            grid-template-columns: 1fr;
-          }
+        .card {
+          border-radius: 18px;
+          padding: 14px 14px 12px;
+          background: rgba(15,23,42,0.97);
+          border: 1px solid rgba(148,163,184,0.65);
+          box-shadow: 0 18px 50px rgba(15, 23, 42, 0.80);
         }
-
-        .phase-card {
-          border-radius: 16px;
-          padding: 13px 12px 10px;
-          background: rgba(15, 23, 42, 0.96);
-          border: 1px solid rgba(148, 163, 184, 0.6);
+        .cardAlt {
+          background: radial-gradient(circle at top, rgba(24,24,27,0.96), rgba(15,23,42,0.98));
         }
+        .cardTitle { font-size: 1.08rem; font-weight: 1000; margin-bottom: 4px; }
+        .cardSub { color: var(--muted); font-size: 0.94rem; margin-bottom: 10px; }
 
-        .phase-title {
-          font-size: 1rem;
-          font-weight: 600;
-          margin-bottom: 4px;
-        }
-
-        .phase-chip {
-          font-size: 0.84rem;
-          text-transform: uppercase;
-          letter-spacing: 0.14em;
-          color: #A5B4FC;
-          margin-bottom: 3px;
-        }
-
-        .phase-list {
+        .list {
           margin: 0;
           padding-left: 18px;
-          font-size: 0.9rem;
-          color: var(--text-muted);
+          color: #E5E7EB;
+          font-size: 0.98rem;
+          line-height: 1.55;
         }
+        .list li { margin-bottom: 6px; }
 
-        .phase-list li {
-          margin-bottom: 3px;
+        .timeline { display: grid; gap: 10px; margin-top: 10px; }
+        .tItem {
+          border-radius: 14px;
+          padding: 10px 12px;
+          background: rgba(15,23,42,0.92);
+          border: 1px solid rgba(148,163,184,0.5);
         }
+        .tTop { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+        .tLabel { font-weight: 1000; }
+        .tTime { color: var(--gold); font-weight: 1000; font-size: 0.95rem; }
+        .tDesc { color: var(--muted); font-size: 0.92rem; margin-top: 4px; }
 
-        .roi-card {
-          border-radius: 18px;
-          padding: 16px;
-          background: radial-gradient(circle at top, rgba(250, 250, 250, 0.06), rgba(15, 23, 42, 0.96));
-          border: 1px solid rgba(148, 163, 184, 0.65);
+        .acc {
+          border-radius: 16px;
+          border: 1px solid rgba(148,163,184,0.65);
+          background: rgba(15,23,42,0.96);
+          overflow: hidden;
         }
-
-        .roi-card h3 {
-          margin: 0 0 4px;
-          font-size: 1.05rem;
-        }
-
-        .roi-card p {
-          margin: 0 0 10px;
-          font-size: 0.94rem;
-          color: var(--text-muted);
-        }
-
-        .roi-cta-btn {
-          border-radius: 999px;
+        .accBtn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 12px 12px;
           border: none;
-          padding: 9px 15px;
-          font-size: 0.96rem;
-          font-weight: 600;
-          background: var(--gold);
-          color: #111827;
+          background: transparent;
           cursor: pointer;
-          box-shadow: 0 12px 32px rgba(180, 83, 9, 0.45);
-          transition: transform 0.16s ease, box-shadow 0.16s ease;
-        }
-
-        .roi-cta-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 18px 40px rgba(180, 83, 9, 0.6);
-        }
-
-        .advanced-card {
-          border-radius: 18px;
-          padding: 16px;
-          background: radial-gradient(circle at top, rgba(250, 204, 21, 0.14), rgba(15, 23, 42, 0.98));
-          border: 1px solid rgba(250, 204, 21, 0.35);
-          box-shadow: 0 20px 60px rgba(15, 23, 42, 0.55);
-        }
-
-        .advanced-card h3 {
-          margin: 0 0 6px;
-          font-size: 1.05rem;
-        }
-
-        .advanced-card p {
-          margin: 0 0 8px;
-          font-size: 0.94rem;
           color: #E5E7EB;
         }
-
-        .advanced-chip {
+        .accTitle { font-weight: 1000; font-size: 1rem; text-align: left; }
+        .accIcon {
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 1px solid rgba(148,163,184,0.65);
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 4px 10px;
-          border-radius: 999px;
-          border: 1px solid rgba(250, 204, 21, 0.5);
-          font-size: 0.88rem;
-          color: #FDE68A;
-          margin-bottom: 8px;
-        }
-
-        .advanced-chip span {
-          width: 7px;
-          height: 7px;
-          border-radius: 999px;
-          background: #34D399;
-          box-shadow: 0 0 10px rgba(52, 211, 153, 0.85);
-        }
-
-        /* Modals */
-
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(15, 23, 42, 0.86);
-          display: flex;
-          align-items: center;
           justify-content: center;
-          z-index: 40;
-          backdrop-filter: blur(10px);
+          color: var(--muted);
+          font-weight: 1000;
         }
-
-        .modal-card {
-          width: 100%;
-          max-width: 560px;
-          margin: 0 16px;
-          background: #020617;
-          border-radius: 18px;
-          border: 1px solid rgba(148, 163, 184, 0.75);
-          box-shadow: 0 28px 80px rgba(15, 23, 42, 0.95);
-          padding: 20px 18px 16px;
-          color: #E5E7EB;
-        }
-
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 10px;
-        }
-
-        .modal-header h2 {
-          margin: 0;
-          font-size: 1.14rem;
-        }
-
-        .modal-close {
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          background: transparent;
-          color: #9CA3AF;
-          padding: 4px 10px;
-          font-size: 0.82rem;
-          cursor: pointer;
-        }
-
-        .modal-body {
-          font-size: 0.94rem;
-        }
-
-        .modal-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          gap: 12px;
-          margin-top: 12px;
-        }
-
-        @media (max-width: 640px) {
-          .modal-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .modal-field label {
-          display: block;
-          font-size: 0.88rem;
-          margin-bottom: 3px;
+        .accBody {
+          padding: 0 12px 12px;
           color: #CBD5F5;
+          font-size: 0.95rem;
+          line-height: 1.65;
+          white-space: pre-wrap;
         }
 
-        .modal-field input, .modal-field select {
-          width: 100%;
-          padding: 7px 9px;
-          border-radius: 8px;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          background: rgba(15, 23, 42, 0.9);
-          color: #E5E7EB;
-          font-size: 0.9rem;
-          outline: none;
-        }
+        .tiny { font-size: 0.86rem; color: var(--muted); margin-top: 6px; line-height: 1.45; }
 
-        .modal-field input:focus, .modal-field select:focus {
-          border-color: #047857;
-          box-shadow: 0 0 0 1px rgba(4, 120, 87, 0.45);
-        }
-
-        .modal-metric {
-          margin-top: 12px;
-          padding: 10px 12px;
-          border-radius: 10px;
-          background: rgba(15, 23, 42, 0.96);
-          border: 1px solid rgba(148, 163, 184, 0.65);
-          font-size: 0.9rem;
-        }
-
-        .modal-metric strong {
-          font-size: 1.08rem;
-          display: block;
-          margin-top: 2px;
-        }
-
-        .modal-footnote {
-          margin-top: 8px;
-          font-size: 0.86rem;
-          color: var(--text-muted);
-        }
-
-        .exit-highlight {
-          color: #FBBF24;
-          font-weight: 600;
-        }
-
-        /* Exit-intent inline form */
-
-        .exit-form {
-          margin-top: 14px;
-          padding: 12px 10px 10px;
-          border-radius: 14px;
-          background: rgba(15, 23, 42, 0.96);
-          border: 1px solid rgba(148, 163, 184, 0.7);
-        }
-
-        .exit-form label {
-          display: block;
-          font-size: 0.85rem;
-          margin-bottom: 2px;
-          color: #CBD5F5;
-        }
-
-        .exit-form input {
-          width: 100%;
-          padding: 7px 9px;
-          border-radius: 8px;
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          background: rgba(15, 23, 42, 0.9);
-          color: #E5E7EB;
-          font-size: 0.88rem;
-          margin-bottom: 6px;
-          outline: none;
-        }
-
-        .exit-form input:focus {
-          border-color: #047857;
-          box-shadow: 0 0 0 1px rgba(4, 120, 87, 0.45);
-        }
-
-        .exit-form small {
-          font-size: 0.75rem;
-          color: #9CA3AF;
-        }
-
-        .exit-consent-row {
-          display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          margin: 6px 0 8px;
-        }
-
-        .exit-consent-row input[type="checkbox"] {
-          margin-top: 3px;
-          width: auto;
-          accent-color: #ef4444;
-        }
-
-        .exit-consent-row span {
-          font-size: 0.78rem;
-          color: #9CA3AF;
-        }
-
-        .exit-submit-btn {
-          margin-top: 8px;
-          width: 100%;
-          border-radius: 999px;
-          border: none;
-          padding: 8px 10px;
-          font-size: 0.9rem;
-          font-weight: 600;
-          background: linear-gradient(135deg, #047857, #22C55E);
-          color: #ECFDF5;
-          cursor: pointer;
-          box-shadow: 0 12px 32px rgba(16, 185, 129, 0.55);
-        }
-
-        .exit-thankyou {
-          margin-top: 6px;
-          font-size: 0.8rem;
-          color: #A7F3D0;
-        }
-
-        /* Sticky CTA */
-
-        .sticky-cta {
+        .sticky {
           position: fixed;
           inset-inline: 0;
           bottom: 0;
@@ -1376,83 +728,37 @@ export default function Page() {
           justify-content: center;
           pointer-events: none;
         }
-
-        .sticky-inner {
+        .stickyInner {
           pointer-events: auto;
-          max-width: 840px;
+          max-width: 860px;
           width: 100%;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.96);
-          border: 1px solid rgba(148, 163, 184, 0.7);
-          box-shadow: 0 -10px 40px rgba(15, 23, 42, 0.85);
+          background: rgba(15,23,42,0.96);
+          border: 1px solid rgba(148,163,184,0.7);
+          box-shadow: 0 -10px 40px rgba(15,23,42,0.85);
           padding: 9px 13px;
           display: flex;
           align-items: center;
-          gap: 10px;
           justify-content: space-between;
+          gap: 10px;
         }
-
-        .sticky-text {
-          font-size: 0.9rem;
-          color: #E5E7EB;
-        }
-
-        .sticky-text span {
-          color: #F4D03F;
-          font-weight: 600;
-        }
-
-        .sticky-btn {
+        .stickyText { font-size: 0.95rem; color: #E5E7EB; }
+        .stickyText span { color: var(--gold); font-weight: 1000; }
+        .stickyBtn {
           border-radius: 999px;
           border: none;
-          padding: 8px 15px;
-          font-size: 0.96rem;
-          font-weight: 600;
-          background: linear-gradient(135deg, #047857, #22C55E);
+          padding: 9px 16px;
+          font-size: 0.98rem;
+          font-weight: 1000;
+          background: linear-gradient(135deg, var(--emerald), #22C55E);
           color: #ECFDF5;
           cursor: pointer;
-          box-shadow: 0 10px 30px rgba(16, 185, 129, 0.55);
+          box-shadow: 0 10px 30px rgba(16,185,129,0.55);
           white-space: nowrap;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
         }
-
         @media (max-width: 640px) {
-          .page-header {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-
-          .sticky-inner {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-
-          .sticky-btn {
-            width: 100%;
-            text-align: center;
-            justify-content: center;
-          }
-        }
-
-        /* IMPORTANT FIX:
-           Do NOT mix fade-up and fade-on-scroll on the same element.
-           Fade-up is reserved for above-the-fold only (and used alone).
-        */
-
-        .fade-up {
-          opacity: 0;
-          transform: translateY(18px);
-          animation: fadeUp 0.6s ease-out forwards;
-        }
-
-        @keyframes fadeUp {
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          .stickyInner { flex-direction: column; align-items: flex-start; border-radius: 20px; }
+          .stickyBtn { width: 100%; }
         }
 
         .fade-on-scroll {
@@ -1460,797 +766,466 @@ export default function Page() {
           transform: translateY(18px);
           transition: opacity 0.6s ease-out, transform 0.6s ease-out;
         }
+        .fade-on-scroll.is-visible { opacity: 1; transform: translateY(0); }
 
-        .fade-on-scroll.is-visible {
-          opacity: 1;
-          transform: translateY(0);
-        }
-
-        .footer-legal {
-          margin-top: 32px;
-          font-size: 0.7rem;
+        .footer {
+          margin-top: 30px;
+          font-size: 0.72rem;
           color: #6B7280;
           text-align: center;
-          opacity: 0.8;
+          opacity: 0.85;
         }
-
-        .footer-legal a {
+        .footer a {
           color: inherit;
           text-decoration: none;
-          border-bottom: 1px solid rgba(107, 114, 128, 0.3);
+          border-bottom: 1px solid rgba(107,114,128,0.3);
           padding-bottom: 1px;
-        }
-
-        .footer-legal a:hover {
-          opacity: 1;
-          border-bottom-color: rgba(148, 163, 184, 0.8);
         }
       `}</style>
 
-      <div className="aid-wrapper">
-        {/* Header: fade-up only (above fold), no fade-on-scroll */}
-        <header className="page-header fade-up">
-          <div className="brand-mark">
-            <div className="brand-logo" />
-            <div className="brand-text">
-              <div className="brand-name">ALL IN DIGITAL</div>
-              <div className="brand-tagline">AI Phone &amp; SMS Systems</div>
+      <div className="wrap">
+        <header className="header">
+          <div className="brand">
+            <div className="logo" />
+            <div className="brandText">
+              <div className="brandName">ALL IN DIGITAL</div>
+              <div className="brandTag">AI Phone • SMS • Sales Operating System</div>
             </div>
           </div>
-          <div className="header-pill">
-            <div className="header-pill-dot" />
-            <span>Speed-to-lead, booking, and recovery on autopilot</span>
+          <div className="pillTop">
+            <div className="dot" />
+            <span>Speed-to-lead → Booking → Show-rate protection</span>
           </div>
         </header>
 
-        {/* Hero: fade-up only (above fold), no fade-on-scroll */}
-        <section className="hero-section fade-up">
-          <div className="aid-grid">
+        <section className="hero">
+          <div className="grid">
             <div>
-              <div className="hero-eyebrow">
-                <span>Live AI Call Demo</span>
-                <div>Under 60 seconds from form to ringing phone</div>
+              <div className="eyebrow">
+                <span>Live Demo</span>
+                <div>Text in ~5s → Call in ~15–20s</div>
               </div>
-              <h1 className="hero-title">
-                Turn missed calls into{" "}
-                <span className="hero-highlight">booked revenue</span>{" "}
-                with always-on agents.
+
+              <h1 className="h1">
+                More booked calls. <span className="hl">Higher show rates.</span> Cleaner closes.
               </h1>
-              <p className="hero-subtitle">
-                Your workforce answers every call, qualifies, books calendars,
-                recovers no-shows, and handles dispatch — so you stop bleeding
-                revenue to voicemail, delays, and &ldquo;we&apos;ll call them later.&rdquo;
+
+              <p className="p">
+                We install a fast, structured response system that contacts leads immediately,
+                routes answered calls into a booking flow, and protects your calendar with
+                pre-call training so time doesn’t get wasted.
               </p>
 
-              {/* NEW: Your exact performance claims */}
-              <div className="metric-strip">
-                <div className="metric-card">
-                  <div className="metric-top">
-                    <div className="metric-title">Speed-to-lead (first 5 minutes)</div>
-                    <div className="metric-value">Up to 800%</div>
-                  </div>
-                  <div className="metric-desc">
-                    Increase in booked appointments when leads hear from you in seconds/minutes instead of hours/days.
-                  </div>
-                  <div className="metric-note">
-                    Biggest gains when you’re currently slow or inconsistent. (“Up to” depends on your starting point.)
-                  </div>
+              <div className="badges">
+                <div className="badge">Text in ~5 seconds</div>
+                <div className="badge">Call in ~15–20 seconds</div>
+                <div className="badge">Books your calendar</div>
+                <div className="badge">Follow-up runs automatically</div>
+              </div>
+
+              <div className="trackCard">
+                <div className="trackTitle">Pick your track</div>
+                <div className="trackSub">{trackSub}</div>
+
+                <div className="pillRow">
+                  <Pill active={track === "sales"} onClick={() => setTrack("sales")}>
+                    Sales Teams
+                  </Pill>
+                  <Pill active={track === "local"} onClick={() => setTrack("local")}>
+                    Local Businesses
+                  </Pill>
                 </div>
 
-                <div className="metric-card">
-                  <div className="metric-top">
-                    <div className="metric-title">Follow-up sequence (same day + day 1/2)</div>
-                    <div className="metric-value">Up to 1500%</div>
-                  </div>
-                  <div className="metric-desc">
-                    Increase in booked appointments when follow-up is consistent instead of “one call and done.”
-                  </div>
-                  <div className="metric-note">
-                    Includes evenings + next-morning attempts with smart stop conditions once they book or respond.
-                  </div>
-                </div>
-
-                <div className="metric-card">
-                  <div className="metric-top">
-                    <div className="metric-title">No-show anchoring + pre-call training</div>
-                    <div className="metric-value">+20 to +60 pts</div>
-                  </div>
-                  <div className="metric-desc">
-                    Lift in show ratio when expectations are anchored in booking, then reinforced before the appointment.
-                  </div>
-                  <div className="metric-note">
-                    Example: 30% show rate → 50–90% depending on offer + execution.
-                  </div>
-                </div>
-
-                <div className="metric-card">
-                  <div className="metric-top">
-                    <div className="metric-title">Pre-call training + consistent sales process</div>
-                    <div className="metric-value">+20 to +40 pts</div>
-                  </div>
-                  <div className="metric-desc">
-                    Close-rate lift plus easier scaling because performance variance between reps drops.
-                  </div>
-                  <div className="metric-note">
-                    Example: 14% close rate → 34–54% depending on lead quality + offer + execution.
+                <div className="continueRow">
+                  <button
+                    type="button"
+                    className="btnPrimary"
+                    onClick={handleContinue}
+                    disabled={!track}
+                    style={{ opacity: track ? 1 : 0.7 }}
+                  >
+                    Continue →
+                  </button>
+                  <div className="continueNote">
+                    This unlocks the sequence + the live demo form for <strong>{trackLabel}</strong>.
                   </div>
                 </div>
               </div>
-
-              <div className="hero-ctas">
-                <button
-                  className="primary-cta"
-                  type="button"
-                  onClick={() => jumpToId("leadForm")}
-                >
-                  Hear the AI in Action
-                </button>
-
-                <button className="secondary-cta" type="button" onClick={openRoi}>
-                  Run ROI Calculator
-                </button>
-
-                <a
-                  href="tel:+12396880201"
-                  className="secondary-cta"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    textDecoration: "none",
-                    background: "rgba(4,120,87,0.18)",
-                    border: "1px solid rgba(4,120,87,0.45)",
-                    color: "#A7F3D0",
-                    fontWeight: 600,
-                  }}
-                >
-                  📞 Call Now
-                </a>
-              </div>
-
-              <div className="hero-badges">
-                <div className="hero-badge">SMS in ~5 seconds • Call in ~15–20 seconds</div>
-                <div className="hero-badge">Back-to-back attempts • Evening + next-day follow-up</div>
-                <div className="hero-badge">Booking + no-show recovery + dispatch support</div>
-                <div className="hero-badge">
-                  Built for {selectedLabel || "growing teams"} that hate missed calls
-                </div>
-              </div>
-
-              <p className="hero-note">
-                <span>No lock-in.</span> Start with inbound calls and expand into a full workforce
-                as you see it perform.
-              </p>
             </div>
 
-            <div className="hero-side">
-              <form id="leadForm" className="lead-form" onSubmit={handleLeadSubmit}>
-                <h2>FREE LIVE DEMO CALL</h2>
-                <p>
-                  Drop in your details and we&apos;ll spin up a live call demo
-                  tailored to your {selectedLabel || "business"}.
-                </p>
+            <div>
+              {step === "details" ? (
+                <form id="leadForm" className="formCard" onSubmit={handleSubmit}>
+                  <h3>RUN THE LIVE DEMO</h3>
+                  <p>You’ll receive a text first, then a call right after to experience the booking flow.</p>
 
-                <label htmlFor="firstName">First Name *</label>
-                <input id="firstName" name="firstName" required />
+                  <label htmlFor="firstName">First Name *</label>
+                  <input id="firstName" name="firstName" required />
 
-                <label htmlFor="email">Email *</label>
-                <input id="email" name="email" type="email" required />
+                  <label htmlFor="email">Email *</label>
+                  <input id="email" name="email" type="email" required />
 
-                <label htmlFor="phone">Phone *</label>
-                <input id="phone" name="phone" type="tel" required />
+                  <label htmlFor="phone">Mobile Number *</label>
+                  <input id="phone" name="phone" type="tel" required />
 
-                <label htmlFor="companyType">Business / Team Type</label>
-                <input
-                  id="companyType"
-                  name="companyType"
-                  placeholder={selectedLabel || "Med spa, HVAC, inside sales team..."}
-                />
+                  <label htmlFor="businessType">Business / Team Type</label>
+                  <input
+                    id="businessType"
+                    name="businessType"
+                    placeholder={track === "sales" ? "SaaS, high-ticket, inside sales..." : "Med spa, HVAC, dental, showroom..."}
+                  />
 
-                <div className="consent-row">
-                  <input id="consent" name="consent" type="checkbox" />
-                  <span>
-                    I agree to receive SMS updates related to my inquiry from All In Digital.
-                    By providing your phone number and opting in, you agree to receive SMS
-                    updates related to your inquiry from All In Digital (such as demo links,
-                    confirmations, and follow-up information you requested). Message
-                    frequency may vary. Message &amp; data rates may apply. Reply STOP to
-                    opt out and HELP for help. Consent is not a condition of purchase. We do
-                    not sell or share your mobile number with third parties for marketing or
-                    promotional purposes.
-                  </span>
-                </div>
+                  <label htmlFor="website">Website (optional)</label>
+                  <input id="website" name="website" placeholder="https://..." />
 
-                <button type="submit" className="lead-submit-btn" disabled={isSubmitting}>
-                  {isSubmitting
-                    ? "Sending..."
-                    : formSubmitted
-                    ? "Submitted – we’ll be in touch shortly"
-                    : "Get My Live AI Demo"}
-                </button>
+                  <input type="hidden" name="track" value={track ?? ""} />
 
-                <div className="lead-sms-tip">
-                  Tip: Our live demo and follow-up support are delivered by SMS. If you
-                  don&apos;t allow SMS updates, we won&apos;t be able to proceed with this
-                  request.
-                </div>
-
-                {submitError && (
-                  <div style={{ marginTop: 6, fontSize: "0.82rem", color: "#f87171" }}>
-                    {submitError}
+                  <div className="consentRow">
+                    <input id="consent" name="consent" type="checkbox" required />
+                    <div className="consentText">
+                      <strong>Required:</strong> I agree to receive SMS updates related to my inquiry from
+                      All In Digital (demo link, confirmations, follow-up I requested). Message
+                      frequency may vary. Message &amp; data rates may apply. Reply STOP to opt out
+                      and HELP for help. Consent is not a condition of purchase. We do not sell
+                      or share your mobile number with third parties for marketing/promotional purposes.
+                    </div>
                   </div>
-                )}
 
-                {formSubmitted && (
-                  <div className="lead-thankyou">
-                    Thanks! We&apos;ll confirm by email/text and share a live call link.
-                  </div>
-                )}
-              </form>
-
-              <div className="selector-card">
-                <div className="selector-title">Who do you want this built around?</div>
-                <div className="selector-sub">
-                  Choose one so we can tailor the workflow &amp; examples you&apos;re about to
-                  see.
-                </div>
-
-                <div className="selector-buttons">
-                  <button
-                    type="button"
-                    className={
-                      "selector-button" +
-                      (industryTrack === "sales" ? " selector-button--active" : "")
-                    }
-                    onClick={() => handleTrackSelect("sales")}
-                  >
-                    <strong>Sales Teams</strong>
-                    <span>Inbound demos, discovery calls, consults, and pipelines.</span>
+                  <button className="submitBtn" type="submit" disabled={isSubmitting || submitted}>
+                    {isSubmitting ? "Sending..." : submitted ? "Submitted — demo running" : "Start the live demo"}
                   </button>
-                  <button
-                    type="button"
-                    className={
-                      "selector-button" +
-                      (industryTrack === "local" ? " selector-button--active" : "")
-                    }
-                    onClick={() => handleTrackSelect("local")}
-                  >
-                    <strong>Local Businesses</strong>
-                    <span>Med spa, dental, home services, showrooms, and more.</span>
-                  </button>
-                </div>
 
-                <div className="selector-continue">
-                  <div className="selector-helper">
-                    {industryTrack
-                      ? `Great — we’ll show you how a workforce fits a ${selectedLabel.toLowerCase()}.`
-                      : "Tap a box above to select your type, then continue."}
+                  <div className="formNote">
+                    Heads up: the demo is delivered by SMS. If SMS consent isn’t checked, we can’t run it.
                   </div>
-                  {industryTrack && (
-                    <button type="button" className="continue-btn" onClick={handleContinue}>
-                      Continue <span>↗</span>
-                    </button>
-                  )}
+
+                  {submitError ? <div className="error">{submitError}</div> : null}
+
+                  {submitted ? (
+                    <>
+                      <div className="success">✅ Submitted. Watch your phone.</div>
+
+                      {demoStatus ? (
+                        <div className="demoPanel">
+                          <div className="demoTop">
+                            <div className="demoTitle">{demoStatus.title}</div>
+                            <div className={cx("demoBadge", demoStatus.accent)}>
+                              {demoPhase === "call_now" ? "INCOMING" : "LIVE"}
+                            </div>
+                          </div>
+                          <div className="demoLine">{demoStatus.line1}</div>
+                          <div className="demoLine">{demoStatus.line2}</div>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
+                </form>
+              ) : (
+                <div className="card cardAlt">
+                  <div className="cardTitle">What you’ll see after you continue</div>
+                  <div className="cardSub">Simple. Fast. High-intent.</div>
+                  <ul className="list">
+                    <li>Speed-to-lead sequence (collapsed view + full view)</li>
+                    <li>How answered calls route into booking</li>
+                    <li>How missed calls trigger automated follow-up</li>
+                    <li>How the pre-call video protects show rate</li>
+                  </ul>
+                  <div className="tiny">Choose your track on the left, then hit Continue.</div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </section>
 
-        {hasContinued && (
-          <section id="ai-workforce-block" className="reveal-wrapper fade-on-scroll">
-            <div className="reveal-intro fade-on-scroll">
-              <div className="pill-tag">
-                Built for <span>{selectedLabel || "growing teams"}</span>
-              </div>
-              <div className="reveal-kicker">Your Workforce, Not “Just a Bot”</div>
-              <h2 className="reveal-heading">
-                We roll out a small team around your{" "}
-                {isSales ? "sales operation" : "front desk & field team"}.
-              </h2>
-              <p className="reveal-sub">
-                Think of this like hiring a full small team — booking, recovering,
-                dispatching, and cleaning up your pipeline — but always on for your{" "}
-                {isSales ? "closers & reps" : "locations & crews"}.
-              </p>
+        {step === "details" ? (
+          <>
+            {/* WHAT HAPPENS */}
+            <section className="section" id="what-happens">
+              <SectionHeading
+                kicker="What happens after the form"
+                title="Your Speed-to-Lead Sequence"
+                sub="Kept short by default. Expand it if you want the full cadence details."
+              />
 
-              {/* NEW: performance cards in reveal area too */}
-              <div className="performance-grid">
-                <div className="performance-card">
-                  <div className="performance-tag">
-                    <b>Up to 800%</b> bookings
-                  </div>
-                  <div className="performance-title">Speed-to-lead</div>
-                  <div className="performance-desc">
-                    If leads hear from you inside 5 minutes, bookings can jump dramatically compared to slow response.
-                  </div>
-                </div>
-                <div className="performance-card">
-                  <div className="performance-tag">
-                    <b>Up to 1500%</b> bookings
-                  </div>
-                  <div className="performance-title">Follow-up sequence</div>
-                  <div className="performance-desc">
-                    Smart evening + next-day follow-up turns “missed” into “booked,” instead of slipping away.
-                  </div>
-                </div>
-                <div className="performance-card">
-                  <div className="performance-tag">
-                    <b>+20 to +60 pts</b> show rate
-                  </div>
-                  <div className="performance-title">No-show prevention</div>
-                  <div className="performance-desc">
-                    Anchoring expectations in booking + reinforcing pre-call makes people actually show up prepared.
-                  </div>
-                </div>
-                <div className="performance-card">
-                  <div className="performance-tag">
-                    <b>+20 to +40 pts</b> close rate
-                  </div>
-                  <div className="performance-title">Pre-call training</div>
-                  <div className="performance-desc">
-                    Prospects arrive “sold” on the process, and sales performance becomes more predictable across reps.
-                  </div>
-                </div>
-              </div>
-            </div>
+              <div className="cards2">
+                <div className="card">
+                  <div className="cardTitle">The “short version”</div>
+                  <div className="cardSub">This is what matters to a decision-maker.</div>
+                  <ul className="list">
+                    <li>Lead gets a text in ~5 seconds.</li>
+                    <li>Then a call in ~15–20 seconds.</li>
+                    <li>If missed, follow-up continues automatically until contact or stop.</li>
+                  </ul>
 
-            <div className="reveal-grid">
-              <div className="panel fade-on-scroll">
-                <div className="panel-header">
-                  <div className="panel-title">🧠 Your Workforce Flow</div>
-                  <div className="panel-label">
-                    {isSales ? "Lead → Meeting" : "Call → Job"}
+                  <div className="ctaRow" style={{ marginTop: 12 }}>
+                    <button
+                      className="btnPrimary"
+                      type="button"
+                      onClick={() => setShowFullCadence((v) => !v)}
+                    >
+                      {showFullCadence ? "Hide full cadence" : "Show full cadence"}
+                    </button>
+
+                    <button className="btnGhost" type="button" onClick={() => jumpTo("leadForm")}>
+                      Run the live demo
+                    </button>
+                  </div>
+
+                  <div className="tiny">
+                    If they answer, they route into booking. If they don’t, the cadence keeps working.
                   </div>
                 </div>
 
-                <div className="flow-section">
-                  <h4>Top of Funnel</h4>
-                  <p>
-                    Instant response + structured booking. This is where the biggest
-                    appointment lift typically comes from.
-                  </p>
-                  <div className="flow-steps">
-                    <div className="flow-step">
-                      <div className="flow-step-title">
-                        {isSales ? "Inbound SDR" : "Inbound Agent"}
-                      </div>
-                      <div className="flow-step-desc">
-                        Answers every call, captures name + intent, routes intelligently
-                        {isSales ? " to demos, discovery, or support queues." : "."}
-                      </div>
-                    </div>
-                    <div className="arrow-down">↓</div>
-                    <div className="flow-step">
-                      <div className="flow-step-title">
-                        {isSales ? "Meeting Booker" : "Booking Agent"}
-                      </div>
-                      <div className="flow-step-desc">
-                        Qualifies fast, anchors expectations, and books on your calendar in real time.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flow-section">
-                  <h4>Recovery &amp; Follow-Up</h4>
-                  <p>
-                    This is the “quiet money.” Most teams leak after the first attempt.
-                    The follow-up engine keeps leads from slipping away.
-                  </p>
-                  <div className="flow-steps">
-                    <div className="flow-step">
-                      <div className="flow-step-title">No-Show Recovery Agent</div>
-                      <div className="flow-step-desc">
-                        Calls &amp; texts missed appointments to reschedule and fill gaps so
-                        your {isSales ? "calendar" : "schedule"} stays full.
-                      </div>
-                    </div>
-                    <div className="arrow-down">↓</div>
-                    <div className="flow-step">
-                      <div className="flow-step-title">Follow-Up &amp; Nurture Agent</div>
-                      <div className="flow-step-desc">
-                        Runs timed call/SMS attempts (same day + next day) and long-tail nurture so “not now” doesn’t become “never.”
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flow-section">
-                  <h4>Operations</h4>
-                  <p>
-                    Operational chatter that eats your team’s time gets handled, so humans
-                    stay on revenue + fulfillment work.
-                  </p>
-                  <div className="flow-steps">
-                    <div className="flow-step">
-                      <div className="flow-step-title">
-                        {isSales ? "Pipeline &amp; Calendar Coordinator" : "Dispatcher Agent"}
-                      </div>
-                      <div className="flow-step-desc">
-                        Handles ETAs, delays, confirmations, and “where are you” calls so{" "}
-                        {isSales ? "reps and closers" : "field teams"} keep moving.
-                      </div>
-                    </div>
-                    <div className="arrow-down">↓</div>
-                    <div className="flow-step">
-                      <div className="flow-step-title">Handoff / Finance Agent</div>
-                      <div className="flow-step-desc">
-                        Collects payment links, sends agreements, and pushes clean handoffs into your CRM and tools.
-                      </div>
-                    </div>
-                  </div>
+                <div className="card cardAlt">
+                  <div className="cardTitle">What happens when they answer</div>
+                  <div className="cardSub">It’s not a “chatbot.” It’s a structured booking flow.</div>
+                  <ul className="list">
+                    <li>Discovery that pulls pain point → deeper pain → impact → desired outcome.</li>
+                    <li>Then routes into booking on your calendar.</li>
+                    <li>Then triggers pre-call preparation so they show up ready.</li>
+                  </ul>
                 </div>
               </div>
 
-              <div className="panel panel-alt fade-on-scroll">
-                <div className="panel-header">
-                  <div className="panel-title">🚀 What This Team Can Handle</div>
-                  <div className="panel-label">Day-to-day job description</div>
-                </div>
-                <ul className="panel-list">
-                  <li>
-                    <strong>Speed-to-lead.</strong> SMS in ~5 seconds and calls in ~15–20 seconds to maximize bookings.
-                  </li>
-                  <li>
-                    <strong>Book Revenue Time.</strong>{" "}
-                    {isSales
-                      ? "Pushes serious prospects into booked demos and consults."
-                      : "Pushes serious prospects into booked calendar slots."}
-                  </li>
-                  <li>
-                    <strong>No-Show Prevention.</strong> Anchors expectations in booking and reinforces them pre-call.
-                  </li>
-                  <li>
-                    <strong>Recovery.</strong> Reschedules no-shows and fills gaps automatically.
-                  </li>
-                  <li>
-                    <strong>Ops Support.</strong> ETAs, confirmations, and client updates without staff juggling phones.
-                  </li>
-                  <li>
-                    <strong>Optional done-for-you sales.</strong> If you want to focus on fulfillment, we can handle follow-up + selling + scheduling.
-                  </li>
-                  <li>
-                    <strong>Optional quoting help.</strong> Generate draft estimates/bids so you stop losing hours writing quotes.
-                  </li>
-                  <li>
-                    <strong>Email + outreach support.</strong> Inbox responses + B2B outreach with human alerts when needed.
-                  </li>
-                </ul>
-              </div>
-            </div>
+              {showFullCadence ? (
+                <div className="cards2" style={{ marginTop: 14 }}>
+                  <div className="card">
+                    <div className="cardTitle">First 5 minutes (expanded)</div>
+                    <div className="cardSub">Immediate and structured — without relying on humans remembering.</div>
 
-            <div className="section-row">
-              <div className="panel panel-alt fade-on-scroll">
-                <div className="panel-header">
-                  <div className="panel-title">💵 What This Quietly Replaces</div>
-                  <div className="panel-label">Where the hidden ROI lives</div>
+                    <div className="timeline">
+                      <div className="tItem">
+                        <div className="tTop">
+                          <div className="tLabel">Text goes out</div>
+                          <div className="tTime">~5 sec</div>
+                        </div>
+                        <div className="tDesc">Confirms they reached the right place and primes them to answer.</div>
+                      </div>
+
+                      <div className="tItem">
+                        <div className="tTop">
+                          <div className="tLabel">Call attempt #1</div>
+                          <div className="tTime">~15–20 sec</div>
+                        </div>
+                        <div className="tDesc">If answered → routes into booking immediately.</div>
+                      </div>
+
+                      <div className="tItem">
+                        <div className="tTop">
+                          <div className="tLabel">Back-to-back call attempt</div>
+                          <div className="tTime">if no answer</div>
+                        </div>
+                        <div className="tDesc">Second attempt quickly to catch “missed it / phone in pocket.”</div>
+                      </div>
+
+                      <div className="tItem">
+                        <div className="tTop">
+                          <div className="tLabel">Text follow-up</div>
+                          <div className="tTime">~4 min</div>
+                        </div>
+                        <div className="tDesc">Reinforces next step and keeps momentum while intent is high.</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="card cardAlt">
+                    <div className="cardTitle">Long-tail follow-up (expanded)</div>
+                    <div className="cardSub">This is where most pipelines die — unless it’s automated.</div>
+
+                    <ul className="list">
+                      <li>Evening attempt (example: ~7:55pm) if still uncontacted.</li>
+                      <li>Next-day morning call + text touches (example: ~8:15am + ~9:15am).</li>
+                      <li>Outcome routing: booked, not now, no answer, wrong number, stop, etc.</li>
+                      <li>Stops or changes paths based on what actually happened.</li>
+                    </ul>
+
+                    <div className="tiny">You’re not buying “messages.” You’re buying consistent execution.</div>
+                  </div>
                 </div>
-                <ul className="panel-list">
-                  <li>
-                    <strong>Missed &amp; Abandoned Calls.</strong> Calls that hit voicemail are often lost deals.
-                  </li>
-                  <li>
-                    <strong>Slow Follow-Up.</strong> Leads drift to whoever answers first.
-                  </li>
-                  <li>
-                    <strong>No-Show Waste.</strong> Empty slots = lost production time &amp; ad spend.
-                  </li>
-                  <li>
-                    <strong>Manual Dispatch + Inbox Load.</strong> Teams stuck updating clients instead of doing revenue work.
-                  </li>
-                  <li>
-                    <strong>Quote/Bid Time Sink.</strong> Hours per day writing estimates when it can be templated + drafted.
-                  </li>
-                </ul>
-                <p className="hero-note" style={{ marginTop: 10 }}>
-                  Most growing {isSales ? "sales teams" : "service businesses"} leak huge money
-                  through these gaps. This exists to plug them.
-                </p>
+              ) : null}
+            </section>
+
+            {/* PRE-CALL VIDEO */}
+            <section className="section" id="precall">
+              <SectionHeading
+                kicker="Show-rate protection"
+                title="Pre-Call Training Video Framework"
+                sub="If you don’t have reviews/case studies yet, you can still run a strong pre-call video using a clean structure like this."
+              />
+
+              <div className="cards2">
+                <div className="card">
+                  <div className="cardTitle">What the pre-call video does</div>
+                  <div className="cardSub">Sets expectations, filters non-serious prospects, and protects your calendar.</div>
+                  <ul className="list">
+                    <li>Clarifies who this is for (high-intent leads, real demand).</li>
+                    <li>Frames “why you” and how you solve the problem.</li>
+                    <li>Protects the slot (no-show / reschedule boundaries).</li>
+                    <li>Preps them for the consult so the call is faster and more productive.</li>
+                  </ul>
+
+                  <div className="ctaRow" style={{ marginTop: 12 }}>
+                    <button className="btnPrimary" type="button" onClick={() => setShowScriptOutline((v) => !v)}>
+                      {showScriptOutline ? "Hide outline" : "Show outline"}
+                    </button>
+                    <button className="btnGhost" type="button" onClick={() => setShowPersonalization((v) => !v)}>
+                      {showPersonalization ? "Hide personalization" : "Optional: Personalized video"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="card cardAlt">
+                  <div className="cardTitle">Outline (simple + proven)</div>
+                  <div className="cardSub">Use this even if you don’t have proof yet — then add proof as you earn it.</div>
+
+                  {showScriptOutline ? (
+                    <>
+                      <Accordion title="Part 1 — Quick intro + who it’s for" defaultOpen>
+{`• Quick intro (what this call is and is not)
+• Who this is for (what qualifies someone to take the consult)
+• What they’ll get out of showing up prepared`}
+                      </Accordion>
+
+                      <Accordion title="Part 2 — Reframe no-show / reschedule boundaries">
+{`• Why the slot is protected
+• What happens if someone no-shows or tries to move last second
+• How watching the video prevents it from ever being an issue`}
+                      </Accordion>
+
+                      <Accordion title="Part 3 — Credibility / proof (when you have it)">
+{`• Best project / best result
+• “What we did” and “what changed”
+• Screenshots / short clips / before & after (as you earn them)`}
+                      </Accordion>
+
+                      <Accordion title="Part 4 — DIY vs done-with-you / done-for-you framing">
+{`• Teach them what DIY really costs (time + people + inconsistency)
+• Show why an expert-installed system compresses time-to-results
+• Explain next steps for the consultation`}
+                      </Accordion>
+
+                      <Accordion title="Part 5 — More proof + outro">
+{`• Add more reviews/case studies over time (2–4 pages is fine)
+• Re-anchor boundaries one more time
+• Close with clear expectations + gratitude`}
+                      </Accordion>
+                    </>
+                  ) : (
+                    <div className="tiny">Outline hidden — click “Show outline” to expand.</div>
+                  )}
+                </div>
               </div>
 
-              <div className="roi-card fade-on-scroll">
-                <h3>📈 See Your Potential ROI</h3>
-                <p>
-                  Use this calculator to estimate what faster response, follow-up, improved show rates,
-                  and higher close rates could recover — before you ever discuss pricing.
-                </p>
-                <button className="roi-cta-btn" type="button" onClick={openRoi}>
-                  Open ROI Calculator
+              {showPersonalization ? (
+                <div className="card" style={{ marginTop: 14 }}>
+                  <div className="cardTitle">Optional: Personalized pre-call video</div>
+                  <div className="cardSub">High-end experience that increases trust and preparedness.</div>
+                  <ul className="list">
+                    <li>During booking, we capture 4 core variables: pain point, deeper pain, impact, desired outcome.</li>
+                    <li>Those are used to personalize the pre-call video so it reflects the prospect’s exact words.</li>
+                    <li>We can nudge them 30 minutes before the call/visit to watch (or re-watch) the key section.</li>
+                  </ul>
+                  <div className="tiny">
+                    Kept short on purpose — this is a “wow” feature you can expand verbally, not a wall of text on the landing page.
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            {/* OPTIONS (NO PRICES) */}
+            <section className="section" id="options">
+              <SectionHeading
+                kicker="How we can help"
+                title="Three ways to implement"
+                sub="No pricing on this page — we map fit first, then recommend the simplest path that gets results."
+              />
+
+              <div className="cards3">
+                <div className="card">
+                  <div className="cardTitle">Option 1 — DIY</div>
+                  <div className="cardSub">Your team builds it internally.</div>
+                  <ul className="list">
+                    <li>Clear blueprint for the speed-to-lead sequence + booking flow.</li>
+                    <li>Outcome routing and follow-up logic defined.</li>
+                    <li>Best if you already have a technical operator/dev.</li>
+                  </ul>
+                </div>
+
+                <div className="card cardAlt">
+                  <div className="cardTitle">Option 2 — Done-With-You</div>
+                  <div className="cardSub">We guide implementation with your team.</div>
+                  <ul className="list">
+                    <li>We install the logic with your tools and your constraints.</li>
+                    <li>Your team learns the system and owns it.</li>
+                    <li>Best if you want speed + internal ownership.</li>
+                  </ul>
+                </div>
+
+                <div className="card">
+                  <div className="cardTitle">Option 3 — Done-For-You</div>
+                  <div className="cardSub">We install the full operating system.</div>
+                  <ul className="list">
+                    <li>Speed-to-lead → booking → follow-up → show-rate protection.</li>
+                    <li>Optional: personalized pre-call video layer.</li>
+                    <li>Best if you want outcomes and minimal lift.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="ctaRow" style={{ marginTop: 14 }}>
+                <button className="btnPrimary" type="button" onClick={() => jumpTo("leadForm")}>
+                  Run the live demo
+                </button>
+                <button className="btnGhost" type="button" onClick={() => jumpTo("precall")}>
+                  See pre-call framework
                 </button>
               </div>
-            </div>
+            </section>
 
-            <div className="section-row">
-              <div className="fade-on-scroll">
-                <div className="panel panel-alt">
-                  <div className="panel-header">
-                    <div className="panel-title">📦 How We Roll This Out</div>
-                    <div className="panel-label">Phased, low-risk rollout</div>
-                  </div>
-                  <p style={{ fontSize: "0.98rem", color: "#CBD5F5", marginBottom: 10 }}>
-                    We phase this in to match where your operation is today — fast wins first,
-                    then deeper automation.
-                  </p>
-                  <div className="phase-grid">
-                    <div className="phase-card fade-on-scroll">
-                      <div className="phase-chip">Phase 1</div>
-                      <div className="phase-title">Speed-to-Lead + Booking</div>
-                      <ul className="phase-list">
-                        <li>Instant response for inbound calls + form leads.</li>
-                        <li>Booking flow + calendar integration.</li>
-                        <li>Expectation anchoring to reduce no-shows.</li>
-                        <li>Basic reporting on calls &amp; bookings.</li>
-                      </ul>
-                    </div>
-                    <div className="phase-card fade-on-scroll">
-                      <div className="phase-chip">Phase 2</div>
-                      <div className="phase-title">Follow-Up + Recovery</div>
-                      <ul className="phase-list">
-                        <li>No-show recovery (call + SMS).</li>
-                        <li>Evening + next-day follow-up sequences.</li>
-                        <li>Long-tail nurture for “not now” leads.</li>
-                        <li>Routing improvements based on real results.</li>
-                      </ul>
-                    </div>
-                    <div className="phase-card fade-on-scroll">
-                      <div className="phase-chip">Phase 3</div>
-                      <div className="phase-title">Ops + Done-For-You Options</div>
-                      <ul className="phase-list">
-                        <li>Dispatch updates, confirmations, and scheduling support.</li>
-                        <li>Quote/bid drafting support to save hours/day.</li>
-                        <li>Inbox response support + outreach workflows.</li>
-                        <li>Optional done-for-you sales so you focus on fulfillment.</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="advanced-card fade-on-scroll">
-                <div className="advanced-chip">
-                  <span />
-                  Optional: Done-for-you selling + ops
-                </div>
-                <h3>Want to Focus Only on Fulfillment?</h3>
-                <p>
-                  If you’re a one-person shop (or you just hate selling), we can structure this so you mostly see:
-                  jobs scheduled on your calendar + clear notes on what the client wants.
-                </p>
-                <p style={{ fontSize: "0.94rem", color: "#FDE68A" }}>
-                  Includes optional support like quote drafting (bids/estimates), inbox responses, and B2B outreach —
-                  with human alerts when needed.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        <footer className="footer-legal">
-          <span>© {new Date().getFullYear()} All In Digital. </span>
-          <a href="/terms" target="_blank" rel="noopener noreferrer">
-            Terms of Service
-          </a>
-          {" · "}
-          <a href="/privacy" target="_blank" rel="noopener noreferrer">
-            Privacy Policy
-          </a>
-        </footer>
+            <footer className="footer">
+              <span>© {new Date().getFullYear()} All In Digital. </span>
+              <a href="/terms" target="_blank" rel="noopener noreferrer">Terms</a>
+              {" · "}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>
+            </footer>
+          </>
+        ) : null}
       </div>
 
-      {/* ROI Modal */}
-      {isRoiOpen && (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal-card fade-up">
-            <div className="modal-header">
-              <h2>ROI Calculator</h2>
-              <button className="modal-close" type="button" onClick={closeRoi}>
-                Close
-              </button>
+      {step === "details" ? (
+        <div className="sticky">
+          <div className="stickyInner">
+            <div className="stickyText">
+              Ready to run the demo for <span>{trackLabel}</span>?
             </div>
-            <div className="modal-body">
-              <p>
-                Plug in your real numbers. This models potential upside from faster response + consistent follow-up + improved show & close rates.
-              </p>
-
-              <div className="modal-grid">
-                <div className="modal-field">
-                  <label htmlFor="leads">Monthly leads / inbound calls</label>
-                  <input
-                    id="leads"
-                    type="number"
-                    min={0}
-                    value={monthlyLeads}
-                    onChange={(e) => setMonthlyLeads(e.target.value)}
-                  />
-                </div>
-
-                <div className="modal-field">
-                  <label htmlFor="bookRate">Lead → booked appt rate (%)</label>
-                  <input
-                    id="bookRate"
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={bookRate}
-                    onChange={(e) => setBookRate(e.target.value)}
-                  />
-                </div>
-
-                <div className="modal-field">
-                  <label htmlFor="showRate">Show rate (%)</label>
-                  <input
-                    id="showRate"
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={showRate}
-                    onChange={(e) => setShowRate(e.target.value)}
-                  />
-                </div>
-
-                <div className="modal-field">
-                  <label htmlFor="closeRate">Close rate (of shows) (%)</label>
-                  <input
-                    id="closeRate"
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={closeRate}
-                    onChange={(e) => setCloseRate(e.target.value)}
-                  />
-                </div>
-
-                <div className="modal-field">
-                  <label htmlFor="dealSize">Average ticket / deal size ($)</label>
-                  <input
-                    id="dealSize"
-                    type="number"
-                    min={0}
-                    value={avgDealSize}
-                    onChange={(e) => setAvgDealSize(e.target.value)}
-                  />
-                </div>
-
-                <div className="modal-field">
-                  <label htmlFor="bookingLift">Booking lift scenario</label>
-                  <select
-                    id="bookingLift"
-                    value={bookingLiftMode}
-                    onChange={(e) => setBookingLiftMode(e.target.value as any)}
-                  >
-                    <option value="none">No booking lift</option>
-                    <option value="800">Speed-to-lead (Up to 800%)</option>
-                    <option value="1500">Speed + follow-up (Up to 1500%)</option>
-                  </select>
-                </div>
-
-                <div className="modal-field">
-                  <label htmlFor="showUplift">Show-rate uplift (+ pts, 0–60)</label>
-                  <input
-                    id="showUplift"
-                    type="number"
-                    min={0}
-                    max={60}
-                    value={showUpliftPts}
-                    onChange={(e) => setShowUpliftPts(e.target.value)}
-                  />
-                </div>
-
-                <div className="modal-field">
-                  <label htmlFor="closeUplift">Close-rate uplift (+ pts, 0–40)</label>
-                  <input
-                    id="closeUplift"
-                    type="number"
-                    min={0}
-                    max={40}
-                    value={closeUpliftPts}
-                    onChange={(e) => setCloseUpliftPts(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="modal-metric">
-                Baseline revenue / month:
-                <strong>
-                  ${baselineRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </strong>
-
-                <div style={{ marginTop: 8 }}>
-                  Projected revenue / month:
-                  <strong>
-                    ${projectedRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </strong>
-                </div>
-
-                <div style={{ marginTop: 8 }}>
-                  Estimated lift / month:
-                  <strong>
-                    ${extraRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </strong>
-                </div>
-              </div>
-
-              <div className="modal-footnote">
-                This is “math on your inputs,” not a promise. “Up to” results depend on your starting response time,
-                lead quality, offer, and consistent execution.
-              </div>
-            </div>
+            <button className="stickyBtn" type="button" onClick={() => jumpTo("leadForm")}>
+              Start demo
+            </button>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Exit Intent Modal (desktop + mobile) */}
-      {isExitIntentOpen && (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal-card fade-up">
-            <div className="modal-header">
-              <h2>Before you bounce...</h2>
-              <button className="modal-close" type="button" onClick={closeExitIntent}>
-                Close
-              </button>
-            </div>
-            <div className="modal-body">
-              <p>
-                Most teams don&apos;t realize how much revenue quietly leaks through
-                voicemail, slow follow-up, and no-shows.
-              </p>
-              <p style={{ marginTop: 8 }}>
-                Want a{" "}
-                <span className="exit-highlight">
-                  quick look at what a workforce could recover
-                </span>{" "}
-                for your {selectedLabel || "business"}?
-              </p>
-
-              <form className="exit-form" onSubmit={handleExitLeadSubmit}>
-                <label htmlFor="exitName">First name</label>
-                <input id="exitName" name="exitName" required />
-
-                <label htmlFor="exitPhone">Mobile number</label>
-                <input id="exitPhone" name="exitPhone" type="tel" required />
-
-                <div className="exit-consent-row">
-                  <input id="exitConsent" name="exitConsent" type="checkbox" />
-                  <span>Yes, I want SMS updates related to this inquiry.</span>
-                </div>
-
-                <small>
-                  I agree to receive SMS updates related to my inquiry from All In Digital.
-                  We’ll send you a text with a link to a live call demo and a brief
-                  summary of how a workforce could help. Message frequency may vary.
-                  Message &amp; data rates may apply. Reply STOP to opt out and HELP for help.
-                  Consent is not a condition of purchase. We do not sell or share your mobile
-                  number with third parties for marketing or promotional purposes.
-                </small>
-
-                <button type="submit" className="exit-submit-btn">
-                  Book my live call
-                </button>
-
-                {exitFormSubmitted && (
-                  <div className="exit-thankyou">
-                    Thanks! We&apos;ll text you a live demo link shortly.
-                  </div>
-                )}
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sticky bottom CTA */}
-      <div className="sticky-cta">
-        <div className="sticky-inner fade-on-scroll">
-          <div className="sticky-text">
-            Ready to see what a workforce could recover for{" "}
-            <span>{selectedLabel || "your business"}</span>?
-          </div>
-          <button className="sticky-btn" type="button" onClick={() => jumpToId("leadForm")}>
-            Get a live call demo
-          </button>
-        </div>
-      </div>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            (function () {
+              try {
+                const els = document.querySelectorAll('.fade-on-scroll');
+                if (!('IntersectionObserver' in window) || !els.length) return;
+                const io = new IntersectionObserver((entries) => {
+                  entries.forEach((e) => {
+                    if (e.isIntersecting) {
+                      e.target.classList.add('is-visible');
+                      io.unobserve(e.target);
+                    }
+                  });
+                }, { threshold: 0.14 });
+                els.forEach((el) => io.observe(el));
+              } catch {}
+            })();
+          `,
+        }}
+      />
     </main>
   );
 }
