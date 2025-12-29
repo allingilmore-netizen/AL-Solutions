@@ -650,9 +650,12 @@ export default function PricingPage() {
         <section className="hero">
           <div className="hcard">
             <div className="eyebrow">Offer & Pricing</div>
-            <h1 className="h1">
-              Stop losing money to <span>missed calls</span>, slow follow-up, and no-shows.
-            </h1>
+           <h1 className="h1">
+            <span className="h1Plain">Stop losing money to </span>
+            <span className="h1Accent">missed calls</span>
+            <span className="h1Plain">, slow follow-up, and no-shows.</span>
+          </h1>
+
             <p className="sub">
               We run a 24/7 AI booking + follow-up system that sits on top of your calendar and phone number.
               The goal is simple: more booked appointments, more shows, and more recovered leads.
