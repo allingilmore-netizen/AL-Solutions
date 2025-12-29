@@ -36,11 +36,23 @@ function Accordion(props: {
   );
 }
 
+type Package = {
+  key: PackageKey;
+  title: string;
+  bestFor: string;
+  setup: string;
+  monthly: string;
+  monthlyNote?: string;
+  bullets: string[];
+  notIncluded: string[];
+  pricingNotes?: string[];
+};
+
 export default function PricingPage() {
   const [industry, setIndustry] = useState<IndustryKey>("trades");
   const [selected, setSelected] = useState<PackageKey>("B");
 
-  // lightweight ROI calculator (optional, not “promises”)
+  // lightweight ROI estimator
   const [leads, setLeads] = useState("120");
   const [contactRate, setContactRate] = useState("55"); // %
   const [bookRate, setBookRate] = useState("35"); // %
@@ -59,16 +71,12 @@ export default function PricingPage() {
   }, [leads, contactRate, bookRate, showRate, avgTicket]);
 
   const roi = useMemo(() => {
-    // Baseline (simple funnel): leads -> contacted -> booked -> shows -> revenue
     const contacted = parsed.leads * (parsed.contactRate / 100);
     const booked = contacted * (parsed.bookRate / 100);
     const shows = booked * (parsed.showRate / 100);
     const revenue = shows * parsed.avgTicket;
 
-    // Conservative “improvement” model (editable later):
-    // - improve contact rate by +20 points (cap 95)
-    // - improve booked rate by +10 points (cap 80)
-    // - improve show rate by +10 points (cap 95)
+    // conservative improvement model (editable later):
     const improvedContact = parsed.leads * (Math.min(95, parsed.contactRate + 20) / 100);
     const improvedBooked = improvedContact * (Math.min(80, parsed.bookRate + 10) / 100);
     const improvedShows = improvedBooked * (Math.min(95, parsed.showRate + 10) / 100);
@@ -104,14 +112,15 @@ export default function PricingPage() {
     }
   }, [industry]);
 
-  const packages = useMemo(
+  const packages: Package[] = useMemo(
     () => [
       {
-        key: "A" as const,
+        key: "A",
         title: "Package A — Answer + Book",
         bestFor: "Shops that miss calls, get interrupted, or have inconsistent phone coverage.",
-        setup: "$2,500",
-        monthly: "$497/mo",
+        setup: "$2,600",
+        monthly: "$494/mo",
+        monthlyNote: "+ usage",
         bullets: [
           "24/7 AI receptionist (answers calls, captures details, qualifies, routes)",
           "Appointment booking to 1 calendar (Google or GoHighLevel)",
@@ -126,35 +135,44 @@ export default function PricingPage() {
         ],
       },
       {
-        key: "B" as const,
+        key: "B",
         title: "Package B — Speed-to-Lead Booking Engine",
         bestFor: "Inbound lead flow from ads/referrals where speed matters.",
-        setup: "$6,900",
-        monthly: "$997/mo",
+        setup: "$4,400 (Add-On) or $5,300 (Standalone)",
+        monthly: "+$503/mo (Add-On) or $998/mo (Standalone)",
+        monthlyNote: "+ usage",
         bullets: [
-          "Everything in Package A",
           "Speed-to-lead: lead triggers immediate SMS + outbound call within ~60 seconds",
           "Follow-up sequence (call + SMS) for 7–14 days if not reached",
           "Appointment confirmation + reminders",
           "Reschedule + cancel flows included",
-          "Booking logic that reduces fake appointments (clear next steps + verification)",
-          "Up to 2 phone numbers included (main + tracking number)",
+          "Booking rules that reduce fake appointments (clear next steps + verification)",
+          "Works with 1–2 phone numbers (main + tracking number recommended)",
         ],
-        notIncluded: ["No-show recovery & old-lead reactivation (Package C add-on)"],
+        notIncluded: [
+          "No-show recovery & old-lead reactivation (Package C add-on)",
+        ],
+        pricingNotes: [
+          "Add-On = you already have Package A running and you’re upgrading.",
+          "Standalone = you want the speed-to-lead engine without Package A.",
+        ],
       },
       {
-        key: "C" as const,
+        key: "C",
         title: "Package C — Recovery & Reactivation Add-On",
         bestFor: "Trades with high no-show rates or lots of old estimates that died.",
-        setup: "$4,900",
-        monthly: "+$497/mo",
+        setup: "$4,940",
+        monthly: "+$494/mo",
+        monthlyNote: "+ usage",
         bullets: [
           "No-show recovery agent + workflow (calls + SMS after no-show)",
           "No-sale follow-up agent (revives didn’t-buy and stale estimates)",
-          "Call-me-back logic (caller requests callback → books time → AI executes)",
+          "Call-me-back logic (request callback → book time → AI executes)",
           "Controlled outreach cadence with opt-out handling",
         ],
-        notIncluded: ["Requires Package A or B as the base system"],
+        notIncluded: [
+          "Requires Package A or B as the base system",
+        ],
       },
     ],
     []
@@ -296,21 +314,26 @@ export default function PricingPage() {
           color: var(--muted);
           margin-bottom: 6px;
         }
+
+        /* FIX: hero headline readability */
         .h1{
           margin: 0 0 8px;
           font-size: clamp(2.1rem, 3.2vw, 2.9rem);
           letter-spacing: -0.04em;
           line-height: 1.08;
+          color: #F9FAFB;
+          text-shadow: 0 2px 22px rgba(0,0,0,.55);
         }
         .h1 span{
           background: linear-gradient(120deg, var(--gold), #F59E0B);
           -webkit-background-clip:text;
           background-clip:text;
           color: transparent;
+          text-shadow: none;
         }
         .sub{
           margin: 0;
-          color:#CBD5F5;
+          color:#E6ECFF;
           font-size: 1.02rem;
           max-width: 760px;
         }
@@ -335,10 +358,10 @@ export default function PricingPage() {
           background: rgba(2,6,23,.6);
           border: 1px solid rgba(148,163,184,.55);
         }
-        .kvl{ color: #CBD5F5; font-size:.92rem; }
+        .kvl{ color: #D9E1FF; font-size:.92rem; }
         .kvr{
           color:#E5E7EB;
-          font-weight: 700;
+          font-weight: 800;
           font-size:.95rem;
         }
         .kvr a{ color: #E5E7EB; text-decoration:none; }
@@ -348,13 +371,13 @@ export default function PricingPage() {
           display:flex;
           flex-wrap: wrap;
           gap: 10px;
-          margin-top: 6px;
+          margin-top: 10px;
         }
         .btn{
           border:none;
           border-radius:999px;
           padding: 10px 14px;
-          font-weight: 800;
+          font-weight: 900;
           cursor:pointer;
           text-decoration:none;
           display:inline-flex;
@@ -372,7 +395,7 @@ export default function PricingPage() {
           border: 1px solid rgba(148,163,184,.65);
           color: #E5E7EB;
         }
-        .btn small{ opacity: .9; font-weight: 700; }
+        .btn small{ opacity: .95; font-weight: 800; }
 
         /* Industry */
         .row{
@@ -416,7 +439,7 @@ export default function PricingPage() {
         }
         .st{
           font-size: 1.26rem;
-          font-weight: 800;
+          font-weight: 900;
           margin: 0;
         }
         .ss{
@@ -427,7 +450,7 @@ export default function PricingPage() {
         }
         .tag{
           font-size:.82rem;
-          color: var(--muted);
+          color: #D1D5DB;
           border: 1px solid rgba(148,163,184,.55);
           background: rgba(15,23,42,.7);
           padding: 4px 10px;
@@ -459,9 +482,9 @@ export default function PricingPage() {
           background: radial-gradient(circle at top left, rgba(4,120,87,.55), rgba(15,23,42,.98));
           box-shadow: 0 18px 50px rgba(4,120,87,.55);
         }
-        .pkgTitle{ font-weight: 900; font-size: 1rem; margin:0; }
-        .pkgBest{ margin: 4px 0 0; color: var(--muted); font-size:.9rem; }
-        .pkgPrice{ margin: 10px 0 0; color: #FACC15; font-weight: 900; font-size:.92rem; }
+        .pkgTitle{ font-weight: 950; font-size: 1rem; margin:0; color:#F9FAFB; }
+        .pkgBest{ margin: 4px 0 0; color: #CBD5F5; font-size:.9rem; }
+        .pkgPrice{ margin: 10px 0 0; color: #FACC15; font-weight: 950; font-size:.92rem; }
 
         /* Cards */
         .grid2{
@@ -482,10 +505,12 @@ export default function PricingPage() {
         .cardAlt{
           background: radial-gradient(circle at top, rgba(24,24,27,.96), rgba(15,23,42,.98));
         }
-        .ct{ font-weight: 900; margin:0 0 4px; }
-        .csub{ color: var(--muted); margin:0 0 8px; font-size:.93rem; }
-        .priceMain{ font-size: 1.6rem; font-weight: 1000; margin: 8px 0 0; }
-        .priceLine{ color: var(--muted); margin-top: 2px; font-size:.92rem; }
+        .ct{ font-weight: 950; margin:0 0 4px; color:#F9FAFB; }
+        .csub{ color: #CBD5F5; margin:0 0 8px; font-size:.93rem; }
+
+        .priceMain{ font-size: 1.6rem; font-weight: 1000; margin: 8px 0 0; color:#F9FAFB; }
+        .priceLine{ color: #CBD5F5; margin-top: 2px; font-size:.92rem; }
+        .priceLine strong{ color:#F9FAFB; }
 
         .list{
           list-style:none;
@@ -498,7 +523,7 @@ export default function PricingPage() {
         .list li{
           position:relative;
           padding-left: 16px;
-          color:#E5E7EB;
+          color:#EAF0FF;
         }
         .list li:before{
           content:"•";
@@ -506,6 +531,7 @@ export default function PricingPage() {
           left: 3px; top: 0;
           color: var(--gold);
         }
+
         .divider{
           height:1px;
           background: rgba(31,41,55,.85);
@@ -513,8 +539,19 @@ export default function PricingPage() {
         }
         .note{
           margin-top: 10px;
-          color: var(--muted);
+          color: #CBD5F5;
           font-size: .88rem;
+          line-height: 1.45;
+        }
+
+        .callout{
+          margin-top: 10px;
+          padding: 10px 12px;
+          border-radius: 16px;
+          border: 1px solid rgba(148,163,184,.55);
+          background: rgba(2,6,23,.45);
+          color: #EAF0FF;
+          font-size: .9rem;
           line-height: 1.45;
         }
 
@@ -534,9 +571,9 @@ export default function PricingPage() {
           border-bottom: 1px solid rgba(31,41,55,.85);
         }
         th{
-          color:#9CA3AF;
+          color:#D1D5DB;
           font-size:.84rem;
-          font-weight: 800;
+          font-weight: 900;
         }
         tr:last-child td{ border-bottom:none; }
 
@@ -560,15 +597,15 @@ export default function PricingPage() {
           color:#E5E7EB;
           text-align:left;
         }
-        .accTitle{ font-weight: 900; }
+        .accTitle{ font-weight: 950; color:#F9FAFB; }
         .accIcon{
-          color: var(--muted);
+          color: #CBD5F5;
           transition: transform .12s ease;
         }
         .accIcon--open{ transform: rotate(180deg); }
         .accBody{
           padding: 0 12px 12px;
-          color:#CBD5F5;
+          color:#EAF0FF;
           font-size:.94rem;
           line-height: 1.5;
         }
@@ -585,7 +622,7 @@ export default function PricingPage() {
           justify-content: space-between;
         }
         .footerText{
-          color:#CBD5F5;
+          color:#EAF0FF;
           font-size:.98rem;
           max-width: 820px;
         }
@@ -605,7 +642,7 @@ export default function PricingPage() {
 
           <div className="pill">
             <span className="dot" />
-            <span>24/7 booking + follow-up. Built to stop missed leads.</span>
+            <span>Answer fast • book clean • follow up automatically</span>
           </div>
         </header>
 
@@ -618,7 +655,7 @@ export default function PricingPage() {
             </h1>
             <p className="sub">
               We run a 24/7 AI booking + follow-up system that sits on top of your calendar and phone number.
-              No gimmicks — the goal is simple: more booked appointments, more shows, and more recovered leads.
+              The goal is simple: more booked appointments, more shows, and more recovered leads.
             </p>
 
             <div className="row" style={{ marginTop: 12 }}>
@@ -674,16 +711,16 @@ export default function PricingPage() {
               </a>
             </div>
 
-            <p className="note" style={{ marginTop: 10 }}>
-              Important: this system improves speed, coverage, and follow-up if your lead intake is legitimate.
-              Garbage leads = garbage results.
-            </p>
+            <div className="callout">
+              <strong>Note:</strong> This improves speed, coverage, and follow-up when your lead intake is legitimate.
+              If the leads are junk, no automation can “fix” that.
+            </div>
           </div>
 
           <div className="hcard heroRight">
             <div>
               <div className="ct">Quick snapshot</div>
-              <div className="csub">What you’re buying (in plain English)</div>
+              <div className="csub">What this system handles for you</div>
             </div>
 
             <div className="contactRow">
@@ -696,7 +733,7 @@ export default function PricingPage() {
                 <div className="kvr">Google / GHL sync</div>
               </div>
               <div className="kv">
-                <div className="kvl">Fast response</div>
+                <div className="kvl">Respond fast</div>
                 <div className="kvr">SMS + call in ~60s (Pkg B)</div>
               </div>
               <div className="kv">
@@ -712,11 +749,17 @@ export default function PricingPage() {
             <div className="divider" />
 
             <div>
-              <div className="ct">Fast way to sell it</div>
-              <div className="csub" style={{ color: "#CBD5F5" }}>
-                “We stop missed calls and slow follow-up. The system answers 24/7, books to your calendar, and follows up until you
-                either get them scheduled or they opt out.”
+              <div className="ct">How to explain it (simple)</div>
+              <div className="csub">
+                “We stop missed calls and slow follow-up. The system answers 24/7, books to your calendar,
+                and follows up until you either get them scheduled or they opt out.”
               </div>
+            </div>
+
+            <div className="divider" />
+
+            <div className="csub">
+              <strong>Bundle discounts:</strong> 8% off any two packages • 26% off all three
             </div>
           </div>
         </section>
@@ -727,10 +770,10 @@ export default function PricingPage() {
             <div>
               <p className="st">Packages</p>
               <p className="ss">
-                Pick the base system, then add recovery if you want no-shows and dead estimates handled automatically.
+                Pick your base system, then add recovery if you want no-shows and dead estimates handled automatically.
               </p>
             </div>
-            <div className="tag">Simple pricing • predictable scope</div>
+            <div className="tag">Clear packages • clean scope</div>
           </div>
 
           <div className="pkgGrid">
@@ -744,7 +787,7 @@ export default function PricingPage() {
                 <div className="pkgTitle">{p.title}</div>
                 <div className="pkgBest">{p.bestFor}</div>
                 <div className="pkgPrice">
-                  Setup {p.setup} • Ongoing {p.monthly} + usage
+                  Setup {p.setup} • Ongoing {p.monthly} {p.monthlyNote ? ` ${p.monthlyNote}` : ""}
                 </div>
               </button>
             ))}
@@ -758,8 +801,16 @@ export default function PricingPage() {
               <div className="priceMain">{active.setup}</div>
               <div className="priceLine">One-time setup</div>
               <div className="priceLine">
-                Ongoing: <strong>{active.monthly}</strong> (Platform + Support) + usage
+                Ongoing: <strong>{active.monthly}</strong> {active.monthlyNote ? ` ${active.monthlyNote}` : ""}
               </div>
+
+              {active.pricingNotes?.length ? (
+                <div className="callout">
+                  {active.pricingNotes.map((n) => (
+                    <div key={n}>• {n}</div>
+                  ))}
+                </div>
+              ) : null}
 
               <div className="divider" />
 
@@ -784,8 +835,8 @@ export default function PricingPage() {
               </ul>
 
               <p className="note">
-                Platform + Support covers monitoring, upkeep, and small workflow refinements. Usage (voice + SMS) is separate so you only
-                pay for volume you actually use.
+                Monthly Platform + Support covers monitoring, upkeep, and small workflow refinements.
+                Usage (voice + SMS) is separate so you only pay for the volume you actually use.
               </p>
             </div>
 
@@ -811,7 +862,8 @@ export default function PricingPage() {
               </ul>
 
               <p className="note">
-                If you want “AI that negotiates price and closes,” that’s a separate scope with higher risk. Most trades don’t need it to win.
+                If you want “AI that negotiates price and closes,” that’s a separate scope with higher risk.
+                Most trades don’t need that to win.
               </p>
             </div>
           </div>
@@ -822,9 +874,9 @@ export default function PricingPage() {
           <div className="sh">
             <div>
               <p className="st">Usage (Voice + SMS)</p>
-              <p className="ss">Simple wallets, auto-refill, and clean rules that avoid billing fights.</p>
+              <p className="ss">Simple credit wallets with auto-refill so you never run out mid-month.</p>
             </div>
-            <div className="tag">Credits don’t expire</div>
+            <div className="tag">Credits never expire</div>
           </div>
 
           <div className="grid2">
@@ -855,7 +907,7 @@ export default function PricingPage() {
               </table>
 
               <p className="note">
-                Auto-refill triggers at <strong>20 remaining credits</strong>. You can run CORE-only if you want maximum predictability.
+                Auto-refill triggers at <strong>20 remaining credits</strong>. CORE-only is the most predictable. BEAST is for depth when you choose it.
               </p>
             </div>
 
@@ -890,12 +942,12 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* ROI (lightweight) */}
+        {/* ROI */}
         <section className="section">
           <div className="sh">
             <div>
               <p className="st">Quick ROI Estimator</p>
-              <p className="ss">Not a guarantee. Just a sanity check using your own numbers.</p>
+              <p className="ss">A quick way to sanity-check impact using your own numbers.</p>
             </div>
             <div className="tag">Edit inputs</div>
           </div>
@@ -905,57 +957,39 @@ export default function PricingPage() {
               <div className="ct">Your current month</div>
               <div className="csub">Leads → contacted → booked → shows → revenue</div>
 
-              <div className="grid2" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+              <div className="gridInputs">
                 <div>
                   <label className="rowLabel">Monthly leads</label>
                   <input className="in" value={leads} onChange={(e) => setLeads(e.target.value)} type="number" min={0} />
                 </div>
                 <div>
                   <label className="rowLabel">Contact rate (%)</label>
-                  <input
-                    className="in"
-                    value={contactRate}
-                    onChange={(e) => setContactRate(e.target.value)}
-                    type="number"
-                    min={0}
-                    max={100}
-                  />
+                  <input className="in" value={contactRate} onChange={(e) => setContactRate(e.target.value)} type="number" min={0} max={100} />
                 </div>
                 <div>
                   <label className="rowLabel">Booked rate (of contacted) (%)</label>
-                  <input
-                    className="in"
-                    value={bookRate}
-                    onChange={(e) => setBookRate(e.target.value)}
-                    type="number"
-                    min={0}
-                    max={100}
-                  />
+                  <input className="in" value={bookRate} onChange={(e) => setBookRate(e.target.value)} type="number" min={0} max={100} />
                 </div>
                 <div>
                   <label className="rowLabel">Show rate (%)</label>
-                  <input
-                    className="in"
-                    value={showRate}
-                    onChange={(e) => setShowRate(e.target.value)}
-                    type="number"
-                    min={0}
-                    max={100}
-                  />
+                  <input className="in" value={showRate} onChange={(e) => setShowRate(e.target.value)} type="number" min={0} max={100} />
                 </div>
                 <div>
                   <label className="rowLabel">Average ticket ($)</label>
-                  <input
-                    className="in"
-                    value={avgTicket}
-                    onChange={(e) => setAvgTicket(e.target.value)}
-                    type="number"
-                    min={0}
-                  />
+                  <input className="in" value={avgTicket} onChange={(e) => setAvgTicket(e.target.value)} type="number" min={0} />
                 </div>
               </div>
 
               <style>{`
+                .gridInputs{
+                  display:grid;
+                  grid-template-columns: repeat(2, minmax(0, 1fr));
+                  gap: 10px;
+                  margin-top: 8px;
+                }
+                @media (max-width: 720px){
+                  .gridInputs{ grid-template-columns: 1fr; }
+                }
                 .in{
                   width:100%;
                   margin-top: 6px;
@@ -988,7 +1022,7 @@ export default function PricingPage() {
             <div className="card cardAlt">
               <div className="ct">With faster response + follow-up</div>
               <div className="csub">
-                This uses a conservative model (contact +20 points, booking +10 points, show +10 points, capped).
+                Conservative model (contact +20 points, booking +10 points, show +10 points, capped).
               </div>
 
               <div className="divider" />
@@ -998,8 +1032,7 @@ export default function PricingPage() {
                 <li>Booked: {roi.improvedBooked.toFixed(1)}</li>
                 <li>Shows: {roi.improvedShows.toFixed(1)}</li>
                 <li>
-                  Est. revenue:{" "}
-                  <strong>${Math.round(roi.improvedRevenue).toLocaleString()}</strong>
+                  Est. revenue: <strong>${Math.round(roi.improvedRevenue).toLocaleString()}</strong>
                 </li>
                 <li>
                   Est. lift:{" "}
@@ -1010,8 +1043,7 @@ export default function PricingPage() {
               </ul>
 
               <p className="note">
-                If your leads are junk, this won’t save it. If your leads are decent and you’re just slow/inconsistent, this is where the
-                money shows up.
+                If your leads are decent but you’re slow/inconsistent, this is where the money shows up.
               </p>
             </div>
           </div>
@@ -1022,45 +1054,44 @@ export default function PricingPage() {
           <div className="sh">
             <div>
               <p className="st">FAQ</p>
-              <p className="ss">Clear answers to the stuff that usually stalls decisions.</p>
+              <p className="ss">Quick answers to common questions.</p>
             </div>
-            <div className="tag">No fluff</div>
+            <div className="tag">Straight answers</div>
           </div>
 
           <div className="grid2" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}>
             <div style={{ display: "grid", gap: 10 }}>
-              <Accordion title="Do you replace my front office?" defaultOpen>
-                No. This system covers missed calls, after-hours, fast response, booking, reminders, and follow-up. If you want a human to
-                quote, dispatch, or negotiate, we route to them.
+              <Accordion title="Does this replace my front office?" defaultOpen>
+                No. This covers missed calls, after-hours, fast response, booking, reminders, and follow-up.
+                If you want a human to quote, dispatch, or negotiate, we route to them.
               </Accordion>
               <Accordion title="Can you work with my calendar and CRM?">
-                Yes — Google Calendar and GoHighLevel are the default. If you’re on something else, we can usually integrate, but it may be an
-                add-on depending on complexity.
+                Yes — Google Calendar and GoHighLevel are the default. If you’re on something else, we can usually integrate,
+                but it may be an add-on depending on complexity.
               </Accordion>
               <Accordion title="What happens if someone asks for a callback?">
-                Package C includes callback scheduling logic. If it’s a must-have for you, take Package B + C and you’re covered.
+                Package C includes callback scheduling logic. If callbacks are frequent for you, run Package A + C (or B + C) and you’re covered.
               </Accordion>
             </div>
 
             <div style={{ display: "grid", gap: 10 }}>
               <Accordion title="What about compliance for SMS/calls?">
-                We configure opt-out handling (STOP), contact windows, and logging. You’re responsible for how consent is collected from your
-                lead sources. If your lead vendor won’t show consent language, don’t use them.
+                We configure opt-out handling (STOP), contact windows, and logging. You’re responsible for how consent is collected from your lead sources.
+                If your lead vendor won’t show consent language, don’t use them.
               </Accordion>
               <Accordion title="How fast can we launch?">
-                If you can provide calendar access, basic business info, and lead routing, the base system can go live quickly. Complex
-                routing and multi-location rules take longer.
+                If you can provide calendar access, basic business info, and lead routing, the base system can go live quickly.
+                Multi-location routing and complex rules take longer.
               </Accordion>
               <Accordion title="Do credits expire?">
-                No. Voice and SMS credits don’t expire. Auto-refill keeps things from shutting off mid-month.
+                No. Voice and SMS credits don’t expire. Auto-refill keeps the system from shutting off mid-month.
               </Accordion>
             </div>
           </div>
 
           <div className="footerCta">
             <div className="footerText">
-              Want this installed for <strong>{industryLabel}</strong>? Send your calendar access + lead source details and we’ll scope the right
-              package in one call.
+              Want this installed for <strong>{industryLabel}</strong>? Send your calendar access + lead source details and we’ll scope the right package fast.
             </div>
             <div className="ctaRow" style={{ marginTop: 0 }}>
               <a className={cx("btn", "btnPrimary")} href="tel:+14695008848">
