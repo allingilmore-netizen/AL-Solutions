@@ -131,21 +131,42 @@ body {
   color: var(--text-main);
 }
 
+/* === HERO HEADLINE FIX (wins over everything above) === */
+.hero h1,
+.h1{
+  color: #F9FAFB !important;          /* readable on dark */
+  text-shadow: none !important;        /* kill 3D look */
+  opacity: 1 !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  -webkit-text-stroke: 0 !important;
+}
+
 .h1Plain{
-  color: #000000 !important;
+  color: #F9FAFB !important;          /* plain text = near-white */
   text-shadow: none !important;
   opacity: 1 !important;
   filter: none !important;
+  mix-blend-mode: normal !important;
 }
 
 .h1Accent{
-  color: var(--emerald-dark) !important; /* or keep gold if you want */
-  background: none !important;
+  color: #10B981 !important;          /* emerald accent */
+  background: none !important;         /* remove gradient */
   -webkit-background-clip: initial !important;
   background-clip: initial !important;
   text-shadow: none !important;
   opacity: 1 !important;
   filter: none !important;
+  mix-blend-mode: normal !important;
+}
+
+/* extra insurance: nothing inside the H1 can blend out */
+.hero h1 *,
+.h1 *{
+  opacity: 1 !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
 }
 
 .hero-sub {
