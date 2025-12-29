@@ -131,17 +131,21 @@ body {
   color: var(--text-main);
 }
 
-.h1Plain {
-  color: var(--text-main) !important;
-  text-shadow: none;
+.h1Plain{
+  color: #000000 !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  filter: none !important;
 }
 
-.h1Accent {
-  background: linear-gradient(120deg, #f4d03f, #f59e0b);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  text-shadow: none;
+.h1Accent{
+  color: var(--emerald-dark) !important; /* or keep gold if you want */
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  filter: none !important;
 }
 
 .hero-sub {
