@@ -1,3 +1,4 @@
+```tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -397,7 +398,7 @@ export default function Page() {
   }
 
   function onPrimaryCta() {
-    pushToast("Proof Sprint clicked. Next: confirm your territory + buy box (UI-only here).");
+    pushToast("Proof Sprint selected. Next: confirm your territory + buy box.");
     setRevealConfig(true);
     scrollToPricing();
   }
@@ -1168,8 +1169,8 @@ export default function Page() {
             <div className="brand">
               <div className="logo" aria-hidden="true" />
               <div className="brand-title">
-                <span>Exclusive Territory Opportunity Intelligence Feed</span>
-                <small>Ranked opportunity feed + hot alerts tuned to your buy box</small>
+                <span>Territory Signal Feed</span>
+                <small>Ranked daily opportunities + capped hot alerts for your territory</small>
               </div>
             </div>
 
@@ -1179,7 +1180,7 @@ export default function Page() {
                 onClick={() => setRevealConfig(true)}
                 className="btn btn-pill btn-ghost"
               >
-                Presets + Buy Box
+                Configure Feed
               </button>
               <button type="button" onClick={scrollToPricing} className="btn btn-pill btn-ghost">
                 Pricing
@@ -1193,28 +1194,31 @@ export default function Page() {
           <section className="hero">
             <div className="card">
               <div className="card-pad">
-                <Badge tone="emerald">Exclusive territory concept</Badge>{" "}
+                <Badge tone="emerald">Territory-protected delivery</Badge>{" "}
                 <Badge tone="gold">ZIP cluster / radius</Badge>
 
-                <h1>Ranked opportunity feed + hot alerts tuned to your &quot;buy box&quot;.</h1>
+                <h1>Stop scanning the internet for &quot;deals.&quot; Get the top opportunities pushed to you daily.</h1>
 
                 <p>
-                  You define territory and what you care about. We rank opportunities and send a
-                  daily digest plus a capped set of high-signal alerts.
+                  You set territory + buy box. We aggregate non-MLS public signals, dedupe them, score them, and deliver a ranked digest plus a capped set of high-signal alerts.
                 </p>
 
                 <div className="no-promise">
                   <span className="dot" aria-hidden="true" />
                   <div>
-                    <b>No promise line:</b> We rank opportunities. We do not guarantee
-                    motivated/contract-ready sellers.
+                    <b>What this is:</b> ranked opportunities + reasons.<br />
+                    <b>What this is not:</b> motivation, contactability, or outcome guarantees.
                   </div>
                 </div>
 
+                <p style={{ marginTop: 14, marginBottom: 0 }}>
+                  MLS shows inventory. This shows priority. Aggregation: public signals in one place. Ranking: reason chips + scoring. Push delivery: digest + capped alerts.
+                </p>
+
                 <div className="hero-cta">
                   <button type="button" className="btn btn-primary" onClick={onPrimaryCta}>
-                    <span>Start Proof Sprint - {formatMoney(PRICING.proof.price)}</span>
-                    <span aria-hidden="true">-&gt;</span>
+                    <span>Start Proof Sprint — {formatMoney(PRICING.proof.price)}</span>
+                    <span aria-hidden="true">→</span>
                   </button>
 
                   <button type="button" className="btn btn-secondary" onClick={scrollToExample}>
@@ -1228,19 +1232,14 @@ export default function Page() {
                       setRevealConfig((v) => !v);
                       pushToast(
                         revealConfig
-                          ? "Collapsed configuration panel."
-                          : "Opened presets + buy box configuration."
+                          ? "Configuration collapsed."
+                          : "Configuration opened."
                       );
                     }}
                   >
-                    {revealConfig ? "Hide presets + buy box" : "Customize presets + buy box"}
+                    {revealConfig ? "Hide configuration" : "Configure your feed"}
                   </button>
                 </div>
-
-                <p className="note">
-                  Designed for clarity: auditability, tuning, caps, and a clean &quot;what happens
-                  next&quot;. This is a landing page, not a fake ops dashboard.
-                </p>
               </div>
             </div>
 
@@ -1259,47 +1258,44 @@ export default function Page() {
                   </div>
                 </div>
                 <div className="box">
-                  <div className="label">Auditability</div>
+                  <div className="label">Transparency</div>
                   <div className="val">
-                    Reason chips <span>+</span> queue
+                    Reason chips <span>+</span> scoring
                   </div>
                 </div>
                 <div className="box">
                   <div className="label">Tuning</div>
                   <div className="val">
-                    Preset weights <span>+</span> rules
+                    Profile weights <span>+</span> rules
                   </div>
                 </div>
               </div>
 
               <div className="timeline">
-                <h3>What happens next</h3>
+                <h3>How it works</h3>
                 <div className="steps">
                   <div className="step">
                     <div className="n">1</div>
                     <div className="t">
-                      <b>Define territory + preset</b> - ZIP cluster or radius, then pick a starting
-                      profile.
+                      <b>Define territory + profile</b> — ZIP cluster or radius, then pick a starting profile.
                     </div>
                   </div>
                   <div className="step">
                     <div className="n">2</div>
                     <div className="t">
-                      <b>Configure buy box</b> - price band, property types, DOM threshold, toggles,
-                      alert cadence.
+                      <b>Configure buy box</b> — price band, property types, DOM threshold, toggles, alert cadence.
                     </div>
                   </div>
                   <div className="step">
                     <div className="n">3</div>
                     <div className="t">
-                      <b>Receive digest + capped hot alerts</b> - you get reasons, not vague
-                      &quot;magic&quot;.
+                      <b>Receive digest + capped hot alerts</b> — every opportunity includes reason chips.
                     </div>
                   </div>
                   <div className="step">
                     <div className="n">4</div>
                     <div className="t">
-                      <b>Tune</b> - adjust weights/rules to match your workflow and preferences.
+                      <b>Tune</b> — adjust weights and rules to match your workflow.
                     </div>
                   </div>
                 </div>
@@ -1308,10 +1304,9 @@ export default function Page() {
           </section>
 
           <section className="section">
-            <h2>Presets + Buy Box (interactive)</h2>
+            <h2>Pick a Profile. Set Your Territory. Get Your Feed.</h2>
             <p className="lead">
-              Start with a preset, then tighten the buy box. This is lightweight UI - no form
-              submission, just a clear configuration footprint.
+              Choose a profile that matches how you work, then set territory + criteria.
             </p>
 
             <div className={cx("reveal", revealConfig && "on")}>
@@ -1325,7 +1320,7 @@ export default function Page() {
                         className={cx("preset", preset === p.id && "sel")}
                         onClick={() => {
                           setPreset(p.id);
-                          pushToast(`Preset selected: ${p.title}`);
+                          pushToast(`Profile selected: ${p.title}`);
                         }}
                         role="listitem"
                       >
@@ -1340,8 +1335,8 @@ export default function Page() {
                   <div className="split">
                     <div className="subtle" style={{ padding: 16, borderRadius: 18 }}>
                       <div className="panel-title">
-                        <h3>Top signals we prioritize</h3>
-                        <span>Preset: {presetObj.title}</span>
+                        <h3>Signals we prioritize</h3>
+                        <span>Profile: {presetObj.title}</span>
                       </div>
                       <div className="chips">
                         {presetObj.signals.map((s) => (
@@ -1357,8 +1352,8 @@ export default function Page() {
                       <div style={{ height: 12 }} />
 
                       <div className="panel-title">
-                        <h3>What the alerts look like</h3>
-                        <span>Example snippet</span>
+                        <h3>Example alert</h3>
+                        <span>Sample snippet</span>
                       </div>
                       <div className="snippet">{presetObj.alertSnippet}</div>
 
@@ -1394,8 +1389,8 @@ export default function Page() {
 
                     <div className="subtle" style={{ padding: 16, borderRadius: 18 }}>
                       <div className="panel-title">
-                        <h3>10-question buy box configuration</h3>
-                        <span>UI-only</span>
+                        <h3>Buy box configuration</h3>
+                        <span>10 fields</span>
                       </div>
 
                       <div className="config">
@@ -1543,17 +1538,16 @@ export default function Page() {
                         />
 
                         <div className="note" style={{ marginTop: 0 }}>
-                          UI-only configuration. It helps define territory and tuning inputs; it
-                          does not imply guaranteed outcomes.
+                          Configuration defines territory and scoring criteria. Tuning adjustments are included with your plan.
                         </div>
 
                         <div className="hero-cta" style={{ marginTop: 4 }}>
                           <button
                             type="button"
                             className="btn btn-primary"
-                            onClick={() => pushToast("Configuration saved locally (UI-only).")}
+                            onClick={() => pushToast("Configuration saved.")}
                           >
-                            Save config (UI)
+                            Save configuration
                           </button>
                           <button
                             type="button"
@@ -1579,7 +1573,7 @@ export default function Page() {
                               setRehabIndicator(true);
                               setCashBuyerFriendly(true);
                               setAlertFrequency("daily");
-                              pushToast("Reset to baseline.");
+                              pushToast("Reset to defaults.");
                             }}
                           >
                             Reset
@@ -1596,17 +1590,16 @@ export default function Page() {
           </section>
 
           <section className="section">
-            <h2>Territory exclusivity (clear + enforceable)</h2>
+            <h2>Territory protection</h2>
             <p className="lead">
-              Exclusivity is defined by a concrete territory boundary and an explicit scope. It is
-              enforceable without pretending we own public inventory.
+              Territory protection applies to our ranked feed and alerts for your boundary. It does not imply ownership of public listings or inventory.
             </p>
 
             <div className="grid2">
               <div className="card">
                 <div className="card-pad">
                   <div className="panel-title">
-                    <h3>How exclusivity works</h3>
+                    <h3>How protection works</h3>
                     <span>ZIP cluster or radius</span>
                   </div>
 
@@ -1614,28 +1607,27 @@ export default function Page() {
                     <div className="li">
                       <span className="check" aria-hidden="true" />
                       <span>
-                        <b>ZIP cluster exclusivity:</b> the ranked feed + hot alerts are reserved
-                        for your defined ZIP list (or ZIP count + named list).
+                        <b>ZIP cluster protection:</b> the ranked feed + hot alerts are reserved
+                        for your defined ZIP list.
                       </span>
                     </div>
                     <div className="li">
                       <span className="check" aria-hidden="true" />
                       <span>
-                        <b>Radius option:</b> define a center point and mile radius for coverage and
-                        enforcement.
+                        <b>Radius option:</b> define a center point and mile radius for coverage.
                       </span>
                     </div>
                     <div className="li">
                       <span className="check" aria-hidden="true" />
                       <span>
-                        <b>Optional category exclusivity:</b> scope can be full territory or a
-                        category carve-out when available.
+                        <b>Optional category carve-out:</b> scope can be full territory or a
+                        category when available.
                       </span>
                     </div>
                     <div className="li">
                       <span className="check" aria-hidden="true" />
                       <span>
-                        <b>Important:</b> Exclusivity covers our ranked feed output and alerting in
+                        <b>Scope:</b> Protection covers our ranked feed output and alerting in
                         that boundary, not public inventory.
                       </span>
                     </div>
@@ -1646,7 +1638,7 @@ export default function Page() {
               <div className="card">
                 <div className="card-pad">
                   <div className="panel-title">
-                    <h3>Agreement highlights (mini)</h3>
+                    <h3>Agreement highlights</h3>
                     <span>Plain language</span>
                   </div>
 
@@ -1657,7 +1649,7 @@ export default function Page() {
                       <span>ZIP list / radius boundary</span>
                     </div>
                     <div className="caprow">
-                      <div>Exclusivity scope</div>
+                      <div>Protection scope</div>
                       <span>Full vs category</span>
                     </div>
                     <div className="caprow">
@@ -1671,8 +1663,7 @@ export default function Page() {
                   </div>
 
                   <p className="note">
-                    This reduces ambiguity: territory is explicitly defined; caps exist; tuning is
-                    tracked; and scope stays honest.
+                    Territory is explicitly defined. Caps exist. Tuning is tracked. Scope stays honest.
                   </p>
                 </div>
               </div>
@@ -1685,9 +1676,9 @@ export default function Page() {
               pricingRef.current = el;
             }}
           >
-            <h2>Pricing (crystal clear + capped)</h2>
+            <h2>Pricing</h2>
             <p className="lead">
-              Simple comparison with hard caps. If caps are exceeded, overages or upgrades apply.
+              Simple tiers with hard caps. If caps are exceeded, overages or upgrades apply.
             </p>
 
             <div className="pricing" aria-label="Pricing comparison">
@@ -1700,7 +1691,7 @@ export default function Page() {
                       <span className="cadence">one-time</span>
                     </div>
                     <div className="price-sub">
-                      A focused week to validate fit, tune signals, and prove digest quality.
+                      For agents who want to validate quality before committing.
                     </div>
                   </div>
                   <Badge tone="gold">Best first step</Badge>
@@ -1728,7 +1719,7 @@ export default function Page() {
                   <li className="li">
                     <span className="check" aria-hidden="true" />
                     <span>
-                      <b>Airtable-style queue view</b> (conceptual)
+                      <b>Pipeline queue</b> (New / Review / Pursue / Ignore)
                     </span>
                   </li>
                   <li className="li">
@@ -1764,7 +1755,7 @@ export default function Page() {
                       setRevealConfig(true);
                     }}
                   >
-                    Start Proof Sprint
+                    Start Proof Sprint — {formatMoney(PRICING.proof.price)}
                   </button>
                   <button type="button" className="btn btn-ghost" onClick={scrollToExample}>
                     See example digest
@@ -1777,10 +1768,10 @@ export default function Page() {
                   <div>
                     <h3>
                       {formatMoney(PRICING.solo.price)}
-                      <span className="cadence">{PRICING.solo.cadence}</span> - {PRICING.solo.name}
+                      <span className="cadence">{PRICING.solo.cadence}</span> — {PRICING.solo.name}
                     </h3>
                     <div className="price-sub">
-                      1 territory with disciplined throughput and a monthly tuning adjustment.
+                      For solo agents working one tight territory.
                     </div>
                   </div>
                   <Badge tone="emerald">Most common</Badge>
@@ -1790,7 +1781,7 @@ export default function Page() {
                   <li className="li">
                     <span className="check" aria-hidden="true" />
                     <span>
-                      <b>1 territory</b> (up to ~{CAPS.solo.territoryZipMax} ZIPs OR ~
+                      <b>1 territory</b> (up to ~{CAPS.solo.territoryZipMax} ZIPs or ~
                       {CAPS.solo.territoryRadiusMiles}-mile radius)
                     </span>
                   </li>
@@ -1815,7 +1806,7 @@ export default function Page() {
                   <li className="li">
                     <span className="check" aria-hidden="true" />
                     <span>
-                      <b>Daily digest + queue</b>
+                      <b>Daily digest + pipeline queue</b>
                     </span>
                   </li>
                 </ul>
@@ -1853,7 +1844,7 @@ export default function Page() {
                     className="btn btn-ghost"
                     onClick={() => setRevealConfig(true)}
                   >
-                    Customize buy box
+                    Configure buy box
                   </button>
                 </div>
               </div>
@@ -1863,11 +1854,10 @@ export default function Page() {
                   <div>
                     <h3>
                       {formatMoney(PRICING.team.price)}
-                      <span className="cadence">{PRICING.team.cadence}</span> - {PRICING.team.name}
+                      <span className="cadence">{PRICING.team.cadence}</span> — {PRICING.team.name}
                     </h3>
                     <div className="price-sub">
-                      Higher throughput, more territories, and weekly tuning included. No
-                      minute-based promises.
+                      For teams/high-output agents covering multiple territories with weekly tuning.
                     </div>
                   </div>
                   <Badge tone="gold">Highest volume</Badge>
@@ -1902,7 +1892,7 @@ export default function Page() {
                   <li className="li">
                     <span className="check" aria-hidden="true" />
                     <span>
-                      <b>Monitoring + faster fixes</b> (no specific minute promise)
+                      <b>Priority monitoring + faster fixes</b>
                     </span>
                   </li>
                 </ul>
@@ -1943,8 +1933,7 @@ export default function Page() {
             </div>
 
             <p className="note">
-              Overages or upgrades apply if caps are exceeded. Caps exist to keep throughput
-              predictable and the output reviewable.
+              Overages or upgrades apply if caps are exceeded. Caps keep throughput predictable and output reviewable.
             </p>
           </section>
 
@@ -1954,19 +1943,18 @@ export default function Page() {
               exampleRef.current = el;
             }}
           >
-            <h2>Example output (visual)</h2>
+            <h2>Example digest</h2>
             <p className="lead">
-              Faux daily digest: 10 ranked rows with reason chips and a simple &quot;Pursue /
-              Ignore&quot; UI. UI-only, no backend.
+              Daily digest: 10 ranked rows with reason chips and a simple Pursue / Ignore workflow.
             </p>
 
             <div className="grid2">
               <div className="digest">
                 <div className="digest-head">
                   <div className="left">
-                    <h3>Daily Digest - Ranked Opportunities</h3>
+                    <h3>Daily Digest — Ranked Opportunities</h3>
                     <div className="sub">
-                      Territory: {configSummary.territory} · Preset: {presetObj.title} · Alerts:{" "}
+                      Territory: {configSummary.territory} · Profile: {presetObj.title} · Alerts:{" "}
                       {configSummary.alertFreq}
                     </div>
                   </div>
@@ -2023,7 +2011,7 @@ export default function Page() {
                                   pushToast(d === "pursue" ? "Cleared: Pursue" : "Marked: Pursue");
                                 }}
                               >
-                                Mark: Pursue
+                                Pursue
                               </button>
                               <button
                                 type="button"
@@ -2036,7 +2024,7 @@ export default function Page() {
                                   pushToast(d === "ignore" ? "Cleared: Ignore" : "Marked: Ignore");
                                 }}
                               >
-                                Mark: Ignore
+                                Ignore
                               </button>
                             </div>
                           </td>
@@ -2047,36 +2035,36 @@ export default function Page() {
                 </table>
 
                 <p className="note">
-                  Scores are illustrative UI only. A ranked feed is not a promise of outcomes.
+                  Scores are illustrative. A ranked feed is not a guarantee of outcomes.
                 </p>
               </div>
 
               <div className="card">
                 <div className="card-pad">
                   <div className="panel-title">
-                    <h3>Proof Sprint (positioning)</h3>
-                    <span>Risk removal</span>
+                    <h3>Why start with Proof Sprint</h3>
+                    <span>Validate before committing</span>
                   </div>
 
                   <ul className="list" style={{ marginBottom: 10 }}>
                     <li className="li">
                       <span className="check" aria-hidden="true" />
                       <span>
-                        <b>Deliverables in ~48 hours:</b> territory + preset + buy box + first
+                        <b>Deliverables in ~48 hours:</b> territory + profile + buy box + first
                         digest + Top {CAPS.proof.dailyTopSms} alerts.
                       </span>
                     </li>
                     <li className="li">
                       <span className="check" aria-hidden="true" />
                       <span>
-                        <b>Midweek tuning check-in:</b> adjust weights/rules based on what you
+                        <b>Midweek tuning check-in:</b> adjust weights and rules based on what you
                         actually want.
                       </span>
                     </li>
                     <li className="li">
                       <span className="check" aria-hidden="true" />
                       <span>
-                        <b>End-of-week recap:</b> what worked, what did not, and recommended
+                        <b>End-of-week recap:</b> what worked, what didn&apos;t, and recommended
                         plan/caps.
                       </span>
                     </li>
@@ -2085,27 +2073,26 @@ export default function Page() {
                   <div className="no-promise" style={{ marginBottom: 12 }}>
                     <span className="dot" aria-hidden="true" />
                     <div>
-                      <b>Reminder:</b> We rank opportunities. We do not guarantee
-                      motivated/contract-ready sellers.
+                      <b>What this is:</b> ranked opportunities + reasons.<br />
+                      <b>What this is not:</b> motivation, contactability, or outcome guarantees.
                     </div>
                   </div>
 
                   <div className="hero-cta">
                     <button type="button" className="btn btn-primary" onClick={onPrimaryCta}>
-                      Start Proof Sprint - {formatMoney(PRICING.proof.price)}
+                      Start Proof Sprint — {formatMoney(PRICING.proof.price)}
                     </button>
                     <button
                       type="button"
                       className="btn btn-ghost"
                       onClick={() => setRevealConfig(true)}
                     >
-                      Customize presets + buy box
+                      Configure your feed
                     </button>
                   </div>
 
                   <p className="note">
-                    If you want &quot;guarantees&quot;, this is the wrong product. If you want a
-                    disciplined, reviewable ranked feed tuned to your buy box, start here.
+                    If you want guarantees, this is the wrong product. If you want a disciplined, ranked feed tuned to your buy box, start here.
                   </p>
                 </div>
               </div>
@@ -2114,7 +2101,7 @@ export default function Page() {
 
           <section className="section">
             <h2>FAQ</h2>
-            <p className="lead">Short and direct.</p>
+            <p className="lead">Common questions, direct answers.</p>
 
             <div className="faqwrap">
               <Accordion
@@ -2124,7 +2111,7 @@ export default function Page() {
                     a: (
                       <>
                         It&apos;s a ranked opportunity feed and alerting layer. It helps you decide
-                        where to focus, but it is not a promise of results, contactability, or
+                        where to focus. It is not a guarantee of results, contactability, or
                         contract-ready situations.
                       </>
                     ),
@@ -2134,15 +2121,15 @@ export default function Page() {
                     a: (
                       <>
                         No. We rank opportunities based on your buy box and signals. We do not
-                        guarantee motivated or contract-ready sellers.
+                        guarantee motivation, contactability, or outcomes.
                       </>
                     ),
                   },
                   {
-                    q: "How is exclusivity enforced?",
+                    q: "How is territory protection enforced?",
                     a: (
                       <>
-                        Exclusivity is enforced by an explicitly defined territory boundary (ZIP
+                        Protection is enforced by an explicitly defined territory boundary (ZIP
                         list/cluster or radius) and a clear scope. It applies to our ranked feed
                         output in that boundary, not public inventory.
                       </>
@@ -2152,18 +2139,26 @@ export default function Page() {
                     q: "What do I need to start?",
                     a: (
                       <>
-                        A territory definition (ZIP cluster or radius), a starting preset, and a
+                        A territory definition (ZIP cluster or radius), a starting profile, and a
                         basic buy box (price band, property types, DOM threshold, toggles, and
                         alert frequency). Proof Sprint is the recommended entry.
                       </>
                     ),
                   },
                   {
-                    q: "Can I switch presets later?",
+                    q: "Can I switch profiles later?",
                     a: (
                       <>
-                        Yes. Presets are starting profiles. You can switch presets and tune
+                        Yes. Profiles are starting points. You can switch profiles and tune
                         weights/rules; caps still apply so output remains reviewable.
+                      </>
+                    ),
+                  },
+                  {
+                    q: "What if I don't like the opportunities?",
+                    a: (
+                      <>
+                        That&apos;s why Proof Sprint exists. If the feed isn&apos;t relevant after tuning, don&apos;t continue into monthly.
                       </>
                     ),
                   },
@@ -2179,7 +2174,7 @@ export default function Page() {
 
                   <div className="hero-cta">
                     <button type="button" className="btn btn-primary" onClick={onPrimaryCta}>
-                      Start Proof Sprint - {formatMoney(PRICING.proof.price)}
+                      Start Proof Sprint — {formatMoney(PRICING.proof.price)}
                     </button>
                     <button type="button" className="btn btn-secondary" onClick={scrollToExample}>
                       See example feed
@@ -2195,7 +2190,7 @@ export default function Page() {
 
                   <p className="note">
                     Overages or upgrades apply if caps are exceeded. This is a capped, tunable
-                    ranked feed - not a guarantee.
+                    ranked feed — not a guarantee.
                   </p>
                 </div>
               </div>
@@ -2203,9 +2198,7 @@ export default function Page() {
           </section>
 
           <footer className="footer">
-            © {new Date().getFullYear()} Exclusive Territory Opportunity Intelligence Feed. This
-            page describes a ranked feed and alerting concept with caps and tuning. It does not
-            imply guaranteed outcomes.
+            © {new Date().getFullYear()} Territory Signal Feed. Ranked opportunities with caps and tuning. Not a guarantee of motivation, contactability, or outcomes.
           </footer>
         </div>
 
@@ -2214,3 +2207,4 @@ export default function Page() {
     </>
   );
 }
+```
