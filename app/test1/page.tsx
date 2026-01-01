@@ -1,1848 +1,1512 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 
-/**
- * 10/10 DEMO PAGE
- * - Designed for screen-share: looks like a SaaS product, not a form.
- * - Deterministic demo leads (no scraping) so it NEVER fails live.
- * - Supports 4 workflow modes: Demo, $197 Proof, $750, $1500 (UI only here).
- * - Includes: Territory lock UI, pipeline run animation, toasts, lead drawer,
- *   filters, analytics, map preview, export/copy actions.
- */
-
-type PlanKey = "demo" | "proof197" | "monthly750" | "monthly1500";
-type SourceKey = "Newsletter" | "Marketplace" | "Web" | "Community";
-type PropertyType = "Any" | "Single Family" | "Condo" | "Townhome" | "Multi-Family";
-type TagKey = "Hot" | "Warm" | "Cold";
-
-type BuyBoxPresetKey = "Balanced" | "Investor" | "Family" | "Luxury" | "Starter";
-
-type BuyBox = {
-  territoryName: string;
-  countyOrArea: string;
-  anchorAddress: string;
-
-  zips: string;
-  radiusMiles: number;
-
-  propertyType: PropertyType;
-
-  priceMin: number;
-  priceMax: number;
-
-  bedsMin: number;
-  bedsMax: number;
-
-  bathsMin: number;
-
-  maxDistanceMiles: number;
-
-  includeSignals: string; // comma separated
-  excludeSignals: string; // comma separated
-
-  hotThreshold: number;
-  warmThreshold: number;
-
-  dailyCapHotAlerts: number;
-};
-
-type Lead = {
-  id: string;
-  addressLine: string;
-  cityState: string;
-  zip: string;
-
-  price: number;
-  beds: number;
-  baths: number;
-
-  distanceMiles: number;
-
-  propertyType: Exclude<PropertyType, "Any">;
-  source: SourceKey;
-
-  blurb: string;
-
-  lat: number;
-  lng: number;
-
-  createdAtIso: string;
-};
-
-type ScoredLead = Lead & {
-  score: number;
-  tag: TagKey;
-  reasons: string[];
-  confidence: number; // 0-100 (demo heuristic)
-};
-
-type Toast = {
-  id: string;
-  title: string;
-  message: string;
-  tone: "success" | "warn" | "info";
-};
+type PlanKey = "demo" | "week197" | "monthly750" | "monthly1500";
+type NavKey = "workflows" | "modules" | "activity" | "settings";
 
 const BRAND = {
   emerald: "#047857",
-  emerald2: "#10B981",
+  emeraldDark: "#065f46",
   gold: "#F4D03F",
-  ink: "#0B1220",
-  panel: "rgba(255,255,255,0.055)",
-  panel2: "rgba(255,255,255,0.035)",
-  stroke: "rgba(255,255,255,0.12)",
-  stroke2: "rgba(255,255,255,0.18)",
-  text: "rgba(255,255,255,0.92)",
-  sub: "rgba(255,255,255,0.68)",
-  dim: "rgba(255,255,255,0.54)",
+  charcoal: "#0F172A",
+  deepBg: "#020617",
+  muted: "#9CA3AF",
+  offwhite: "#F9FAFB",
 };
 
-function cx(...c: Array<string | false | null | undefined>) {
-  return c.filter(Boolean).join(" ");
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
+function formatDate(ts: number) {
+  const d = new Date(ts);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  let hh = d.getHours();
+  const ampm = hh >= 12 ? "PM" : "AM";
+  hh = hh % 12;
+  hh = hh ? hh : 12;
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${mm}/${dd} ${hh}:${min} ${ampm}`;
 }
 
 function money(n: number) {
-  return Math.round(n).toLocaleString("en-US");
-}
-
-function parseZipList(s: string): string[] {
-  return s
-    .split(/[,\s]+/g)
-    .map((x) => x.trim().replace(/[^\d]/g, ""))
-    .filter((x) => x.length === 5);
-}
-
-function pick<T>(arr: T[], seed: number) {
-  return arr[Math.abs(seed) % arr.length];
-}
-
-function seeded(seed: number) {
-  // deterministic pseudo-random 0..1 based on seed
-  const x = Math.sin(seed * 9999.123) * 10000;
-  return x - Math.floor(x);
-}
-
-function id(prefix: string, seed: number) {
-  return `${prefix}-${seed.toString(36).toUpperCase()}-${Math.floor(seeded(seed + 7) * 9999)
-    .toString()
-    .padStart(4, "0")}`;
+  return n.toLocaleString("en-US");
 }
 
 function planMeta(plan: PlanKey) {
   switch (plan) {
     case "demo":
-      return { name: "Demo Workflow", badge: "Preview", topN: 10, watchlist: false, caps: "Mock run • Always stable" };
-    case "proof197":
-      return { name: "Proof Sprint (7 days)", badge: "$197", topN: 5, watchlist: false, caps: "Tight caps • Top 5 daily" };
+      return {
+        title: "Demo Workflow",
+        price: "Preview",
+        cadence: "Mock runs",
+        delivery: "Top 10 + health",
+        cap: "Stable demo data",
+        highlight: "Best for: screen share + onboarding call",
+      };
+    case "week197":
+      return {
+        title: "$197 Proof Sprint",
+        price: "$197",
+        cadence: "7 days",
+        delivery: "Top 5 essentials + reporting",
+        cap: "Tight scope, fast setup",
+        highlight: "Best for: proof + confidence before scaling",
+      };
     case "monthly750":
-      return { name: "Monthly Solo Territory", badge: "$750/mo", topN: 10, watchlist: false, caps: "Standard caps • Solo" };
+      return {
+        title: "$750 Monthly",
+        price: "$750/mo",
+        cadence: "Ongoing",
+        delivery: "Top 10 + alerts + monitoring",
+        cap: "Solo territory / standard caps",
+        highlight: "Best for: consistent inbound and follow-up",
+      };
     case "monthly1500":
-      return { name: "Monthly Team / High Volume", badge: "$1,500/mo", topN: 10, watchlist: true, caps: "Higher caps • Watchlist" };
-  }
-}
-
-function preset(name: BuyBoxPresetKey): Partial<BuyBox> {
-  switch (name) {
-    case "Balanced":
       return {
-        priceMin: 350000,
-        priceMax: 750000,
-        bedsMin: 3,
-        bedsMax: 5,
-        bathsMin: 2,
-        maxDistanceMiles: 15,
-        includeSignals: "price drop, relocating, estate, as-is, quick close",
-        excludeSignals: "no investors, firm price, do not contact",
-        hotThreshold: 82,
-        warmThreshold: 62,
-        dailyCapHotAlerts: 3,
-        propertyType: "Any",
-      };
-    case "Investor":
-      return {
-        priceMin: 250000,
-        priceMax: 650000,
-        bedsMin: 2,
-        bedsMax: 6,
-        bathsMin: 1,
-        maxDistanceMiles: 20,
-        includeSignals: "as-is, needs work, investor, cash only, price drop, distress",
-        excludeSignals: "no investors, firm price",
-        hotThreshold: 78,
-        warmThreshold: 58,
-        dailyCapHotAlerts: 5,
-        propertyType: "Any",
-      };
-    case "Family":
-      return {
-        priceMin: 450000,
-        priceMax: 950000,
-        bedsMin: 3,
-        bedsMax: 5,
-        bathsMin: 2,
-        maxDistanceMiles: 12,
-        includeSignals: "school, quiet, renovated, move-in, yard",
-        excludeSignals: "cash only, needs work, as-is",
-        hotThreshold: 84,
-        warmThreshold: 64,
-        dailyCapHotAlerts: 2,
-        propertyType: "Single Family",
-      };
-    case "Luxury":
-      return {
-        priceMin: 900000,
-        priceMax: 2500000,
-        bedsMin: 4,
-        bedsMax: 7,
-        bathsMin: 3,
-        maxDistanceMiles: 18,
-        includeSignals: "pool, views, gated, new build, designer",
-        excludeSignals: "needs work, as-is, cash only",
-        hotThreshold: 86,
-        warmThreshold: 66,
-        dailyCapHotAlerts: 2,
-        propertyType: "Single Family",
-      };
-    case "Starter":
-      return {
-        priceMin: 200000,
-        priceMax: 450000,
-        bedsMin: 2,
-        bedsMax: 4,
-        bathsMin: 1,
-        maxDistanceMiles: 18,
-        includeSignals: "price drop, first time, updated, quick close",
-        excludeSignals: "firm price, do not contact",
-        hotThreshold: 80,
-        warmThreshold: 60,
-        dailyCapHotAlerts: 3,
-        propertyType: "Any",
+        title: "$1,500 Monthly",
+        price: "$1,500/mo",
+        cadence: "Ongoing",
+        delivery: "High-volume + watchlist + SLA",
+        cap: "Higher caps / advanced routing",
+        highlight: "Best for: teams + multiple pipelines",
       };
   }
 }
 
-function buildDemoUniverse(bb: BuyBox): Lead[] {
-  const zips = parseZipList(bb.zips);
-  const baseZip = zips.length ? zips : ["78701", "78702", "78703", "78704"];
+type WorkflowRow = {
+  id: string;
+  name: string;
+  tier: "Core" | "Billing" | "Ops" | "Safety";
+  trigger: string;
+  status: "Ready" | "Paused" | "Running" | "Error";
+  lastRun: number;
+  nextRun: number | null;
+  runs7d: number;
+  successRate: number; // 0-100
+  notes: string;
+};
 
-  // Fake lat/lng near Austin-ish (demo)
-  const baseLat = 30.2672;
-  const baseLng = -97.7431;
+type ModuleRow = {
+  key: string;
+  name: string;
+  category: "Core" | "Follow-up" | "Scheduling" | "Billing" | "Reporting" | "Safety";
+  value: string;
+  complexity: "Low" | "Medium" | "High";
+  includedIn: Array<PlanKey>;
+};
 
-  const types: Array<Exclude<PropertyType, "Any">> = ["Single Family", "Condo", "Townhome", "Multi-Family"];
-  const sources: SourceKey[] = ["Newsletter", "Marketplace", "Web", "Community"];
+type EventRow = {
+  id: string;
+  ts: number;
+  source: "Webhook" | "DB" | "Scheduler" | "Monitor";
+  type: string;
+  outcome: "ok" | "warn" | "fail";
+  message: string;
+};
 
-  const blurbs = [
-    "Price drop this week. Seller mentioned timeline pressure. As-is language present.",
-    "Relocating for work. Quick close preferred. Limited showings.",
-    "Estate situation. Cosmetic updates. Negotiable on terms.",
-    "Renovated with premium finishes. Strong comps; less urgency.",
-    "Needs work. Cash only noted. Investor language appears.",
-    "Open to concessions. Job change. Wants faster closing.",
-    "Firm price stated. No investors. Restrictions on contact.",
-    "As-is. Motivated wording. Limited viewing windows.",
-    "Income potential. Deferred maintenance. Investor mention.",
-    "Recently updated. Walkable. Flexible on close date.",
-  ];
-
-  const now = Date.now();
-  const leads: Lead[] = [];
-
-  // Make a realistic volume range
-  const total = 60;
-
-  for (let i = 0; i < total; i++) {
-    const seed = i + 11;
-    const zip = pick(baseZip, seed);
-    const t = pick(types, seed + 3);
-    const s = pick(sources, seed + 5);
-
-    const priceBandMin = Math.max(120000, bb.priceMin * (0.75 + seeded(seed + 1) * 0.5));
-    const priceBandMax = bb.priceMax * (0.8 + seeded(seed + 2) * 0.6);
-    const price = Math.round(clamp(priceBandMin + seeded(seed + 9) * (priceBandMax - priceBandMin), 120000, 3500000));
-
-    const beds = clamp(Math.round(1 + seeded(seed + 7) * 6), 1, 7);
-    const baths = clamp(Math.round((1 + seeded(seed + 8) * 4) * 2) / 2, 1, 5);
-
-    const dist = Math.round((1 + seeded(seed + 4) * 28) * 10) / 10;
-
-    const lat = baseLat + (seeded(seed + 12) - 0.5) * 0.22;
-    const lng = baseLng + (seeded(seed + 13) - 0.5) * 0.22;
-
-    const addrNum = 100 + Math.floor(seeded(seed + 14) * 8900);
-    const street = pick(
-      ["Congress", "Lamar", "Riverside", "Oltorf", "Burnet", "Manor", "MLK", "Speedway", "Brazos", "Guadalupe", "South 1st", "South Lamar"],
-      seed + 20
-    );
-    const suffix = pick(["St", "Ave", "Blvd", "Dr", "Rd", "Ln"], seed + 21);
-
-    const cityState = "Austin, TX";
-    const addressLine =
-      seeded(seed + 15) > 0.78
-        ? `${addrNum} ${street} ${suffix} #${Math.floor(seeded(seed + 16) * 40) + 1}`
-        : `${addrNum} ${street} ${suffix}`;
-
-    const createdAtIso = new Date(now - (Math.floor(seeded(seed + 10) * 72) * 60 * 60 * 1000)).toISOString();
-
-    leads.push({
-      id: id("LEAD", seed),
-      addressLine,
-      cityState,
-      zip,
-      price,
-      beds,
-      baths,
-      distanceMiles: dist,
-      propertyType: t,
-      source: s,
-      blurb: pick(blurbs, seed + 30),
-      lat,
-      lng,
-      createdAtIso,
-    });
-  }
-
-  return leads;
+function seeded(n: number) {
+  const x = Math.sin(n * 9301.11) * 10000;
+  return x - Math.floor(x);
 }
 
-function scoreLead(bb: BuyBox, lead: Lead): { score: number; reasons: string[]; confidence: number } {
-  // No “motivated seller guarantee”. This is fit + signals + constraints.
-  let score = 50;
-  const reasons: string[] = [];
+function Badge(props: { tone?: "gold" | "emerald" | "slate"; children: React.ReactNode }) {
+  const tone = props.tone ?? "slate";
+  const style =
+    tone === "gold"
+      ? { border: "1px solid rgba(244,208,63,.38)", background: "rgba(244,208,63,.10)" }
+      : tone === "emerald"
+      ? { border: "1px solid rgba(16,185,129,.30)", background: "rgba(16,185,129,.10)" }
+      : { border: "1px solid rgba(148,163,184,.40)", background: "rgba(2,6,23,.45)" };
 
-  const inPrice = lead.price >= bb.priceMin && lead.price <= bb.priceMax;
-  score += inPrice ? 18 : -14;
-  if (inPrice) reasons.push("Price fit");
-
-  const bedsFit = lead.beds >= bb.bedsMin && lead.beds <= bb.bedsMax;
-  score += bedsFit ? 12 : -10;
-  if (bedsFit) reasons.push("Beds fit");
-
-  const bathsFit = lead.baths >= bb.bathsMin;
-  score += bathsFit ? 8 : -7;
-  if (bathsFit) reasons.push("Baths fit");
-
-  const distFit = lead.distanceMiles <= bb.maxDistanceMiles;
-  score += distFit ? 16 : -18;
-  if (distFit) reasons.push("Distance fit");
-
-  const typeFit = bb.propertyType === "Any" || lead.propertyType === bb.propertyType;
-  score += typeFit ? 8 : -8;
-  if (typeFit && bb.propertyType !== "Any") reasons.push("Type match");
-
-  const include = bb.includeSignals
-    .split(/[,\n]+/g)
-    .map((x) => x.trim().toLowerCase())
-    .filter(Boolean);
-
-  const exclude = bb.excludeSignals
-    .split(/[,\n]+/g)
-    .map((x) => x.trim().toLowerCase())
-    .filter(Boolean);
-
-  const text = `${lead.blurb} ${lead.source}`.toLowerCase();
-
-  let includeHit = 0;
-  for (const k of include) if (text.includes(k)) includeHit++;
-  if (include.length) {
-    const boost = clamp(includeHit * 4, 0, 14);
-    score += boost;
-    if (includeHit > 0) reasons.push("Signal hit");
-    if (includeHit >= 2) reasons.push("Multiple signals");
-  }
-
-  let excludeHit = 0;
-  for (const k of exclude) if (text.includes(k)) excludeHit++;
-  if (excludeHit > 0) {
-    score -= clamp(excludeHit * 10, 10, 24);
-    reasons.push("Restriction hit");
-  }
-
-  // Source weighting (demo)
-  if (lead.source === "Community") score += 4, reasons.push("Local signal");
-  if (lead.source === "Marketplace") score += 2;
-  if (lead.source === "Newsletter") score += 1;
-  if (lead.source === "Web") score += 0;
-
-  score = clamp(Math.round(score), 1, 100);
-
-  // Confidence is *not truth*; it’s a proxy for completeness of fields
-  let conf = 55;
-  if (lead.price > 0) conf += 10;
-  if (lead.beds > 0 && lead.baths > 0) conf += 10;
-  if (lead.distanceMiles > 0) conf += 10;
-  conf += clamp(includeHit * 4, 0, 10);
-  conf -= clamp(excludeHit * 6, 0, 12);
-  conf = clamp(Math.round(conf), 0, 100);
-
-  return { score, reasons: Array.from(new Set(reasons)).slice(0, 3), confidence: conf };
-}
-
-function tagFor(bb: BuyBox, score: number): TagKey {
-  if (score >= bb.hotThreshold) return "Hot";
-  if (score >= bb.warmThreshold) return "Warm";
-  return "Cold";
-}
-
-function toneForTag(tag: TagKey) {
-  if (tag === "Hot") return { bg: "rgba(244,208,63,0.14)", br: "rgba(244,208,63,0.35)" };
-  if (tag === "Warm") return { bg: "rgba(16,185,129,0.12)", br: "rgba(16,185,129,0.30)" };
-  return { bg: "rgba(255,255,255,0.05)", br: "rgba(255,255,255,0.12)" };
-}
-
-function minutesAgo(iso: string) {
-  const ms = Date.now() - new Date(iso).getTime();
-  const m = Math.max(0, Math.floor(ms / 60000));
-  if (m < 1) return "just now";
-  if (m === 1) return "1 min ago";
-  if (m < 60) return `${m} mins ago`;
-  const h = Math.floor(m / 60);
-  return h === 1 ? "1 hr ago" : `${h} hrs ago`;
-}
-
-function safeCopy(text: string) {
-  return navigator.clipboard?.writeText(text).catch(() => {});
-}
-
-function Sparkline({ data }: { data: number[] }) {
-  const w = 140;
-  const h = 42;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const xs = data.map((_, i) => (i / (data.length - 1)) * w);
-  const ys = data.map((v) => h - ((v - min) / Math.max(1, max - min)) * h);
-  const d = xs
-    .map((x, i) => `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${ys[i].toFixed(1)}`)
-    .join(" ");
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-      <path d={d} fill="none" stroke="rgba(244,208,63,0.65)" strokeWidth="2.2" strokeLinecap="round" />
-      <path d={`${d} L ${w} ${h} L 0 ${h} Z`} fill="rgba(244,208,63,0.08)" stroke="none" />
-    </svg>
+    <span className="badge" style={style}>
+      {props.children}
+    </span>
   );
 }
 
-function Donut({ hot, warm, cold }: { hot: number; warm: number; cold: number }) {
-  const total = Math.max(1, hot + warm + cold);
-  const r = 18;
-  const c = 2 * Math.PI * r;
-
-  const aHot = (hot / total) * c;
-  const aWarm = (warm / total) * c;
-  const aCold = c - aHot - aWarm;
-
+function PillButton(props: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <svg width={70} height={70} viewBox="0 0 70 70">
-      <g transform="translate(35,35)">
-        <circle r={r} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="8" />
-        <circle
-          r={r}
-          fill="none"
-          stroke="rgba(244,208,63,0.70)"
-          strokeWidth="8"
-          strokeDasharray={`${aHot} ${c - aHot}`}
-          strokeDashoffset={0}
-          transform="rotate(-90)"
-          strokeLinecap="round"
-        />
-        <circle
-          r={r}
-          fill="none"
-          stroke="rgba(16,185,129,0.65)"
-          strokeWidth="8"
-          strokeDasharray={`${aWarm} ${c - aWarm}`}
-          strokeDashoffset={-aHot}
-          transform="rotate(-90)"
-          strokeLinecap="round"
-        />
-        <circle
-          r={r}
-          fill="none"
-          stroke="rgba(255,255,255,0.22)"
-          strokeWidth="8"
-          strokeDasharray={`${aCold} ${c - aCold}`}
-          strokeDashoffset={-(aHot + aWarm)}
-          transform="rotate(-90)"
-          strokeLinecap="round"
-        />
-      </g>
-      <text x="35" y="38" textAnchor="middle" fontSize="12" fill="rgba(255,255,255,0.82)" fontWeight="700">
-        {total}
-      </text>
-      <text x="35" y="52" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.55)">
-        leads
-      </text>
-    </svg>
+    <button type="button" className={cx("pillBtn", props.active && "pillBtnActive")} onClick={props.onClick}>
+      {props.children}
+    </button>
   );
 }
 
-function MiniMap({ lead, anchorLabel }: { lead?: ScoredLead | null; anchorLabel: string }) {
-  // Fake map: grid + pins. Still reads as a “map widget” in demo.
-  const w = 420;
-  const h = 260;
-  const pinX = lead ? 40 + (Math.abs(lead.lat) % 1) * (w - 80) : w * 0.58;
-  const pinY = lead ? 35 + (Math.abs(lead.lng) % 1) * (h - 70) : h * 0.48;
+function IconDot({ tone }: { tone: "emerald" | "gold" | "red" | "slate" }) {
+  const bg =
+    tone === "emerald"
+      ? "radial-gradient(circle at 30% 20%, #BBF7D0 0, #22C55E 40%, #166534 100%)"
+      : tone === "gold"
+      ? "radial-gradient(circle at 30% 20%, #FEF9C3 0, #FACC15 45%, #B45309 100%)"
+      : tone === "red"
+      ? "radial-gradient(circle at 30% 20%, #FECACA 0, #EF4444 45%, #7F1D1D 100%)"
+      : "radial-gradient(circle at 30% 20%, #E5E7EB 0, #94A3B8 45%, #334155 100%)";
 
-  const anchorX = w * 0.55;
-  const anchorY = h * 0.52;
-
-  const t = lead ? toneForTag(lead.tag) : null;
-
-  return (
-    <div
-      className="rounded-3xl p-4"
-      style={{
-        background: `linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))`,
-        border: `1px solid ${BRAND.stroke}`,
-        boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
-      }}
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-xs font-semibold" style={{ color: BRAND.sub }}>
-            Map Preview
-          </div>
-          <div className="mt-1 text-sm font-semibold" style={{ color: BRAND.text }}>
-            Anchor: {anchorLabel.split(",")[0]}
-          </div>
-        </div>
-        <div className="text-xs font-semibold" style={{ color: BRAND.dim }}>
-          Demo widget
-        </div>
-      </div>
-
-      <div className="mt-3 overflow-hidden rounded-2xl" style={{ border: `1px solid ${BRAND.stroke}` }}>
-        <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="gridGlow" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="rgba(16,185,129,0.14)" />
-              <stop offset="60%" stopColor="rgba(244,208,63,0.10)" />
-              <stop offset="100%" stopColor="rgba(255,255,255,0.06)" />
-            </linearGradient>
-          </defs>
-
-          <rect x="0" y="0" width={w} height={h} fill="url(#gridGlow)" />
-          {/* Grid */}
-          {Array.from({ length: 10 }).map((_, i) => (
-            <line key={`v-${i}`} x1={(i / 9) * w} y1={0} x2={(i / 9) * w} y2={h} stroke="rgba(255,255,255,0.07)" />
-          ))}
-          {Array.from({ length: 7 }).map((_, i) => (
-            <line key={`h-${i}`} x1={0} y1={(i / 6) * h} x2={w} y2={(i / 6) * h} stroke="rgba(255,255,255,0.07)" />
-          ))}
-
-          {/* “Roads” */}
-          <path d={`M 0 ${h * 0.62} C ${w * 0.25} ${h * 0.50}, ${w * 0.55} ${h * 0.78}, ${w} ${h * 0.55}`} stroke="rgba(255,255,255,0.10)" strokeWidth="3" fill="none" />
-          <path d={`M ${w * 0.15} 0 C ${w * 0.30} ${h * 0.25}, ${w * 0.65} ${h * 0.35}, ${w * 0.85} ${h}`} stroke="rgba(255,255,255,0.10)" strokeWidth="3" fill="none" />
-
-          {/* Anchor pin */}
-          <circle cx={anchorX} cy={anchorY} r="10" fill="rgba(16,185,129,0.35)" stroke="rgba(16,185,129,0.65)" strokeWidth="2" />
-          <circle cx={anchorX} cy={anchorY} r="3" fill="rgba(255,255,255,0.9)" />
-          <text x={anchorX + 14} y={anchorY + 4} fontSize="10" fill="rgba(255,255,255,0.70)">
-            anchor
-          </text>
-
-          {/* Lead pin */}
-          {lead && (
-            <>
-              <circle cx={pinX} cy={pinY} r="12" fill={t?.bg || "rgba(244,208,63,0.20)"} stroke={t?.br || "rgba(244,208,63,0.40)"} strokeWidth="2" />
-              <circle cx={pinX} cy={pinY} r="3.5" fill="rgba(255,255,255,0.95)" />
-              <path
-                d={`M ${anchorX} ${anchorY} L ${pinX} ${pinY}`}
-                stroke={lead.tag === "Hot" ? "rgba(244,208,63,0.65)" : lead.tag === "Warm" ? "rgba(16,185,129,0.60)" : "rgba(255,255,255,0.18)"}
-                strokeWidth="2"
-                strokeDasharray="5 6"
-              />
-            </>
-          )}
-        </svg>
-      </div>
-
-      <div className="mt-3 text-xs" style={{ color: BRAND.sub }}>
-        {lead ? (
-          <>
-            Selected: <span style={{ color: BRAND.text, fontWeight: 700 }}>{lead.addressLine}</span> • {lead.distanceMiles.toFixed(1)} mi from anchor
-          </>
-        ) : (
-          <>Select a lead to preview distance + path.</>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-  hint,
-}: {
-  label: string;
-  children: React.ReactNode;
-  hint?: string;
-}) {
-  return (
-    <div>
-      <div className="mb-2 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
-        {label}
-      </div>
-      {children}
-      {hint ? (
-        <div className="mt-2 text-[11px]" style={{ color: BRAND.dim }}>
-          {hint}
-        </div>
-      ) : null}
-    </div>
-  );
+  return <span className="idot" style={{ background: bg }} />;
 }
 
 export default function Page() {
+  const [mode, setMode] = useState<"configure" | "workspace">("configure");
+  const [nav, setNav] = useState<NavKey>("workflows");
+
+  // Config form
   const [plan, setPlan] = useState<PlanKey>("demo");
   const meta = planMeta(plan);
 
-  const [territoryLocked, setTerritoryLocked] = useState(false);
-  const [territoryKey, setTerritoryKey] = useState("TX-TRAVIS-78701-CORE");
-
-  const [presetKey, setPresetKey] = useState<BuyBoxPresetKey>("Balanced");
-
-  const [bb, setBb] = useState<BuyBox>({
-    territoryName: "Austin Core",
-    countyOrArea: "Travis County",
-    anchorAddress: "1100 Congress Ave, Austin, TX 78701",
-    zips: "78701, 78702, 78703, 78704",
-    radiusMiles: 25,
-
-    propertyType: "Any",
-
-    priceMin: 350000,
-    priceMax: 750000,
-
-    bedsMin: 3,
-    bedsMax: 5,
-
-    bathsMin: 2,
-
-    maxDistanceMiles: 15,
-
-    includeSignals: "price drop, relocating, estate, as-is, quick close",
-    excludeSignals: "no investors, firm price, do not contact",
-
-    hotThreshold: 82,
-    warmThreshold: 62,
-
-    dailyCapHotAlerts: 3,
+  const [businessName, setBusinessName] = useState("All In Digital — Client Workspace");
+  const [territoryKey, setTerritoryKey] = useState("TX-AUSTIN-CORE-78701");
+  const [primaryCalendar, setPrimaryCalendar] = useState("Google Calendar");
+  const [notifyChannel, setNotifyChannel] = useState("Telegram");
+  const [integrations, setIntegrations] = useState({
+    stripe: true,
+    telnyx: true,
+    vapi: true,
+    email: true,
+    telegram: true,
+    slack: false,
   });
 
-  // Apply preset
-  useEffect(() => {
-    const p = preset(presetKey);
-    setBb((prev) => ({ ...prev, ...p }));
-  }, [presetKey]);
+  // Workspace state
+  const [toast, setToast] = useState<{ on: boolean; title: string; msg: string; tone: "ok" | "warn" | "fail" }>({
+    on: false,
+    title: "",
+    msg: "",
+    tone: "ok",
+  });
 
-  const universe = useMemo(() => buildDemoUniverse(bb), [bb.zips, bb.priceMin, bb.priceMax, bb.bedsMin, bb.bedsMax, bb.bathsMin, bb.maxDistanceMiles, bb.propertyType, bb.includeSignals, bb.excludeSignals]);
-
-  const scored = useMemo<ScoredLead[]>(() => {
-    const rows = universe.map((l) => {
-      const s = scoreLead(bb, l);
-      const tg = tagFor(bb, s.score);
-      return { ...l, score: s.score, tag: tg, reasons: s.reasons, confidence: s.confidence };
-    });
-    rows.sort((a, b) => b.score - a.score);
-    return rows;
-  }, [universe, bb]);
-
-  // Filters
+  const [sortKey, setSortKey] = useState<keyof WorkflowRow>("successRate");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [q, setQ] = useState("");
-  const [tagFilter, setTagFilter] = useState<TagKey | "All">("All");
-  const [sourceFilter, setSourceFilter] = useState<SourceKey | "All">("All");
-  const [onlyWithinDistance, setOnlyWithinDistance] = useState(true);
-
-  const filtered = useMemo(() => {
-    const qq = q.trim().toLowerCase();
-    return scored.filter((r) => {
-      if (tagFilter !== "All" && r.tag !== tagFilter) return false;
-      if (sourceFilter !== "All" && r.source !== sourceFilter) return false;
-      if (onlyWithinDistance && r.distanceMiles > bb.maxDistanceMiles) return false;
-      if (!qq) return true;
-      const blob = `${r.addressLine} ${r.cityState} ${r.zip} ${r.source} ${r.propertyType} ${r.blurb}`.toLowerCase();
-      return blob.includes(qq);
-    });
-  }, [scored, q, tagFilter, sourceFilter, onlyWithinDistance, bb.maxDistanceMiles]);
-
-  const topN = useMemo(() => filtered.slice(0, meta.topN), [filtered, meta.topN]);
-
-  const counts = useMemo(() => {
-    let hot = 0,
-      warm = 0,
-      cold = 0;
-    for (const r of filtered) {
-      if (r.tag === "Hot") hot++;
-      else if (r.tag === "Warm") warm++;
-      else cold++;
-    }
-    return { hot, warm, cold, total: filtered.length };
-  }, [filtered]);
-
-  // Analytics (demo trends)
-  const trend = useMemo(() => {
-    // build a fake 14-day sparkline derived from current distribution
-    const base = Math.max(10, Math.min(95, 40 + counts.hot * 2 - counts.cold));
-    const data = Array.from({ length: 14 }).map((_, i) => clamp(base + Math.round((seeded(i + counts.total + 33) - 0.5) * 20), 10, 95));
-    return data;
-  }, [counts.total, counts.hot, counts.cold]);
-
-  // Drawer
-  const [selected, setSelected] = useState<ScoredLead | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  function openLead(r: ScoredLead) {
-    setSelected(r);
-    setDrawerOpen(true);
-  }
+  const now = Date.now();
 
-  // Toasts
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  function pushToast(t: Omit<Toast, "id">) {
-    const tid = `T-${Math.random().toString(36).slice(2, 9)}`;
-    const toast: Toast = { id: tid, ...t };
-    setToasts((p) => [toast, ...p].slice(0, 4));
-    window.setTimeout(() => {
-      setToasts((p) => p.filter((x) => x.id !== tid));
-    }, 4200);
-  }
+  const workflowsBase: WorkflowRow[] = useMemo(() => {
+    const rows: WorkflowRow[] = [
+      {
+        id: "W1",
+        name: "Stripe Webhook Router (LIVE)",
+        tier: "Billing",
+        trigger: "stripe.events → /webhook",
+        status: "Ready",
+        lastRun: now - 1000 * 60 * (8 + Math.floor(seeded(2) * 25)),
+        nextRun: null,
+        runs7d: 142,
+        successRate: 99,
+        notes: "Routes invoice.paid, payment_failed, dispute.created + idempotency guard.",
+      },
+      {
+        id: "W2",
+        name: "Invoice Paid → Grant Credits",
+        tier: "Billing",
+        trigger: "route: invoice.paid",
+        status: "Ready",
+        lastRun: now - 1000 * 60 * (16 + Math.floor(seeded(6) * 25)),
+        nextRun: null,
+        runs7d: 57,
+        successRate: 98,
+        notes: "Wallet credit + receipt log + notify.",
+      },
+      {
+        id: "W3",
+        name: "Invoice Payment Failed → Halt + Notify",
+        tier: "Billing",
+        trigger: "route: invoice.payment_failed",
+        status: "Ready",
+        lastRun: now - 1000 * 60 * (41 + Math.floor(seeded(9) * 25)),
+        nextRun: null,
+        runs7d: 12,
+        successRate: 100,
+        notes: "Sets account hold flags and sends critical alert.",
+      },
+      {
+        id: "W4",
+        name: "Dispute Created → CRITICAL Notify",
+        tier: "Safety",
+        trigger: "route: charge.dispute.created",
+        status: "Ready",
+        lastRun: now - 1000 * 60 * (190 + Math.floor(seeded(11) * 60)),
+        nextRun: null,
+        runs7d: 0,
+        successRate: 100,
+        notes: "Immediate escalation. No retries.",
+      },
+      {
+        id: "W5",
+        name: "Refill Engine (Threshold + Cooldown)",
+        tier: "Ops",
+        trigger: "cron / on-usage / low-balance",
+        status: "Ready",
+        lastRun: now - 1000 * 60 * (27 + Math.floor(seeded(15) * 25)),
+        nextRun: now + 1000 * 60 * (40 + Math.floor(seeded(17) * 40)),
+        runs7d: 88,
+        successRate: 97,
+        notes: "Cooldown lock prevents repeat charges.",
+      },
+      {
+        id: "W6",
+        name: "Global Error Trigger → CRITICAL Notify",
+        tier: "Safety",
+        trigger: "workflow.error",
+        status: "Ready",
+        lastRun: now - 1000 * 60 * (66 + Math.floor(seeded(19) * 25)),
+        nextRun: null,
+        runs7d: 9,
+        successRate: 100,
+        notes: "Captures stack + node + payload snapshot.",
+      },
+      {
+        id: "W7",
+        name: "Client Provisioner (Clone + Config)",
+        tier: "Ops",
+        trigger: "manual / onboarding",
+        status: "Paused",
+        lastRun: now - 1000 * 60 * (520 + Math.floor(seeded(25) * 90)),
+        nextRun: null,
+        runs7d: 2,
+        successRate: 96,
+        notes: "Creates client config row + assigns pricing catalog + creds placeholders.",
+      },
+      {
+        id: "W8",
+        name: "Usage Collector (Voice + SMS)",
+        tier: "Ops",
+        trigger: "webhook: usage.*",
+        status: "Ready",
+        lastRun: now - 1000 * 60 * (19 + Math.floor(seeded(29) * 22)),
+        nextRun: null,
+        runs7d: 211,
+        successRate: 98,
+        notes: "Normalizes usage records and appends ledger transactions.",
+      },
+      {
+        id: "W9",
+        name: "Daily Digest (Ops + Billing)",
+        tier: "Reporting",
+        trigger: "cron: daily 7am",
+        status: "Ready",
+        lastRun: now - 1000 * 60 * (600 + Math.floor(seeded(33) * 120)),
+        nextRun: now + 1000 * 60 * (900 + Math.floor(seeded(35) * 180)),
+        runs7d: 7,
+        successRate: 100,
+        notes: "Summary: top failures, charges, credit usage, alerts sent.",
+      } as any,
+    ];
 
-  // Pipeline run sim
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [step, setStep] = useState<"Idle" | "Ingest" | "Normalize" | "Distance" | "Score" | "Deliver">("Idle");
-  const [liveFeed, setLiveFeed] = useState<ScoredLead[]>([]);
-  const runTimer = useRef<number | null>(null);
+    // Ensure tier type correctness (Reporting isn't in union, map to Ops but label later)
+    return rows.map((r) => {
+      if ((r as any).tier === "Reporting") return { ...r, tier: "Ops", name: r.name.replace("Daily Digest (Ops + Billing)", "Daily Digest (Ops + Billing)") };
+      return r;
+    });
+  }, [now]);
 
-  function stopRun() {
-    if (runTimer.current) window.clearInterval(runTimer.current);
-    runTimer.current = null;
-    setRunning(false);
-    setProgress(0);
-    setStep("Idle");
-  }
+  const modules: ModuleRow[] = useMemo(() => {
+    const rows: ModuleRow[] = [
+      { key: "M1", name: "Client Config (source of truth)", category: "Core", value: "Prevents drift + makes builds repeatable", complexity: "Low", includedIn: ["demo", "week197", "monthly750", "monthly1500"] },
+      { key: "M2", name: "Workflow Health + Global Error Trap", category: "Safety", value: "Audit trail + instant escalation", complexity: "Medium", includedIn: ["demo", "week197", "monthly750", "monthly1500"] },
+      { key: "M3", name: "Stripe Webhook Router + Idempotency", category: "Billing", value: "No duplicate credits / no double charges", complexity: "High", includedIn: ["demo", "week197", "monthly750", "monthly1500"] },
+      { key: "M4", name: "Wallet + Ledger (credits)", category: "Billing", value: "Credits, packs, thresholds, cooldown locks", complexity: "High", includedIn: ["demo", "week197", "monthly750", "monthly1500"] },
+      { key: "M5", name: "Refill Engine (threshold + cooldown)", category: "Billing", value: "Auto-rebill without runaway charges", complexity: "High", includedIn: ["demo", "week197", "monthly750", "monthly1500"] },
 
-  function runDemo() {
-    // Always deterministic and clean.
-    stopRun();
-    setRunning(true);
-    setProgress(0);
-    setStep("Ingest");
-    setLiveFeed([]);
-
-    // staged insertion so it feels “live”
-    const batch = [...topN].sort((a, b) => b.score - a.score);
-    let idx = 0;
-    let p = 0;
-
-    pushToast({ title: "Pipeline started", message: "Running ingest → score → deliver", tone: "info" });
-
-    runTimer.current = window.setInterval(() => {
-      p += 3 + seeded(p + 17) * 6;
-      p = clamp(p, 0, 100);
-      setProgress(p);
-
-      if (p < 20) setStep("Ingest");
-      else if (p < 40) setStep("Normalize");
-      else if (p < 60) setStep("Distance");
-      else if (p < 82) setStep("Score");
-      else setStep("Deliver");
-
-      // emit rows
-      const shouldEmit = p > 22 && idx < batch.length && seeded(idx + Math.floor(p)) > 0.35;
-      if (shouldEmit) {
-        const r = batch[idx];
-        idx++;
-        setLiveFeed((prev) => [r, ...prev].slice(0, meta.topN));
-
-        if (r.tag === "Hot") {
-          pushToast({
-            title: `HOT (${r.score})`,
-            message: `${r.addressLine.split(",")[0]} • $${money(r.price)} • ${r.distanceMiles.toFixed(1)} mi`,
-            tone: "warn",
-          });
-        }
-      }
-
-      if (p >= 100) {
-        window.setTimeout(() => {
-          setRunning(false);
-          setStep("Deliver");
-          pushToast({ title: "Delivery complete", message: `Top ${meta.topN} queued + alerts capped`, tone: "success" });
-
-          // settle to idle after a moment
-          window.setTimeout(() => {
-            setStep("Idle");
-            setProgress(0);
-          }, 900);
-        }, 220);
-
-        if (runTimer.current) window.clearInterval(runTimer.current);
-        runTimer.current = null;
-      }
-    }, 120);
-  }
-
-  useEffect(() => {
-    return () => {
-      if (runTimer.current) window.clearInterval(runTimer.current);
-    };
+      { key: "M6", name: "SMS Notify Templates (ops + billing)", category: "Reporting", value: "Cleaner client comms (alerts & digests)", complexity: "Medium", includedIn: ["demo", "monthly750", "monthly1500"] },
+      { key: "M7", name: "Voice Usage Normalizer", category: "Reporting", value: "Usage → ledger, with reconciliation", complexity: "High", includedIn: ["demo", "monthly750", "monthly1500"] },
+      { key: "M8", name: "Audit Log Browser (client view)", category: "Reporting", value: "Proof that the system ran", complexity: "Medium", includedIn: ["demo", "monthly750", "monthly1500"] },
+      { key: "M9", name: "Client Provisioner (clone + config)", category: "Core", value: "Spin up new client in minutes", complexity: "High", includedIn: ["demo", "monthly750", "monthly1500"] },
+      { key: "M10", name: "SLA Monitor (latency + failure rate)", category: "Safety", value: "Stops silent breakage", complexity: "High", includedIn: ["monthly1500"] },
+    ];
+    return rows;
   }, []);
 
-  // Export payloads
-  const config = useMemo(() => ({ plan, territoryKey, territoryLocked, presetKey, buyBox: bb }), [plan, territoryKey, territoryLocked, presetKey, bb]);
+  const essentialsTop5 = useMemo(() => ["M1", "M2", "M3", "M4", "M5"], []);
 
-  const deliverablePreview = useMemo(() => {
-    // "What the realtor gets" style payload
-    const rows = (liveFeed.length ? liveFeed : topN).slice(0, meta.topN);
-    return rows.map((r) => ({
-      tag: r.tag,
-      score: r.score,
-      confidence: r.confidence,
-      address: `${r.addressLine}, ${r.cityState} ${r.zip}`,
-      price: r.price,
-      beds: r.beds,
-      baths: r.baths,
-      distanceMiles: r.distanceMiles,
-      source: r.source,
-      reasons: r.reasons,
-      summary: r.blurb,
-      mapLink: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${r.addressLine}, ${r.cityState} ${r.zip}`)}`,
-    }));
-  }, [liveFeed, topN, meta.topN]);
+  const events: EventRow[] = useMemo(() => {
+    const base: EventRow[] = [];
+    for (let i = 0; i < 16; i++) {
+      const s = seeded(i + 7);
+      const outcome: EventRow["outcome"] = s > 0.86 ? "fail" : s > 0.70 ? "warn" : "ok";
+      base.push({
+        id: `E-${i + 1}`,
+        ts: now - 1000 * 60 * (4 + i * 13 + Math.floor(seeded(i + 77) * 10)),
+        source: s > 0.6 ? "Webhook" : s > 0.35 ? "Scheduler" : s > 0.2 ? "DB" : "Monitor",
+        type:
+          outcome === "fail"
+            ? "delivery.failed"
+            : outcome === "warn"
+            ? "cooldown.prevented"
+            : i % 3 === 0
+            ? "invoice.paid"
+            : i % 3 === 1
+            ? "usage.ingested"
+            : "health.ok",
+        outcome,
+        message:
+          outcome === "fail"
+            ? "Webhook payload rejected: missing required field"
+            : outcome === "warn"
+            ? "Cooldown lock active — prevented duplicate charge"
+            : i % 3 === 0
+            ? "Invoice paid — credits granted"
+            : i % 3 === 1
+            ? "Usage records normalized + appended to ledger"
+            : "All monitors green",
+      });
+    }
+    return base.sort((a, b) => b.ts - a.ts);
+  }, [now]);
 
-  const hotAlerts = useMemo(() => {
-    const cap = bb.dailyCapHotAlerts;
-    const rows = (liveFeed.length ? liveFeed : topN).filter((r) => r.tag === "Hot").slice(0, cap);
-    return rows;
-  }, [liveFeed, topN, bb.dailyCapHotAlerts]);
+  const workflows = useMemo(() => {
+    // Filter based on plan (simple gating to sell the tiers)
+    const allow = (row: WorkflowRow) => {
+      if (plan === "week197") {
+        // Show the “essentials” only (what proof sprint includes)
+        return ["W1", "W2", "W3", "W4", "W5", "W6"].includes(row.id);
+      }
+      if (plan === "monthly750") {
+        return ["W1", "W2", "W3", "W4", "W5", "W6", "W8"].includes(row.id);
+      }
+      if (plan === "monthly1500") {
+        return true;
+      }
+      return true; // demo shows all
+    };
 
-  const exclusivityText = territoryLocked
-    ? `Reserved • ${territoryKey}`
-    : `Not reserved • ${territoryKey}`;
+    const qq = q.trim().toLowerCase();
+    const filtered = workflowsBase.filter(allow).filter((r) => {
+      if (!qq) return true;
+      return `${r.id} ${r.name} ${r.tier} ${r.trigger} ${r.status} ${r.notes}`.toLowerCase().includes(qq);
+    });
 
-  const headerKpi = useMemo(() => {
-    const avgScore = filtered.length ? Math.round(filtered.reduce((a, b) => a + b.score, 0) / filtered.length) : 0;
-    const hotRate = filtered.length ? Math.round((counts.hot / filtered.length) * 100) : 0;
-    return { avgScore, hotRate };
-  }, [filtered, counts.hot]);
+    const sorted = [...filtered].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      const dir = sortDir === "asc" ? 1 : -1;
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+      return String(av).localeCompare(String(bv)) * dir;
+    });
 
-  // Visual tokens
-  const tagPill = (tag: TagKey) => {
-    const t = toneForTag(tag);
-    return { background: t.bg, border: `1px solid ${t.br}`, color: BRAND.text };
-  };
+    return sorted;
+  }, [workflowsBase, plan, q, sortKey, sortDir]);
+
+  const selected = useMemo(() => workflows.find((w) => w.id === selectedId) ?? null, [workflows, selectedId]);
+
+  const kpis = useMemo(() => {
+    const total = workflows.length || 1;
+    const ready = workflows.filter((w) => w.status === "Ready").length;
+    const paused = workflows.filter((w) => w.status === "Paused").length;
+    const error = workflows.filter((w) => w.status === "Error").length;
+    const running = workflows.filter((w) => w.status === "Running").length;
+    const avgSuccess = Math.round(workflows.reduce((a, b) => a + b.successRate, 0) / total);
+    return { total, ready, paused, error, running, avgSuccess };
+  }, [workflows]);
+
+  function toggleSort(k: keyof WorkflowRow) {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(k);
+      setSortDir("desc");
+    }
+  }
+
+  function showToast(title: string, msg: string, tone: "ok" | "warn" | "fail") {
+    setToast({ on: true, title, msg, tone });
+    window.setTimeout(() => setToast((t) => ({ ...t, on: false })), 3600);
+  }
+
+  function simulateRun() {
+    // Don’t pretend this is “real” — it’s a UI demo to show polish.
+    showToast("Run queued", "Simulating workflow run + health updates", "ok");
+  }
+
+  function enterWorkspace() {
+    // Your $5k offer needs this reveal. This is the “aha” moment.
+    setMode("workspace");
+    setNav("workflows");
+    showToast("Workspace ready", "Configuration applied. Showing client-ready deliverables.", "ok");
+  }
+
+  const moduleRowsForPlan = useMemo(() => modules.filter((m) => m.includedIn.includes(plan)), [modules, plan]);
 
   return (
-    <div className="min-h-screen" style={{ background: BRAND.ink }}>
-      {/* Global styles / keyframes */}
-      <style jsx global>{`
-        .glass {
-          background: linear-gradient(180deg, ${BRAND.panel} 0%, ${BRAND.panel2} 100%);
-          border: 1px solid ${BRAND.stroke};
-          box-shadow: 0 24px 80px rgba(0,0,0,0.42);
-          backdrop-filter: blur(10px);
+    <main className="aid">
+      <style>{`
+        :root{
+          --emerald:${BRAND.emerald};
+          --emeraldDark:${BRAND.emeraldDark};
+          --gold:${BRAND.gold};
+          --charcoal:${BRAND.charcoal};
+          --deepBg:${BRAND.deepBg};
+          --muted:${BRAND.muted};
+          --offwhite:${BRAND.offwhite};
         }
-        .glow-border {
-          position: relative;
-        }
-        .glow-border:before {
-          content: "";
-          position: absolute;
-          inset: -1px;
-          border-radius: 24px;
-          padding: 1px;
-          background: linear-gradient(
-            135deg,
-            rgba(16,185,129,0.55),
-            rgba(244,208,63,0.35),
-            rgba(255,255,255,0.10)
-          );
-          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          pointer-events: none;
-          opacity: 0.55;
-        }
-        .shine {
-          position: relative;
-          overflow: hidden;
-        }
-        .shine:after {
-          content: "";
-          position: absolute;
-          top: -60%;
-          left: -40%;
-          width: 80%;
-          height: 220%;
-          transform: rotate(18deg);
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
-          animation: sweep 4.2s infinite;
-          opacity: 0.55;
-        }
-        @keyframes sweep {
-          0% { transform: translateX(-30%) rotate(18deg); }
-          60% { transform: translateX(170%) rotate(18deg); }
-          100% { transform: translateX(170%) rotate(18deg); }
-        }
-        .bg-orb {
-          position: fixed;
-          inset: 0;
-          pointer-events: none;
-          opacity: 0.75;
+
+        body{
+          margin:0;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
           background:
-            radial-gradient(900px 520px at 18% 10%, rgba(16,185,129,0.30), transparent 60%),
-            radial-gradient(780px 560px at 82% 18%, rgba(244,208,63,0.22), transparent 58%),
-            radial-gradient(1000px 650px at 50% 92%, rgba(255,255,255,0.10), transparent 60%);
-          filter: saturate(120%);
+            radial-gradient(900px 520px at 18% 8%, rgba(16,185,129,.24) 0, transparent 60%),
+            radial-gradient(760px 540px at 86% 16%, rgba(244,208,63,.18) 0, transparent 58%),
+            radial-gradient(1000px 600px at 50% 92%, rgba(255,255,255,.08) 0, transparent 60%),
+            linear-gradient(180deg, #020617 0%, #000000 100%);
+          color:#E5E7EB;
         }
-        .btn {
-          border-radius: 18px;
-          padding: 12px 14px;
-          font-weight: 700;
-          font-size: 13px;
-          transition: transform .12s ease, filter .12s ease, background .12s ease;
-          user-select: none;
+
+        .aid{ min-height:100vh; }
+        .wrap{
+          max-width: 1180px;
+          margin: 0 auto;
+          padding: 26px 16px 90px;
         }
-        .btn:active { transform: translateY(1px) scale(0.99); }
-        .btnPrimary {
-          background: linear-gradient(135deg, ${BRAND.emerald} 0%, rgba(16,185,129,0.92) 55%, rgba(244,208,63,0.24) 100%);
-          color: rgba(255,255,255,0.96);
-          box-shadow: 0 18px 44px rgba(0,0,0,0.35);
-          border: 1px solid rgba(16,185,129,0.35);
+
+        /* Top */
+        .top{
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:16px;
+          margin-bottom:16px;
         }
-        .btnGhost {
-          background: rgba(255,255,255,0.06);
-          border: 1px solid ${BRAND.stroke};
-          color: rgba(255,255,255,0.90);
+        @media (max-width: 900px){ .top{ flex-direction:column; align-items:flex-start; } }
+
+        .brand{
+          display:inline-flex;
+          gap:12px;
+          align-items:center;
         }
-        .chip {
+        .logo{
+          width:42px; height:42px; border-radius:15px;
+          background: radial-gradient(circle at 30% 20%, #6EE7B7 0, var(--emerald) 45%, #022c22 100%);
+          box-shadow: 0 14px 38px rgba(5,150,105,.45);
+        }
+        .btxt{ display:flex; flex-direction:column; }
+        .bname{
+          font-weight:900;
+          letter-spacing:.12em;
+          text-transform:uppercase;
+          font-size:1rem;
+        }
+        .btag{ color: rgba(226,232,240,.75); font-size:.92rem; }
+
+        .pill{
+          border: 1px solid rgba(148,163,184,.45);
+          background: rgba(15,23,42,.62);
+          backdrop-filter: blur(12px);
           border-radius: 999px;
+          padding: 8px 14px;
+          display:inline-flex;
+          align-items:center;
+          gap:10px;
+          font-size:.92rem;
+          color:#D1D5DB;
+          white-space:nowrap;
+        }
+        .idot{
+          width:10px; height:10px; border-radius:999px;
+          box-shadow: 0 0 14px rgba(244,208,63,.25);
+          display:inline-block;
+        }
+
+        /* Shared cards */
+        .card{
+          border-radius: 20px;
+          background: rgba(15,23,42,.90);
+          border: 1px solid rgba(148,163,184,.55);
+          box-shadow: 0 18px 60px rgba(15,23,42,.78);
+          padding: 14px;
+        }
+        .glass{
+          background: rgba(15,23,42,.70);
+          border: 1px solid rgba(148,163,184,.45);
+          backdrop-filter: blur(12px);
+        }
+        .cardSoft{
+          border-radius: 18px;
+          background: rgba(2,6,23,.48);
+          border: 1px solid rgba(148,163,184,.35);
+          padding: 12px;
+        }
+        .ct{ font-weight: 950; margin:0 0 4px; color:#F9FAFB; }
+        .csub{ color: rgba(203,213,225,.85); margin:0; font-size:.93rem; line-height:1.4; }
+
+        .badge{
+          display:inline-flex;
+          align-items:center;
+          gap:8px;
+          border-radius:999px;
           padding: 6px 10px;
-          font-weight: 800;
+          font-weight: 900;
           font-size: 11px;
-          border: 1px solid ${BRAND.stroke};
-          background: rgba(255,255,255,0.06);
-          color: rgba(255,255,255,0.84);
+          color: rgba(255,255,255,.86);
           white-space: nowrap;
         }
-        .mono {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+        .btn{
+          border:none;
+          border-radius:999px;
+          padding: 10px 14px;
+          font-weight: 950;
+          cursor:pointer;
+          text-decoration:none;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          gap:8px;
+          letter-spacing:.01em;
+          transition: transform .12s ease, filter .12s ease, background .12s ease;
+          user-select:none;
+        }
+        .btn:active{ transform: translateY(1px) scale(.99); }
+        .btnPrimary{
+          background: linear-gradient(135deg, var(--emerald), #22C55E);
+          color: #ECFDF5;
+          box-shadow: 0 14px 40px rgba(16,185,129,.42);
+        }
+        .btnGold{
+          background: linear-gradient(135deg, rgba(244,208,63,.95), #F59E0B);
+          color: rgba(15,23,42,.95);
+          box-shadow: 0 14px 40px rgba(244,208,63,.18);
+        }
+        .btnGhost{
+          background: rgba(2,6,23,.55);
+          border: 1px solid rgba(148,163,184,.55);
+          color: #E5E7EB;
+        }
+
+        .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+        /* Configure */
+        .hero{
+          display:grid;
+          grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+          gap: 14px;
+          margin-top: 10px;
+          align-items: stretch;
+        }
+        @media (max-width: 980px){ .hero{ grid-template-columns: 1fr; } }
+
+        .eyebrow{
+          font-size:.86rem;
+          letter-spacing:.18em;
+          text-transform:uppercase;
+          color: rgba(226,232,240,.70);
+          margin-bottom: 6px;
+        }
+        .h1{
+          margin: 0 0 8px;
+          font-size: clamp(2.05rem, 3.2vw, 2.85rem);
+          letter-spacing: -0.04em;
+          line-height: 1.08;
+          color: #F9FAFB;
+          text-shadow: 0 2px 22px rgba(0,0,0,.55);
+        }
+        .h1 span{
+          background: linear-gradient(120deg, var(--gold), #F59E0B);
+          -webkit-background-clip:text;
+          background-clip:text;
+          color: transparent;
+          text-shadow:none;
+        }
+
+        .grid2{
+          display:grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 12px;
+          margin-top: 12px;
+        }
+        @media (max-width: 980px){ .grid2{ grid-template-columns:1fr; } }
+
+        .row{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap: 10px;
+          padding: 10px 12px;
+          border-radius: 16px;
+          background: rgba(2,6,23,.55);
+          border: 1px solid rgba(148,163,184,.40);
+        }
+        .kvl{ color: rgba(226,232,240,.82); font-size:.9rem; }
+        .kvr{ color: #E5E7EB; font-weight: 950; font-size:.92rem; }
+
+        .pillRow{
+          display:flex;
+          flex-wrap:wrap;
+          gap: 8px;
+          margin-top: 10px;
+        }
+        .pillBtn{
+          border-radius:999px;
+          border: 1px solid rgba(148,163,184,.55);
+          background: rgba(15,23,42,.80);
+          color:#E5E7EB;
+          padding: 7px 11px;
+          font-size:.86rem;
+          cursor:pointer;
+          transition: transform .12s ease, border-color .12s ease, background .12s ease;
+        }
+        .pillBtn:hover{ transform: translateY(-1px); }
+        .pillBtnActive{
+          background: rgba(4,120,87,.85);
+          border-color: rgba(244,208,63,.70);
+          color:#ECFDF5;
+          box-shadow: 0 14px 34px rgba(4,120,87,.28);
+        }
+
+        .gridInputs{
+          display:grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          margin-top: 10px;
+        }
+        @media (max-width: 720px){ .gridInputs{ grid-template-columns: 1fr; } }
+        .label{
+          color: rgba(226,232,240,.75);
+          font-size: .84rem;
+          font-weight: 850;
+        }
+        .in{
+          width:100%;
+          margin-top: 6px;
+          padding: 9px 10px;
+          border-radius: 14px;
+          border: 1px solid rgba(148,163,184,.55);
+          background: rgba(2,6,23,.55);
+          color:#E5E7EB;
+          outline:none;
+          font-size:.95rem;
+        }
+        .in:focus{
+          border-color: rgba(16,185,129,.75);
+          box-shadow: 0 0 0 1px rgba(4,120,87,.38);
+        }
+
+        /* Reveal */
+        .revealWrap{
+          margin-top: 14px;
+          display:grid;
+          grid-template-columns: 270px minmax(0, 1fr);
+          gap: 12px;
+        }
+        @media (max-width: 980px){ .revealWrap{ grid-template-columns: 1fr; } }
+
+        .side{
+          position: sticky;
+          top: 14px;
+          align-self: start;
+        }
+        @media (max-width: 980px){ .side{ position: static; } }
+
+        .navBtn{
+          width:100%;
+          text-align:left;
+          border-radius: 16px;
+          border: 1px solid rgba(148,163,184,.40);
+          background: rgba(2,6,23,.45);
+          color:#E5E7EB;
+          padding: 10px 12px;
+          cursor:pointer;
+          transition: transform .12s ease, background .12s ease, border-color .12s ease;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:10px;
+        }
+        .navBtn:hover{ transform: translateY(-1px); }
+        .navActive{
+          background: radial-gradient(circle at top left, rgba(4,120,87,.42), rgba(15,23,42,.82));
+          border-color: rgba(244,208,63,.55);
+          box-shadow: 0 18px 55px rgba(4,120,87,.25);
+        }
+
+        /* Data grid */
+        .gridShell{
+          border-radius: 20px;
+          overflow:hidden;
+          border: 1px solid rgba(148,163,184,.45);
+          background: rgba(15,23,42,.86);
+          box-shadow: 0 18px 60px rgba(0,0,0,.35);
+        }
+        .gridTop{
+          padding: 12px 12px;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap: 10px;
+          background: rgba(2,6,23,.42);
+          border-bottom: 1px solid rgba(148,163,184,.30);
+        }
+        .search{
+          flex:1;
+          display:flex;
+          align-items:center;
+          gap: 10px;
+        }
+        .search input{
+          width:100%;
+          border-radius: 14px;
+          border: 1px solid rgba(148,163,184,.45);
+          background: rgba(2,6,23,.55);
+          padding: 9px 10px;
+          color:#E5E7EB;
+          outline:none;
+          font-size:.95rem;
+        }
+
+        .gridHead{
+          display:grid;
+          grid-template-columns: 72px minmax(240px, 1.2fr) 130px 190px 110px 95px;
+          gap: 0px;
+          padding: 10px 12px;
+          font-size: 12px;
+          font-weight: 950;
+          color: rgba(226,232,240,.70);
+          background: rgba(2,6,23,.55);
+          border-bottom: 1px solid rgba(148,163,184,.22);
+        }
+        .hcell{
+          cursor:pointer;
+          user-select:none;
+          display:flex;
+          align-items:center;
+          gap:8px;
+        }
+        .sortArrow{
+          opacity: .8;
+          font-size: 12px;
+        }
+        .gridBody{
+          max-height: 460px;
+          overflow:auto;
+        }
+        .rowGrid{
+          display:grid;
+          grid-template-columns: 72px minmax(240px, 1.2fr) 130px 190px 110px 95px;
+          padding: 10px 12px;
+          gap:0px;
+          border-bottom: 1px solid rgba(148,163,184,.16);
+          transition: background .12s ease;
+          cursor:pointer;
+        }
+        .rowGrid:hover{ background: rgba(255,255,255,.03); }
+        .rowSel{ background: rgba(244,208,63,.06); }
+
+        .cellMain{
+          font-weight: 950;
+          color:#F9FAFB;
+          font-size:.95rem;
+        }
+        .cellSub{
+          font-size:.84rem;
+          color: rgba(203,213,225,.80);
+          margin-top:2px;
+          line-height:1.25;
+        }
+        .status{
+          display:inline-flex;
+          align-items:center;
+          gap:8px;
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-weight: 950;
+          font-size: 11px;
+          border: 1px solid rgba(148,163,184,.35);
+          background: rgba(2,6,23,.45);
+          width: fit-content;
+        }
+        .statusReady{ border-color: rgba(16,185,129,.30); background: rgba(16,185,129,.08); }
+        .statusPaused{ border-color: rgba(148,163,184,.35); background: rgba(255,255,255,.04); }
+        .statusRunning{ border-color: rgba(244,208,63,.35); background: rgba(244,208,63,.08); }
+        .statusError{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.08); }
+
+        /* Drawer */
+        .overlay{
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,.55);
+          z-index: 30;
+        }
+        .drawer{
+          position: fixed;
+          top: 0;
+          right: 0;
+          height: 100vh;
+          width: min(520px, 100%);
+          z-index: 40;
+          background: rgba(15,23,42,.90);
+          border-left: 1px solid rgba(148,163,184,.35);
+          backdrop-filter: blur(14px);
+          padding: 16px;
+          box-shadow: -20px 0 70px rgba(0,0,0,.45);
+        }
+
+        /* Toast */
+        .toast{
+          position: fixed;
+          top: 14px;
+          right: 14px;
+          z-index: 60;
+          width: 340px;
+          border-radius: 18px;
+          padding: 12px 12px;
+          background: rgba(15,23,42,.92);
+          border: 1px solid rgba(148,163,184,.35);
+          box-shadow: 0 18px 70px rgba(0,0,0,.45);
         }
       `}</style>
 
-      <div className="bg-orb" />
-
-      {/* Top Nav */}
-      <div className="relative mx-auto max-w-7xl px-4 pt-6">
-        <div className="glass glow-border shine flex flex-col gap-4 rounded-3xl p-5 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl" style={{ background: "rgba(244,208,63,0.16)", border: "1px solid rgba(244,208,63,0.28)" }}>
-              <span className="text-lg" style={{ color: BRAND.text }}>✦</span>
-            </div>
-            <div>
-              <div className="text-sm font-extrabold tracking-tight" style={{ color: BRAND.text }}>
-                Territory Opportunity Console
-              </div>
-              <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
-                Buy Box → Ranked Feed → Hot Alerts (capped) → Weekly/Monthly delivery
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <span className="chip" style={{ borderColor: territoryLocked ? "rgba(244,208,63,0.42)" : BRAND.stroke, background: territoryLocked ? "rgba(244,208,63,0.10)" : "rgba(255,255,255,0.06)" }}>
-                  {territoryLocked ? "Territory Reserved" : "Territory Available"}
-                </span>
-                <span className="chip mono">{exclusivityText}</span>
-                <span className="chip" style={{ borderColor: "rgba(16,185,129,0.30)", background: "rgba(16,185,129,0.10)" }}>
-                  Avg Score {headerKpi.avgScore}
-                </span>
-                <span className="chip" style={{ borderColor: "rgba(244,208,63,0.28)", background: "rgba(244,208,63,0.10)" }}>
-                  Hot Rate {headerKpi.hotRate}%
-                </span>
-              </div>
+      <div className="wrap">
+        {/* Top */}
+        <header className="top">
+          <div className="brand">
+            <div className="logo" />
+            <div className="btxt">
+              <div className="bname">ALL IN DIGITAL</div>
+              <div className="btag">Client-Ready Stack Workspace (Billing + Ops + Deliverables)</div>
             </div>
           </div>
 
-          <div className="flex flex-col items-stretch gap-3 md:min-w-[420px] md:items-end">
-            <div className="flex w-full gap-2">
-              <div className="flex-1">
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search address / zip / notes…"
-                  className="w-full rounded-2xl px-4 py-3 text-sm outline-none"
-                  style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                />
-              </div>
-              <button className={cx("btn btnPrimary")} onClick={runDemo} disabled={running} style={{ filter: running ? "grayscale(0.4) brightness(0.9)" : "none" }}>
-                {running ? `Running • ${step}` : "Run Demo"}
-              </button>
-              <button className={cx("btn btnGhost")} onClick={() => safeCopy(JSON.stringify(config, null, 2))}>
-                Copy Config
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 text-xs" style={{ color: BRAND.sub }}>
-              <div className="flex items-center gap-2">
-                <span className="mono">{meta.name}</span>
-                <span className="chip" style={{ borderColor: "rgba(244,208,63,0.35)", background: "rgba(244,208,63,0.10)" }}>
-                  {meta.badge}
-                </span>
-                <span className="chip" style={{ borderColor: "rgba(255,255,255,0.14)" }}>
-                  {meta.caps}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full" style={{ background: running ? "rgba(244,208,63,0.85)" : "rgba(16,185,129,0.55)" }} />
-                <span>{running ? "Live run" : "Ready"}</span>
-              </div>
-            </div>
-
-            {/* progress bar */}
-            <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${running ? progress : 0}%`,
-                  transition: "width 120ms ease",
-                  background: `linear-gradient(90deg, ${BRAND.emerald2} 0%, ${BRAND.gold} 65%, rgba(255,255,255,0.25) 100%)`,
-                }}
-              />
-            </div>
+          <div className="pill">
+            <IconDot tone={mode === "workspace" ? "emerald" : "gold"} />
+            <span>{mode === "workspace" ? "Workspace active • deliverables visible" : "Configure → Reveal workspace"}</span>
           </div>
-        </div>
-      </div>
+        </header>
 
-      {/* Main */}
-      <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-6">
-        <div className="grid gap-6 lg:grid-cols-12">
-          {/* Sidebar */}
-          <div className="lg:col-span-3">
-            <div className="glass rounded-3xl p-5">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                  Workflows
+        {/* CONFIGURE */}
+        {mode === "configure" ? (
+          <section className="hero">
+            <div className="card">
+              <div className="eyebrow">Front-end reveal experience</div>
+              <h1 className="h1">
+                A <span>client-ready stack</span> that looks like it costs $5,000 to install.
+              </h1>
+              <p className="csub" style={{ fontSize: "1.02rem", maxWidth: 820 }}>
+                Don’t show “options.” Show a configured system: workflows, health, audit trail, and modules. Submit below to reveal the workspace view.
+              </p>
+
+              <div className="pillRow">
+                <PillButton active={plan === "demo"} onClick={() => setPlan("demo")}>
+                  Demo
+                </PillButton>
+                <PillButton active={plan === "week197"} onClick={() => setPlan("week197")}>
+                  $197 week
+                </PillButton>
+                <PillButton active={plan === "monthly750"} onClick={() => setPlan("monthly750")}>
+                  $750/mo
+                </PillButton>
+                <PillButton active={plan === "monthly1500"} onClick={() => setPlan("monthly1500")}>
+                  $1,500/mo
+                </PillButton>
+              </div>
+
+              <div className="grid2">
+                <div className="cardSoft">
+                  <div className="ct">{meta.title}</div>
+                  <p className="csub">{meta.highlight}</p>
+                  <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <Badge tone="gold">{meta.price}</Badge>
+                    <Badge tone="emerald">{meta.delivery}</Badge>
+                    <Badge>{meta.cap}</Badge>
+                  </div>
                 </div>
-                <span className="chip" style={{ background: "rgba(255,255,255,0.05)" }}>
-                  4 modes
-                </span>
+
+                <div className="cardSoft">
+                  <div className="ct">What gets revealed</div>
+                  <p className="csub">
+                    A workspace view with a smooth data grid, audit trail, modules, and “run simulation” controls for screen share.
+                  </p>
+                  <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <Badge tone="emerald">Workflows</Badge>
+                    <Badge>Health</Badge>
+                    <Badge>Activity</Badge>
+                    <Badge tone="gold">Modules</Badge>
+                  </div>
+                </div>
               </div>
 
-              <div className="mt-4 grid gap-2">
-                {(
-                  [
-                    { k: "demo", t: "Demo Workflow", d: "Always stable preview" },
-                    { k: "proof197", t: "$197 Proof Sprint", d: "Top 5 daily" },
-                    { k: "monthly750", t: "$750 Monthly", d: "Solo territory" },
-                    { k: "monthly1500", t: "$1,500 Monthly", d: "High volume + watchlist" },
-                  ] as Array<{ k: PlanKey; t: string; d: string }>
-                ).map((x) => {
-                  const active = plan === x.k;
-                  return (
+              <div className="gridInputs">
+                <div>
+                  <div className="label">Workspace name</div>
+                  <input className="in" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
+                </div>
+                <div>
+                  <div className="label">Territory key</div>
+                  <input className="in mono" value={territoryKey} onChange={(e) => setTerritoryKey(e.target.value)} />
+                </div>
+
+                <div>
+                  <div className="label">Primary calendar</div>
+                  <select className="in" value={primaryCalendar} onChange={(e) => setPrimaryCalendar(e.target.value)}>
+                    <option value="Google Calendar">Google Calendar</option>
+                    <option value="GoHighLevel Calendar">GoHighLevel Calendar</option>
+                    <option value="Other (custom)">Other (custom)</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="label">Primary notifications</div>
+                  <select className="in" value={notifyChannel} onChange={(e) => setNotifyChannel(e.target.value)}>
+                    <option value="Telegram">Telegram</option>
+                    <option value="Email">Email</option>
+                    <option value="Slack">Slack</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="cardSoft" style={{ marginTop: 12 }}>
+                <div className="ct">Integrations toggles</div>
+                <p className="csub">This is visual proof that the build is modular and controlled — not “random automations.”</p>
+                <div className="pillRow">
+                  {([
+                    ["stripe", "Stripe"],
+                    ["telnyx", "Telnyx"],
+                    ["vapi", "Voice AI"],
+                    ["email", "Email"],
+                    ["telegram", "Telegram"],
+                    ["slack", "Slack"],
+                  ] as const).map(([k, label]) => (
                     <button
-                      key={x.k}
-                      onClick={() => setPlan(x.k)}
-                      className="w-full rounded-2xl px-4 py-3 text-left"
-                      style={{
-                        background: active ? "rgba(244,208,63,0.10)" : "rgba(255,255,255,0.04)",
-                        border: `1px solid ${active ? "rgba(244,208,63,0.35)" : BRAND.stroke}`,
-                        transition: "transform .12s ease, background .12s ease",
-                      }}
+                      key={k}
+                      type="button"
+                      className={cx("pillBtn", integrations[k] && "pillBtnActive")}
+                      onClick={() => setIntegrations((p) => ({ ...p, [k]: !p[k] }))}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                            {x.t}
-                          </div>
-                          <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
-                            {x.d}
-                          </div>
-                        </div>
-                        <span className="chip">{planMeta(x.k).topN === 5 ? "Top 5" : "Top 10"}</span>
-                      </div>
+                      {label}
                     </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-5 rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
-                <div className="text-xs font-extrabold" style={{ color: BRAND.text }}>
-                  Territory Lock (Exclusivity UI)
-                </div>
-                <div className="mt-2 text-xs leading-relaxed" style={{ color: BRAND.sub }}>
-                  You can’t promise outcomes. You can promise <span style={{ color: BRAND.text, fontWeight: 800 }}>exclusivity on delivery</span> for a territory key.
-                </div>
-
-                <div className="mt-3">
-                  <div className="mb-2 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
-                    Territory key
-                  </div>
-                  <input
-                    value={territoryKey}
-                    onChange={(e) => setTerritoryKey(e.target.value)}
-                    className="w-full rounded-2xl px-3 py-2 text-xs outline-none mono"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  />
-                </div>
-
-                <div className="mt-3 flex items-center justify-between">
-                  <button
-                    className="btn btnGhost"
-                    onClick={() => {
-                      setTerritoryLocked((v) => !v);
-                      pushToast({
-                        title: territoryLocked ? "Territory released" : "Territory reserved",
-                        message: territoryLocked ? "Key is now available" : "Key is now reserved for this client",
-                        tone: territoryLocked ? "info" : "success",
-                      });
-                    }}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 16,
-                      width: "100%",
-                      background: territoryLocked ? "rgba(244,208,63,0.10)" : "rgba(255,255,255,0.06)",
-                      border: `1px solid ${territoryLocked ? "rgba(244,208,63,0.35)" : BRAND.stroke}`,
-                    }}
-                  >
-                    {territoryLocked ? "Release Territory" : "Reserve Territory"}
-                  </button>
-                </div>
-
-                <div className="mt-2 text-[11px]" style={{ color: BRAND.dim }}>
-                  In your back-end later: a DB unique constraint on territory_key.
+                  ))}
                 </div>
               </div>
 
-              <div className="mt-5 rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-extrabold" style={{ color: BRAND.text }}>
-                    Health
-                  </div>
-                  <span className="chip" style={{ borderColor: "rgba(16,185,129,0.30)", background: "rgba(16,185,129,0.10)" }}>
-                    OK
-                  </span>
-                </div>
+              <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button className={cx("btn", "btnGold")} onClick={enterWorkspace}>
+                  Reveal workspace ↗
+                </button>
+                <button
+                  className={cx("btn", "btnGhost")}
+                  onClick={() => {
+                    setBusinessName("All In Digital — Client Workspace");
+                    setTerritoryKey("TX-AUSTIN-CORE-78701");
+                    setPlan("demo");
+                    showToast("Reset", "Configuration reset to defaults", "warn");
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
 
-                <div className="mt-3 grid gap-2 text-xs" style={{ color: BRAND.sub }}>
-                  <div className="flex items-center justify-between">
-                    <span>Pipeline</span>
-                    <span style={{ color: BRAND.text, fontWeight: 800 }}>{running ? step : "Idle"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Alerts capped</span>
-                    <span style={{ color: BRAND.text, fontWeight: 800 }}>{bb.dailyCapHotAlerts}/day</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Delivery</span>
-                    <span style={{ color: BRAND.text, fontWeight: 800 }}>{meta.topN === 5 ? "Top 5" : "Top 10"}</span>
-                  </div>
-                </div>
+              <div style={{ marginTop: 10, color: "rgba(203,213,225,.78)", fontSize: ".88rem", lineHeight: 1.45 }}>
+                If your “setup fee feels expensive,” it’s usually because your front-end looks like a landing page. Your reveal needs to look like an
+                installed product with monitoring, auditability, and modular expansion.
               </div>
             </div>
 
-            {/* Buy box panel */}
-            <div className="mt-6 glass rounded-3xl p-5">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                  Buy Box
+            <div className="card">
+              <div className="ct">Quick snapshot</div>
+              <p className="csub">This makes the offer feel like a system, not a service.</p>
+
+              <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                <div className="row">
+                  <div className="kvl">Territory</div>
+                  <div className="kvr mono">{territoryKey}</div>
                 </div>
-                <span className="chip" style={{ borderColor: "rgba(255,255,255,0.14)" }}>
-                  client-config
-                </span>
+                <div className="row">
+                  <div className="kvl">Plan</div>
+                  <div className="kvr">{meta.title}</div>
+                </div>
+                <div className="row">
+                  <div className="kvl">Calendar</div>
+                  <div className="kvr">{primaryCalendar}</div>
+                </div>
+                <div className="row">
+                  <div className="kvl">Alerts</div>
+                  <div className="kvr">{notifyChannel}</div>
+                </div>
               </div>
 
-              <div className="mt-4">
-                <Field label="Preset">
-                  <select
-                    value={presetKey}
-                    onChange={(e) => setPresetKey(e.target.value as BuyBoxPresetKey)}
-                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  >
-                    {(["Balanced", "Investor", "Family", "Luxury", "Starter"] as BuyBoxPresetKey[]).map((k) => (
-                      <option key={k} value={k} style={{ color: "#000" }}>
-                        {k}
-                      </option>
+              <div style={{ marginTop: 14 }} className="cardSoft">
+                <div className="ct">Top {plan === "week197" ? "5 essentials" : "10 modules"}</div>
+                <p className="csub">
+                  {plan === "week197"
+                    ? "Proof sprint includes the essentials only. That’s deliberate: tight scope = fast install."
+                    : "Higher tiers add reporting, usage normalization, and monitoring layers."}
+                </p>
+                <div className="pillRow">
+                  {(plan === "week197" ? moduleRowsForPlan.filter((m) => essentialsTop5.includes(m.key)) : moduleRowsForPlan)
+                    .slice(0, plan === "week197" ? 5 : 10)
+                    .map((m) => (
+                      <Badge key={m.key} tone={essentialsTop5.includes(m.key) ? "gold" : "slate"}>
+                        {m.name}
+                      </Badge>
                     ))}
-                  </select>
-                </Field>
+                </div>
               </div>
 
-              <div className="mt-4 grid gap-3">
-                <Field label="Territory name">
-                  <input
-                    value={bb.territoryName}
-                    onChange={(e) => setBb((p) => ({ ...p, territoryName: e.target.value }))}
-                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  />
-                </Field>
-
-                <Field label="County/Area">
-                  <input
-                    value={bb.countyOrArea}
-                    onChange={(e) => setBb((p) => ({ ...p, countyOrArea: e.target.value }))}
-                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  />
-                </Field>
-
-                <Field label="Anchor address">
-                  <input
-                    value={bb.anchorAddress}
-                    onChange={(e) => setBb((p) => ({ ...p, anchorAddress: e.target.value }))}
-                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  />
-                </Field>
-
-                <Field label="ZIPs" hint={`Parsed: ${parseZipList(bb.zips).length}`}>
-                  <input
-                    value={bb.zips}
-                    onChange={(e) => setBb((p) => ({ ...p, zips: e.target.value }))}
-                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  />
-                </Field>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Price min">
-                    <input
-                      type="number"
-                      value={bb.priceMin}
-                      onChange={(e) => setBb((p) => ({ ...p, priceMin: Math.max(0, Number(e.target.value || 0)) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                    />
-                  </Field>
-                  <Field label="Price max">
-                    <input
-                      type="number"
-                      value={bb.priceMax}
-                      onChange={(e) => setBb((p) => ({ ...p, priceMax: Math.max(0, Number(e.target.value || 0)) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                    />
-                  </Field>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Beds min">
-                    <input
-                      type="number"
-                      value={bb.bedsMin}
-                      onChange={(e) => setBb((p) => ({ ...p, bedsMin: clamp(Number(e.target.value || 0), 0, 10) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                    />
-                  </Field>
-                  <Field label="Beds max">
-                    <input
-                      type="number"
-                      value={bb.bedsMax}
-                      onChange={(e) => setBb((p) => ({ ...p, bedsMax: clamp(Number(e.target.value || 0), 0, 15) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                    />
-                  </Field>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Baths min">
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={bb.bathsMin}
-                      onChange={(e) => setBb((p) => ({ ...p, bathsMin: clamp(Number(e.target.value || 0), 0, 10) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                    />
-                  </Field>
-                  <Field label="Max distance (mi)">
-                    <input
-                      type="number"
-                      value={bb.maxDistanceMiles}
-                      onChange={(e) => setBb((p) => ({ ...p, maxDistanceMiles: clamp(Number(e.target.value || 0), 1, 100) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                    />
-                  </Field>
-                </div>
-
-                <Field label="Property type">
-                  <select
-                    value={bb.propertyType}
-                    onChange={(e) => setBb((p) => ({ ...p, propertyType: e.target.value as PropertyType }))}
-                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  >
-                    {(["Any", "Single Family", "Condo", "Townhome", "Multi-Family"] as PropertyType[]).map((k) => (
-                      <option key={k} value={k} style={{ color: "#000" }}>
-                        {k}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-
-                <Field label="Include signals (comma)">
-                  <textarea
-                    value={bb.includeSignals}
-                    onChange={(e) => setBb((p) => ({ ...p, includeSignals: e.target.value }))}
-                    className="h-20 w-full resize-none rounded-2xl px-3 py-2 text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  />
-                </Field>
-
-                <Field label="Exclude signals (comma)">
-                  <textarea
-                    value={bb.excludeSignals}
-                    onChange={(e) => setBb((p) => ({ ...p, excludeSignals: e.target.value }))}
-                    className="h-20 w-full resize-none rounded-2xl px-3 py-2 text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  />
-                </Field>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Warm ≥">
-                    <input
-                      type="number"
-                      value={bb.warmThreshold}
-                      onChange={(e) => setBb((p) => ({ ...p, warmThreshold: clamp(Number(e.target.value || 0), 1, 99) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                    />
-                  </Field>
-                  <Field label="Hot ≥">
-                    <input
-                      type="number"
-                      value={bb.hotThreshold}
-                      onChange={(e) => setBb((p) => ({ ...p, hotThreshold: clamp(Number(e.target.value || 0), 1, 100) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                    />
-                  </Field>
-                </div>
-
-                <Field label="Hot alerts cap/day">
-                  <input
-                    type="number"
-                    value={bb.dailyCapHotAlerts}
-                    onChange={(e) => setBb((p) => ({ ...p, dailyCapHotAlerts: clamp(Number(e.target.value || 0), 0, 25) }))}
-                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  />
-                </Field>
+              <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <a className={cx("btn", "btnPrimary")} href="tel:+14695008848">
+                  Call 469-500-8848 ↗
+                </a>
+                <a className={cx("btn", "btnGhost")} href="mailto:info@allindigitalmktg.com">
+                  Email info@allindigitalmktg.com ↗
+                </a>
               </div>
             </div>
-          </div>
+          </section>
+        ) : null}
 
-          {/* Center */}
-          <div className="lg:col-span-6">
-            {/* Analytics header */}
-            <div className="glass rounded-3xl p-5">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <div className="text-xs font-semibold" style={{ color: BRAND.sub }}>
-                    Live board
-                  </div>
-                  <div className="mt-1 text-xl font-extrabold tracking-tight" style={{ color: BRAND.text }}>
-                    Ranked Opportunities — Top {meta.topN}
-                  </div>
-                  <div className="mt-2 text-xs" style={{ color: BRAND.sub }}>
-                    You sell ranked fit + speed. You do not sell “motivated seller guarantees.”
-                  </div>
-                </div>
+        {/* WORKSPACE */}
+        {mode === "workspace" ? (
+          <section className="revealWrap">
+            <div className={cx("card", "side")}>
+              <div className="ct">{businessName}</div>
+              <p className="csub">
+                Territory <span className="mono">{territoryKey}</span>
+              </p>
 
-                <div className="flex items-center gap-3">
-                  <Donut hot={counts.hot} warm={counts.warm} cold={counts.cold} />
-                  <div>
-                    <div className="text-xs font-extrabold" style={{ color: BRAND.text }}>
-                      {counts.total} leads
-                    </div>
-                    <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
-                      Hot {counts.hot} • Warm {counts.warm} • Cold {counts.cold}
-                    </div>
-                    <div className="mt-2">
-                      <Sparkline data={trend} />
-                    </div>
+              <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <Badge tone="gold">{meta.price}</Badge>
+                <Badge tone="emerald">{meta.delivery}</Badge>
+                <Badge>{meta.cadence}</Badge>
+              </div>
+
+              <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                <button className={cx("navBtn", nav === "workflows" && "navActive")} onClick={() => setNav("workflows")}>
+                  <span>Workflows</span>
+                  <Badge tone="emerald">{kpis.ready}/{kpis.total}</Badge>
+                </button>
+                <button className={cx("navBtn", nav === "modules" && "navActive")} onClick={() => setNav("modules")}>
+                  <span>Modules</span>
+                  <Badge tone="gold">{moduleRowsForPlan.length}</Badge>
+                </button>
+                <button className={cx("navBtn", nav === "activity" && "navActive")} onClick={() => setNav("activity")}>
+                  <span>Activity</span>
+                  <Badge>{events.length}</Badge>
+                </button>
+                <button className={cx("navBtn", nav === "settings" && "navActive")} onClick={() => setNav("settings")}>
+                  <span>Settings</span>
+                  <Badge>Config</Badge>
+                </button>
+              </div>
+
+              <div className="cardSoft" style={{ marginTop: 12 }}>
+                <div className="ct">Health</div>
+                <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                  <div className="row">
+                    <div className="kvl">Avg success</div>
+                    <div className="kvr">{kpis.avgSuccess}%</div>
+                  </div>
+                  <div className="row">
+                    <div className="kvl">Errors</div>
+                    <div className="kvr">{kpis.error}</div>
+                  </div>
+                  <div className="row">
+                    <div className="kvl">Paused</div>
+                    <div className="kvr">{kpis.paused}</div>
                   </div>
                 </div>
               </div>
 
-              {/* Filter bar */}
-              <div className="mt-5 grid gap-3 md:grid-cols-4">
-                <div>
-                  <div className="mb-2 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
-                    Tag
-                  </div>
-                  <select
-                    value={tagFilter}
-                    onChange={(e) => setTagFilter(e.target.value as any)}
-                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  >
-                    {(["All", "Hot", "Warm", "Cold"] as const).map((v) => (
-                      <option key={v} value={v} style={{ color: "#000" }}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <div className="mb-2 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
-                    Source
-                  </div>
-                  <select
-                    value={sourceFilter}
-                    onChange={(e) => setSourceFilter(e.target.value as any)}
-                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
-                  >
-                    {(["All", "Newsletter", "Marketplace", "Web", "Community"] as const).map((v) => (
-                      <option key={v} value={v} style={{ color: "#000" }}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="md:col-span-2">
-                  <div className="mb-2 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
-                    Distance filter
-                  </div>
-                  <button
-                    className="btn btnGhost w-full"
-                    onClick={() => setOnlyWithinDistance((v) => !v)}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 16,
-                      background: onlyWithinDistance ? "rgba(16,185,129,0.10)" : "rgba(255,255,255,0.06)",
-                      border: `1px solid ${onlyWithinDistance ? "rgba(16,185,129,0.30)" : BRAND.stroke}`,
-                    }}
-                  >
-                    {onlyWithinDistance ? `Within ${bb.maxDistanceMiles} mi (ON)` : "Distance filter (OFF)"}
-                  </button>
-                </div>
+              <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                <button className={cx("btn", "btnGold")} onClick={simulateRun}>
+                  Simulate run
+                </button>
+                <button
+                  className={cx("btn", "btnGhost")}
+                  onClick={() => {
+                    setMode("configure");
+                    setDrawerOpen(false);
+                    setSelectedId(null);
+                    showToast("Back to configure", "Edit configuration and reveal again", "warn");
+                  }}
+                >
+                  Back to configure
+                </button>
               </div>
             </div>
 
-            {/* Board */}
-            <div className="mt-6 glass rounded-3xl p-0 overflow-hidden">
-              <div className="grid grid-cols-12 gap-2 px-5 py-4 text-[11px] font-extrabold" style={{ color: BRAND.sub, background: "rgba(255,255,255,0.03)", borderBottom: `1px solid ${BRAND.stroke}` }}>
-                <div className="col-span-5">Opportunity</div>
-                <div className="col-span-2">Price</div>
-                <div className="col-span-2">Specs</div>
-                <div className="col-span-2">Distance</div>
-                <div className="col-span-1 text-right">Score</div>
-              </div>
-
-              <div className="divide-y" style={{ borderColor: BRAND.stroke }}>
-                {(liveFeed.length ? liveFeed : topN).slice(0, meta.topN).map((r) => (
-                  <button
-                    key={r.id}
-                    className="w-full text-left"
-                    onClick={() => openLead(r)}
-                    style={{ background: "transparent" }}
-                  >
-                    <div className="grid grid-cols-12 gap-2 px-5 py-4 hover:opacity-95" style={{ transition: "opacity .12s ease" }}>
-                      <div className="col-span-5">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                              {r.addressLine}
-                            </div>
-                            <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
-                              {r.cityState} • ZIP {r.zip} • {r.propertyType} • {r.source}
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {r.reasons.map((x) => (
-                                <span key={x} className="chip" style={{ background: "rgba(255,255,255,0.05)" }}>
-                                  {x}
-                                </span>
-                              ))}
-                              <span className="chip mono" title="heuristic completeness proxy">
-                                conf {r.confidence}%
-                              </span>
-                            </div>
-                          </div>
-
-                          <span className="chip" style={tagPill(r.tag)}>
-                            {r.tag}
-                          </span>
+            <div>
+              {/* WORKFLOWS */}
+              {nav === "workflows" ? (
+                <div className="gridShell">
+                  <div className="gridTop">
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                      <div>
+                        <div className="ct" style={{ marginBottom: 0 }}>
+                          Workflow Library
                         </div>
-
-                        <div className="mt-2 text-xs leading-relaxed" style={{ color: BRAND.sub }}>
-                          {r.blurb}
-                        </div>
+                        <div className="csub">Sorted + searchable grid with details drawer.</div>
                       </div>
-
-                      <div className="col-span-2 text-sm font-extrabold" style={{ color: BRAND.text }}>
-                        ${money(r.price)}
-                      </div>
-
-                      <div className="col-span-2 text-sm" style={{ color: BRAND.text }}>
-                        {r.beds}bd • {r.baths}ba
-                        <div className="mt-1 text-xs" style={{ color: BRAND.dim }}>
-                          {minutesAgo(r.createdAtIso)}
-                        </div>
-                      </div>
-
-                      <div className="col-span-2 text-sm" style={{ color: BRAND.text }}>
-                        {r.distanceMiles.toFixed(1)} mi
-                      </div>
-
-                      <div className="col-span-1 flex justify-end">
-                        <div
-                          className="flex h-9 w-14 items-center justify-center rounded-2xl text-sm font-extrabold"
-                          style={{
-                            background: toneForTag(r.tag).bg,
-                            border: `1px solid ${toneForTag(r.tag).br}`,
-                            color: BRAND.text,
-                          }}
-                        >
-                          {r.score}
-                        </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        <Badge tone="emerald">Ready {kpis.ready}</Badge>
+                        <Badge tone="gold">Avg {kpis.avgSuccess}%</Badge>
+                        <Badge>Plan: {meta.title}</Badge>
                       </div>
                     </div>
-                  </button>
-                ))}
-              </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4" style={{ borderTop: `1px solid ${BRAND.stroke}`, background: "rgba(255,255,255,0.02)" }}>
-                <div className="text-xs" style={{ color: BRAND.sub }}>
-                  Delivery payload is <span style={{ color: BRAND.text, fontWeight: 900 }}>structured</span> and exportable (email, Airtable, Slack, SMS caps later).
-                </div>
-                <div className="flex gap-2">
-                  <button className="btn btnGhost" onClick={() => safeCopy(JSON.stringify(deliverablePreview, null, 2))}>
-                    Copy Deliverable JSON
-                  </button>
-                  <button
-                    className="btn btnGhost"
-                    onClick={() =>
-                      safeCopy(
-                        deliverablePreview
-                          .map((x) => `${x.tag} ${x.score} • ${x.address} • $${money(x.price)} • ${x.distanceMiles.toFixed(1)}mi`)
-                          .join("\n")
-                      )
-                    }
-                  >
-                    Copy as Text
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right column */}
-          <div className="lg:col-span-3">
-            <MiniMap lead={selected} anchorLabel={bb.anchorAddress} />
-
-            <div className="mt-6 glass rounded-3xl p-5">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                  Hot Alerts (capped)
-                </div>
-                <span className="chip" style={{ borderColor: "rgba(244,208,63,0.35)", background: "rgba(244,208,63,0.10)" }}>
-                  cap {bb.dailyCapHotAlerts}/day
-                </span>
-              </div>
-
-              <div className="mt-4 grid gap-3">
-                {hotAlerts.length ? (
-                  hotAlerts.map((r) => (
-                    <div key={r.id} className="rounded-2xl p-4" style={{ background: "rgba(244,208,63,0.08)", border: "1px solid rgba(244,208,63,0.25)" }}>
-                      <div className="text-[11px] font-extrabold" style={{ color: BRAND.text }}>
-                        🔥 HOT ({r.score})
-                      </div>
-                      <div className="mt-2 text-sm font-extrabold" style={{ color: BRAND.text }}>
-                        {r.addressLine.split(",")[0]}
-                      </div>
-                      <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
-                        ${money(r.price)} • {r.beds}bd/{r.baths}ba • {r.distanceMiles.toFixed(1)} mi
-                      </div>
-                      <button className="mt-3 btn btnGhost w-full" onClick={() => openLead(r)} style={{ padding: "10px 12px", borderRadius: 16 }}>
-                        View
+                    <div className="search">
+                      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search workflows, triggers, notes…" />
+                      <button
+                        className={cx("btn", "btnGhost")}
+                        onClick={() => showToast("Export", "This would export JSON + runbook in production.", "ok")}
+                        style={{ padding: "10px 12px" }}
+                      >
+                        Export
                       </button>
                     </div>
-                  ))
-                ) : (
-                  <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
-                    <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                      No hot alerts
+                  </div>
+
+                  <div className="gridHead">
+                    <div className="hcell" onClick={() => toggleSort("id")}>
+                      ID {sortKey === "id" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
                     </div>
-                    <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
-                      Tighten buy box or lower hot threshold.
+                    <div className="hcell" onClick={() => toggleSort("name")}>
+                      Name {sortKey === "name" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
+                    </div>
+                    <div className="hcell" onClick={() => toggleSort("status")}>
+                      Status {sortKey === "status" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
+                    </div>
+                    <div className="hcell" onClick={() => toggleSort("lastRun")}>
+                      Last run {sortKey === "lastRun" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
+                    </div>
+                    <div className="hcell" onClick={() => toggleSort("runs7d")}>
+                      Runs 7d {sortKey === "runs7d" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
+                    </div>
+                    <div className="hcell" onClick={() => toggleSort("successRate")}>
+                      Success {sortKey === "successRate" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
                     </div>
                   </div>
-                )}
-              </div>
+
+                  <div className="gridBody">
+                    {workflows.map((w) => {
+                      const sel = w.id === selectedId;
+                      const statusClass =
+                        w.status === "Ready"
+                          ? "statusReady"
+                          : w.status === "Paused"
+                          ? "statusPaused"
+                          : w.status === "Running"
+                          ? "statusRunning"
+                          : "statusError";
+
+                      const dotTone =
+                        w.status === "Ready" ? "emerald" : w.status === "Running" ? "gold" : w.status === "Error" ? "red" : "slate";
+
+                      return (
+                        <div
+                          key={w.id}
+                          className={cx("rowGrid", sel && "rowSel")}
+                          onClick={() => {
+                            setSelectedId(w.id);
+                            setDrawerOpen(true);
+                          }}
+                        >
+                          <div className="mono cellMain">{w.id}</div>
+
+                          <div>
+                            <div className="cellMain">{w.name}</div>
+                            <div className="cellSub">{w.trigger}</div>
+                          </div>
+
+                          <div>
+                            <div className={cx("status", statusClass)}>
+                              <IconDot tone={dotTone as any} />
+                              {w.status}
+                            </div>
+                            <div className="cellSub" style={{ marginTop: 6 }}>
+                              Tier: <span className="mono">{w.tier}</span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="cellMain">{formatDate(w.lastRun)}</div>
+                            <div className="cellSub">
+                              Next: {w.nextRun ? formatDate(w.nextRun) : "—"}
+                            </div>
+                          </div>
+
+                          <div className="cellMain">{w.runs7d}</div>
+
+                          <div className="cellMain">{w.successRate}%</div>
+                        </div>
+                      );
+                    })}
+                    {!workflows.length ? (
+                      <div style={{ padding: 18, color: "rgba(203,213,225,.78)" }}>No results.</div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* MODULES */}
+              {nav === "modules" ? (
+                <div className="card">
+                  <div className="ct">Modules you can plug in</div>
+                  <p className="csub">
+                    This is what makes your $5k setup feel justified: a modular system with clear expansion paths, not a one-off build.
+                  </p>
+
+                  <div className="cardSoft" style={{ marginTop: 12 }}>
+                    <div className="ct">Top 10 (with Top 5 highlighted)</div>
+                    <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {modules.map((m) => (
+                        <Badge key={m.key} tone={essentialsTop5.includes(m.key) ? "gold" : "slate"}>
+                          {m.key} • {m.name}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 10, color: "rgba(203,213,225,.78)", fontSize: ".88rem" }}>
+                      Proof sprint ($197) includes: <span className="mono">{essentialsTop5.join(", ")}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                    {moduleRowsForPlan.map((m) => (
+                      <div key={m.key} className="row" style={{ alignItems: "flex-start" }}>
+                        <div style={{ display: "grid", gap: 4 }}>
+                          <div className="kvr">
+                            {m.name}{" "}
+                            {essentialsTop5.includes(m.key) ? <Badge tone="gold">Top 5</Badge> : null}
+                          </div>
+                          <div className="csub">{m.value}</div>
+                          <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <Badge tone="emerald">{m.category}</Badge>
+                            <Badge>{m.complexity}</Badge>
+                          </div>
+                        </div>
+
+                        <button
+                          className={cx("btn", "btnGhost")}
+                          style={{ padding: "10px 12px", borderRadius: 16, minWidth: 120 }}
+                          onClick={() => showToast("Module added (demo)", `${m.name} staged for provisioning`, "ok")}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* ACTIVITY */}
+              {nav === "activity" ? (
+                <div className="card">
+                  <div className="ct">Activity / Audit trail</div>
+                  <p className="csub">This is the “proof layer.” Without this, your offer looks like invisible automation.</p>
+
+                  <div className="gridShell" style={{ marginTop: 12 }}>
+                    <div className="gridHead" style={{ gridTemplateColumns: "110px 140px 150px minmax(220px, 1fr) 90px" }}>
+                      <div>ID</div>
+                      <div>Time</div>
+                      <div>Source</div>
+                      <div>Message</div>
+                      <div>Outcome</div>
+                    </div>
+
+                    <div className="gridBody" style={{ maxHeight: 520 }}>
+                      {events.map((e) => {
+                        const tone = e.outcome === "ok" ? "emerald" : e.outcome === "warn" ? "gold" : "red";
+                        return (
+                          <div
+                            key={e.id}
+                            className="rowGrid"
+                            style={{ gridTemplateColumns: "110px 140px 150px minmax(220px, 1fr) 90px" }}
+                            onClick={() => showToast(e.type, e.message, e.outcome === "ok" ? "ok" : e.outcome === "warn" ? "warn" : "fail")}
+                          >
+                            <div className="mono cellMain">{e.id}</div>
+                            <div className="cellMain">{formatDate(e.ts)}</div>
+                            <div className="cellMain">{e.source}</div>
+                            <div>
+                              <div className="cellMain">{e.type}</div>
+                              <div className="cellSub">{e.message}</div>
+                            </div>
+                            <div className={cx("status", tone === "emerald" ? "statusReady" : tone === "gold" ? "statusRunning" : "statusError")}>
+                              <IconDot tone={tone as any} />
+                              {e.outcome}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* SETTINGS */}
+              {nav === "settings" ? (
+                <div className="card">
+                  <div className="ct">Workspace configuration</div>
+                  <p className="csub">In production this would map to your client_config row + environment settings.</p>
+
+                  <div className="grid2">
+                    <div className="cardSoft">
+                      <div className="ct">Core</div>
+                      <div style={{ marginTop: 8, display: "grid", gap: 10 }}>
+                        <div className="row">
+                          <div className="kvl">Workspace</div>
+                          <div className="kvr">{businessName}</div>
+                        </div>
+                        <div className="row">
+                          <div className="kvl">Plan</div>
+                          <div className="kvr">{meta.title}</div>
+                        </div>
+                        <div className="row">
+                          <div className="kvl">Territory key</div>
+                          <div className="kvr mono">{territoryKey}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="cardSoft">
+                      <div className="ct">Integrations</div>
+                      <div className="pillRow" style={{ marginTop: 8 }}>
+                        {Object.entries(integrations).map(([k, v]) => (
+                          <Badge key={k} tone={v ? "emerald" : "slate"}>
+                            {k.toUpperCase()} {v ? "ON" : "OFF"}
+                          </Badge>
+                        ))}
+                      </div>
+
+                      <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                        <div className="row">
+                          <div className="kvl">Calendar</div>
+                          <div className="kvr">{primaryCalendar}</div>
+                        </div>
+                        <div className="row">
+                          <div className="kvl">Notify</div>
+                          <div className="kvr">{notifyChannel}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button
+                      className={cx("btn", "btnGold")}
+                      onClick={() => showToast("Saved (demo)", "Config would persist + trigger provisioning workflow.", "ok")}
+                    >
+                      Save
+                    </button>
+                    <button className={cx("btn", "btnGhost")} onClick={() => showToast("Export (demo)", "Would export runbook + config JSON.", "ok")}>
+                      Export runbook
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
-            <div className="mt-6 glass rounded-3xl p-5">
-              <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                What you’re actually selling
-              </div>
-              <div className="mt-3 text-xs leading-relaxed" style={{ color: BRAND.sub }}>
-                <ul className="list-disc pl-4">
-                  <li>
-                    <span style={{ color: BRAND.text, fontWeight: 900 }}>Exclusive delivery</span> for a territory key (not “exclusive leads everywhere”).
-                  </li>
-                  <li>
-                    <span style={{ color: BRAND.text, fontWeight: 900 }}>Ranked opportunities</span> based on fit + signals + distance.
-                  </li>
-                  <li>
-                    <span style={{ color: BRAND.text, fontWeight: 900 }}>Speed</span>: alerts for hot only, capped to avoid spam.
-                  </li>
-                </ul>
-              </div>
+            {/* Drawer */}
+            {drawerOpen && selected ? (
+              <>
+                <div className="overlay" onClick={() => setDrawerOpen(false)} />
+                <div className="drawer" onClick={(e) => e.stopPropagation()}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                    <div>
+                      <div className="eyebrow">Workflow details</div>
+                      <div className="ct" style={{ marginTop: -2 }}>
+                        {selected.id} • {selected.name}
+                      </div>
+                      <div className="csub" style={{ marginTop: 6 }}>
+                        Trigger: <span className="mono">{selected.trigger}</span>
+                      </div>
+                      <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <Badge tone={selected.status === "Ready" ? "emerald" : selected.status === "Running" ? "gold" : "slate"}>
+                          {selected.status}
+                        </Badge>
+                        <Badge>Tier: {selected.tier}</Badge>
+                        <Badge tone="gold">Success {selected.successRate}%</Badge>
+                      </div>
+                    </div>
 
-              <div className="mt-4 grid gap-2">
-                <button
-                  className="btn btnGhost"
-                  onClick={() => {
-                    pushToast({ title: "Demo deliverable", message: `Generated Top ${meta.topN} list + capped alerts`, tone: "success" });
-                    safeCopy(JSON.stringify({ territory: territoryKey, reserved: territoryLocked, deliverablePreview }, null, 2));
-                  }}
-                >
-                  Export “Client Report” (copy)
-                </button>
+                    <button className={cx("btn", "btnGhost")} style={{ padding: "10px 12px" }} onClick={() => setDrawerOpen(false)}>
+                      Close
+                    </button>
+                  </div>
 
-                <button
-                  className="btn btnGhost"
-                  onClick={() => {
-                    setSelected(null);
-                    setDrawerOpen(false);
-                    setLiveFeed([]);
-                    pushToast({ title: "Reset", message: "Cleared live feed + selection", tone: "info" });
-                  }}
-                >
-                  Reset view
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+                  <div className="cardSoft" style={{ marginTop: 14 }}>
+                    <div className="ct">Notes</div>
+                    <p className="csub">{selected.notes}</p>
+                  </div>
 
-      {/* Toast stack */}
-      <div className="fixed right-4 top-4 z-50 grid gap-2">
-        {toasts.map((t) => (
+                  <div className="grid2" style={{ marginTop: 12 }}>
+                    <div className="cardSoft">
+                      <div className="ct">Runs</div>
+                      <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                        <div className="row">
+                          <div className="kvl">Last run</div>
+                          <div className="kvr">{formatDate(selected.lastRun)}</div>
+                        </div>
+                        <div className="row">
+                          <div className="kvl">Next run</div>
+                          <div className="kvr">{selected.nextRun ? formatDate(selected.nextRun) : "—"}</div>
+                        </div>
+                        <div className="row">
+                          <div className="kvl">Runs (7d)</div>
+                          <div className="kvr">{selected.runs7d}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="cardSoft">
+                      <div className="ct">Actions</div>
+                      <div style={{ marginTop: 8, display: "grid", gap: 10 }}>
+                        <button
+                          className={cx("btn", "btnPrimary")}
+                          onClick={() => showToast("Run (demo)", "Would execute the workflow with a safe test payload.", "ok")}
+                        >
+                          Run test
+                        </button>
+                        <button
+                          className={cx("btn", "btnGhost")}
+                          onClick={() => showToast("Export (demo)", "Would export JSON + dependency manifest.", "ok")}
+                        >
+                          Export JSON
+                        </button>
+                        <button
+                          className={cx("btn", "btnGhost")}
+                          onClick={() => showToast("Audit (demo)", "Would open node-level logs + payload snapshots.", "ok")}
+                        >
+                          View logs
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 12, color: "rgba(203,213,225,.78)", fontSize: ".88rem", lineHeight: 1.45 }}>
+                    If you want this to feel even more “enterprise,” the next step is adding a **Runbook tab** (SOP + steps + failure handling)
+                    inside the drawer. That’s what makes buyers stop arguing about price.
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </section>
+        ) : null}
+
+        {/* Toast */}
+        {toast.on ? (
           <div
-            key={t.id}
-            className="glass rounded-2xl px-4 py-3"
+            className="toast"
             style={{
-              width: 340,
               borderColor:
-                t.tone === "success"
-                  ? "rgba(16,185,129,0.35)"
-                  : t.tone === "warn"
-                  ? "rgba(244,208,63,0.35)"
-                  : BRAND.stroke,
+                toast.tone === "ok"
+                  ? "rgba(16,185,129,.35)"
+                  : toast.tone === "warn"
+                  ? "rgba(244,208,63,.35)"
+                  : "rgba(239,68,68,.35)",
             }}
           >
-            <div className="flex items-start justify-between gap-2">
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
               <div>
-                <div className="text-xs font-extrabold" style={{ color: BRAND.text }}>
-                  {t.title}
-                </div>
-                <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
-                  {t.message}
-                </div>
+                <div style={{ fontWeight: 950, color: "#F9FAFB", fontSize: ".96rem" }}>{toast.title}</div>
+                <div style={{ marginTop: 4, color: "rgba(203,213,225,.85)", fontSize: ".88rem", lineHeight: 1.35 }}>{toast.msg}</div>
               </div>
-              <button
-                className="text-xs font-extrabold"
-                style={{ color: BRAND.dim }}
-                onClick={() => setToasts((p) => p.filter((x) => x.id !== t.id))}
-              >
+              <button className={cx("btn", "btnGhost")} style={{ padding: "8px 10px", borderRadius: 14 }} onClick={() => setToast((t) => ({ ...t, on: false }))}>
                 ✕
               </button>
             </div>
           </div>
-        ))}
+        ) : null}
       </div>
-
-      {/* Lead Drawer */}
-      <div
-        className={cx("fixed inset-0 z-40", drawerOpen ? "pointer-events-auto" : "pointer-events-none")}
-        style={{
-          background: drawerOpen ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0)",
-          transition: "background .16s ease",
-        }}
-        onClick={() => setDrawerOpen(false)}
-      />
-
-      <div
-        className="fixed right-0 top-0 z-50 h-full w-full max-w-xl"
-        style={{
-          transform: drawerOpen ? "translateX(0)" : "translateX(110%)",
-          transition: "transform .18s ease",
-        }}
-      >
-        <div className="h-full glass rounded-l-[32px] p-6" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-xs font-semibold" style={{ color: BRAND.sub }}>
-                Lead details
-              </div>
-              <div className="mt-1 text-lg font-extrabold" style={{ color: BRAND.text }}>
-                {selected ? selected.addressLine : "—"}
-              </div>
-              <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
-                {selected ? `${selected.cityState} • ZIP ${selected.zip} • ${selected.propertyType} • ${selected.source}` : "Select a lead"}
-              </div>
-            </div>
-            <button className="btn btnGhost" style={{ padding: "10px 12px", borderRadius: 16 }} onClick={() => setDrawerOpen(false)}>
-              Close
-            </button>
-          </div>
-
-          <div className="mt-5 grid gap-4">
-            <div className="rounded-3xl p-5" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                  Score
-                </div>
-                {selected ? (
-                  <span className="chip" style={tagPill(selected.tag)}>
-                    {selected.tag}
-                  </span>
-                ) : (
-                  <span className="chip">—</span>
-                )}
-              </div>
-
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                <Stat label="Score" value={selected ? selected.score : "—"} accent={selected?.tag === "Hot" ? "gold" : selected?.tag === "Warm" ? "emerald" : "neutral"} />
-                <Stat label="Confidence" value={selected ? `${selected.confidence}%` : "—"} accent="neutral" />
-                <Stat label="Distance" value={selected ? `${selected.distanceMiles.toFixed(1)} mi` : "—"} accent="neutral" />
-              </div>
-
-              <div className="mt-4">
-                <div className="text-[11px] font-semibold" style={{ color: BRAND.sub }}>
-                  Reasons
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(selected?.reasons || ["—"]).map((x) => (
-                    <span key={x} className="chip" style={{ background: "rgba(255,255,255,0.05)" }}>
-                      {x}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl p-5" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
-              <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                Property snapshot
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-xs" style={{ color: BRAND.sub }}>
-                <Row k="Price" v={selected ? `$${money(selected.price)}` : "—"} />
-                <Row k="Beds/Baths" v={selected ? `${selected.beds} / ${selected.baths}` : "—"} />
-                <Row k="Created" v={selected ? minutesAgo(selected.createdAtIso) : "—"} />
-                <Row k="Type" v={selected ? selected.propertyType : "—"} />
-              </div>
-
-              <div className="mt-4 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
-                Summary
-              </div>
-              <div className="mt-2 text-xs leading-relaxed" style={{ color: BRAND.sub }}>
-                {selected?.blurb || "—"}
-              </div>
-            </div>
-
-            <div className="rounded-3xl p-5" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
-              <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                Actions
-              </div>
-              <div className="mt-4 grid gap-2">
-                <button
-                  className="btn btnPrimary"
-                  onClick={() => {
-                    if (!selected) return;
-                    safeCopy(
-                      `HOT? ${selected.tag === "Hot"}\nScore: ${selected.score}\nAddress: ${selected.addressLine}, ${selected.cityState} ${selected.zip}\nPrice: $${money(selected.price)}\nBeds/Baths: ${selected.beds}/${selected.baths}\nDistance: ${selected.distanceMiles.toFixed(1)} mi\nNotes: ${selected.blurb}`
-                    );
-                    pushToast({ title: "Copied lead", message: "Paste into SMS/email/CRM", tone: "success" });
-                  }}
-                >
-                  Copy lead card (text)
-                </button>
-
-                <button
-                  className="btn btnGhost"
-                  onClick={() => {
-                    if (!selected) return;
-                    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selected.addressLine}, ${selected.cityState} ${selected.zip}`)}`;
-                    safeCopy(url);
-                    pushToast({ title: "Map link copied", message: "Open in browser", tone: "info" });
-                  }}
-                >
-                  Copy map link
-                </button>
-
-                <button
-                  className="btn btnGhost"
-                  onClick={() => {
-                    pushToast({ title: "Demo only", message: "Outreach automation is a separate workflow later", tone: "info" });
-                  }}
-                >
-                  Add to Watchlist (demo)
-                </button>
-              </div>
-
-              <div className="mt-3 text-[11px]" style={{ color: BRAND.dim }}>
-                Later in your workflow JSON: upsert to Airtable/DB + notify if Hot + cap.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value, accent }: { label: string; value: string | number; accent: "gold" | "emerald" | "neutral" }) {
-  const border =
-    accent === "gold"
-      ? "rgba(244,208,63,0.35)"
-      : accent === "emerald"
-      ? "rgba(16,185,129,0.32)"
-      : "rgba(255,255,255,0.14)";
-  const bg =
-    accent === "gold"
-      ? "rgba(244,208,63,0.10)"
-      : accent === "emerald"
-      ? "rgba(16,185,129,0.08)"
-      : "rgba(255,255,255,0.05)";
-  return (
-    <div className="rounded-3xl p-4" style={{ background: bg, border: `1px solid ${border}` }}>
-      <div className="text-[11px] font-semibold" style={{ color: BRAND.sub }}>
-        {label}
-      </div>
-      <div className="mt-2 text-xl font-extrabold" style={{ color: BRAND.text }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="text-[11px] font-semibold" style={{ color: BRAND.dim }}>
-        {k}
-      </div>
-      <div className="text-xs font-extrabold" style={{ color: BRAND.text }}>
-        {v}
-      </div>
-    </div>
+    </main>
   );
 }
