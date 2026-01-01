@@ -2,12 +2,27 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
+/**
+ * 10/10 DEMO PAGE
+ * - Designed for screen-share: looks like a SaaS product, not a form.
+ * - Deterministic demo leads (no scraping) so it NEVER fails live.
+ * - Supports 4 workflow modes: Demo, $197 Proof, $750, $1500 (UI only here).
+ * - Includes: Territory lock UI, pipeline run animation, toasts, lead drawer,
+ *   filters, analytics, map preview, export/copy actions.
+ */
+
 type PlanKey = "demo" | "proof197" | "monthly750" | "monthly1500";
+type SourceKey = "Newsletter" | "Marketplace" | "Web" | "Community";
 type PropertyType = "Any" | "Single Family" | "Condo" | "Townhome" | "Multi-Family";
+type TagKey = "Hot" | "Warm" | "Cold";
+
+type BuyBoxPresetKey = "Balanced" | "Investor" | "Family" | "Luxury" | "Starter";
 
 type BuyBox = {
   territoryName: string;
-  targetAddress: string;
+  countyOrArea: string;
+  anchorAddress: string;
+
   zips: string;
   radiusMiles: number;
 
@@ -23,219 +38,580 @@ type BuyBox = {
 
   maxDistanceMiles: number;
 
-  keywordsInclude: string;
-  keywordsExclude: string;
+  includeSignals: string; // comma separated
+  excludeSignals: string; // comma separated
 
   hotThreshold: number;
   warmThreshold: number;
 
-  alertsPerDay: number;
+  dailyCapHotAlerts: number;
 };
 
-type MockLead = {
+type Lead = {
   id: string;
-  address: string;
+  addressLine: string;
+  cityState: string;
   zip: string;
+
   price: number;
   beds: number;
   baths: number;
+
   distanceMiles: number;
+
   propertyType: Exclude<PropertyType, "Any">;
-  source: "newsletter" | "marketplace" | "web" | "community";
+  source: SourceKey;
+
   blurb: string;
+
+  lat: number;
+  lng: number;
+
+  createdAtIso: string;
 };
 
-type ScoredLead = MockLead & {
+type ScoredLead = Lead & {
   score: number;
-  tag: "Hot" | "Warm" | "Cold";
+  tag: TagKey;
   reasons: string[];
+  confidence: number; // 0-100 (demo heuristic)
+};
+
+type Toast = {
+  id: string;
+  title: string;
+  message: string;
+  tone: "success" | "warn" | "info";
 };
 
 const BRAND = {
   emerald: "#047857",
-  emeraldDark: "#065f46",
+  emerald2: "#10B981",
   gold: "#F4D03F",
-  charcoal: "#0F172A",
-  slate: "#334155",
-  muted: "#64748B",
-  bg: "#0B1220",
-  panel: "#0F172A",
-  card: "rgba(255,255,255,0.06)",
-  card2: "rgba(255,255,255,0.04)",
-  border: "rgba(255,255,255,0.10)",
-  border2: "rgba(255,255,255,0.14)",
+  ink: "#0B1220",
+  panel: "rgba(255,255,255,0.055)",
+  panel2: "rgba(255,255,255,0.035)",
+  stroke: "rgba(255,255,255,0.12)",
+  stroke2: "rgba(255,255,255,0.18)",
+  text: "rgba(255,255,255,0.92)",
+  sub: "rgba(255,255,255,0.68)",
+  dim: "rgba(255,255,255,0.54)",
 };
 
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
+function cx(...c: Array<string | false | null | undefined>) {
+  return c.filter(Boolean).join(" ");
 }
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-function parseZipList(zips: string): string[] {
-  return zips
-    .split(/[,\s]+/g)
-    .map((z) => z.trim())
-    .filter(Boolean)
-    .map((z) => z.replace(/[^\d]/g, ""))
-    .filter((z) => z.length === 5);
+function money(n: number) {
+  return Math.round(n).toLocaleString("en-US");
 }
 
-function formatMoney(n: number) {
-  const v = Math.round(n);
-  return v.toLocaleString("en-US");
+function parseZipList(s: string): string[] {
+  return s
+    .split(/[,\s]+/g)
+    .map((x) => x.trim().replace(/[^\d]/g, ""))
+    .filter((x) => x.length === 5);
+}
+
+function pick<T>(arr: T[], seed: number) {
+  return arr[Math.abs(seed) % arr.length];
+}
+
+function seeded(seed: number) {
+  // deterministic pseudo-random 0..1 based on seed
+  const x = Math.sin(seed * 9999.123) * 10000;
+  return x - Math.floor(x);
+}
+
+function id(prefix: string, seed: number) {
+  return `${prefix}-${seed.toString(36).toUpperCase()}-${Math.floor(seeded(seed + 7) * 9999)
+    .toString()
+    .padStart(4, "0")}`;
 }
 
 function planMeta(plan: PlanKey) {
   switch (plan) {
     case "demo":
-      return {
-        label: "Demo Workflow",
-        badge: "Preview",
-        mode: "Top 10",
-        sub: "Deterministic demo mode that always runs clean on a Meet.",
-      };
+      return { name: "Demo Workflow", badge: "Preview", topN: 10, watchlist: false, caps: "Mock run • Always stable" };
     case "proof197":
-      return {
-        label: "Proof Sprint (7 days)",
-        badge: "$197",
-        mode: "Top 5",
-        sub: "Tight caps. Deliver Top 5 daily. One tuning pass mid-week.",
-      };
+      return { name: "Proof Sprint (7 days)", badge: "$197", topN: 5, watchlist: false, caps: "Tight caps • Top 5 daily" };
     case "monthly750":
-      return {
-        label: "Monthly — Solo Territory",
-        badge: "$750/mo",
-        mode: "Top 10",
-        sub: "One territory. Standard caps. Monthly tuning included.",
-      };
+      return { name: "Monthly Solo Territory", badge: "$750/mo", topN: 10, watchlist: false, caps: "Standard caps • Solo" };
     case "monthly1500":
+      return { name: "Monthly Team / High Volume", badge: "$1,500/mo", topN: 10, watchlist: true, caps: "Higher caps • Watchlist" };
+  }
+}
+
+function preset(name: BuyBoxPresetKey): Partial<BuyBox> {
+  switch (name) {
+    case "Balanced":
       return {
-        label: "Monthly — Team / High Volume",
-        badge: "$1,500/mo",
-        mode: "Top 10 + Watchlist",
-        sub: "Expanded caps and territory. Weekly tuning included.",
+        priceMin: 350000,
+        priceMax: 750000,
+        bedsMin: 3,
+        bedsMax: 5,
+        bathsMin: 2,
+        maxDistanceMiles: 15,
+        includeSignals: "price drop, relocating, estate, as-is, quick close",
+        excludeSignals: "no investors, firm price, do not contact",
+        hotThreshold: 82,
+        warmThreshold: 62,
+        dailyCapHotAlerts: 3,
+        propertyType: "Any",
+      };
+    case "Investor":
+      return {
+        priceMin: 250000,
+        priceMax: 650000,
+        bedsMin: 2,
+        bedsMax: 6,
+        bathsMin: 1,
+        maxDistanceMiles: 20,
+        includeSignals: "as-is, needs work, investor, cash only, price drop, distress",
+        excludeSignals: "no investors, firm price",
+        hotThreshold: 78,
+        warmThreshold: 58,
+        dailyCapHotAlerts: 5,
+        propertyType: "Any",
+      };
+    case "Family":
+      return {
+        priceMin: 450000,
+        priceMax: 950000,
+        bedsMin: 3,
+        bedsMax: 5,
+        bathsMin: 2,
+        maxDistanceMiles: 12,
+        includeSignals: "school, quiet, renovated, move-in, yard",
+        excludeSignals: "cash only, needs work, as-is",
+        hotThreshold: 84,
+        warmThreshold: 64,
+        dailyCapHotAlerts: 2,
+        propertyType: "Single Family",
+      };
+    case "Luxury":
+      return {
+        priceMin: 900000,
+        priceMax: 2500000,
+        bedsMin: 4,
+        bedsMax: 7,
+        bathsMin: 3,
+        maxDistanceMiles: 18,
+        includeSignals: "pool, views, gated, new build, designer",
+        excludeSignals: "needs work, as-is, cash only",
+        hotThreshold: 86,
+        warmThreshold: 66,
+        dailyCapHotAlerts: 2,
+        propertyType: "Single Family",
+      };
+    case "Starter":
+      return {
+        priceMin: 200000,
+        priceMax: 450000,
+        bedsMin: 2,
+        bedsMax: 4,
+        bathsMin: 1,
+        maxDistanceMiles: 18,
+        includeSignals: "price drop, first time, updated, quick close",
+        excludeSignals: "firm price, do not contact",
+        hotThreshold: 80,
+        warmThreshold: 60,
+        dailyCapHotAlerts: 3,
+        propertyType: "Any",
       };
   }
 }
 
-function scoreHeuristic(bb: BuyBox, lead: MockLead): { score: number; reasons: string[] } {
+function buildDemoUniverse(bb: BuyBox): Lead[] {
+  const zips = parseZipList(bb.zips);
+  const baseZip = zips.length ? zips : ["78701", "78702", "78703", "78704"];
+
+  // Fake lat/lng near Austin-ish (demo)
+  const baseLat = 30.2672;
+  const baseLng = -97.7431;
+
+  const types: Array<Exclude<PropertyType, "Any">> = ["Single Family", "Condo", "Townhome", "Multi-Family"];
+  const sources: SourceKey[] = ["Newsletter", "Marketplace", "Web", "Community"];
+
+  const blurbs = [
+    "Price drop this week. Seller mentioned timeline pressure. As-is language present.",
+    "Relocating for work. Quick close preferred. Limited showings.",
+    "Estate situation. Cosmetic updates. Negotiable on terms.",
+    "Renovated with premium finishes. Strong comps; less urgency.",
+    "Needs work. Cash only noted. Investor language appears.",
+    "Open to concessions. Job change. Wants faster closing.",
+    "Firm price stated. No investors. Restrictions on contact.",
+    "As-is. Motivated wording. Limited viewing windows.",
+    "Income potential. Deferred maintenance. Investor mention.",
+    "Recently updated. Walkable. Flexible on close date.",
+  ];
+
+  const now = Date.now();
+  const leads: Lead[] = [];
+
+  // Make a realistic volume range
+  const total = 60;
+
+  for (let i = 0; i < total; i++) {
+    const seed = i + 11;
+    const zip = pick(baseZip, seed);
+    const t = pick(types, seed + 3);
+    const s = pick(sources, seed + 5);
+
+    const priceBandMin = Math.max(120000, bb.priceMin * (0.75 + seeded(seed + 1) * 0.5));
+    const priceBandMax = bb.priceMax * (0.8 + seeded(seed + 2) * 0.6);
+    const price = Math.round(clamp(priceBandMin + seeded(seed + 9) * (priceBandMax - priceBandMin), 120000, 3500000));
+
+    const beds = clamp(Math.round(1 + seeded(seed + 7) * 6), 1, 7);
+    const baths = clamp(Math.round((1 + seeded(seed + 8) * 4) * 2) / 2, 1, 5);
+
+    const dist = Math.round((1 + seeded(seed + 4) * 28) * 10) / 10;
+
+    const lat = baseLat + (seeded(seed + 12) - 0.5) * 0.22;
+    const lng = baseLng + (seeded(seed + 13) - 0.5) * 0.22;
+
+    const addrNum = 100 + Math.floor(seeded(seed + 14) * 8900);
+    const street = pick(
+      ["Congress", "Lamar", "Riverside", "Oltorf", "Burnet", "Manor", "MLK", "Speedway", "Brazos", "Guadalupe", "South 1st", "South Lamar"],
+      seed + 20
+    );
+    const suffix = pick(["St", "Ave", "Blvd", "Dr", "Rd", "Ln"], seed + 21);
+
+    const cityState = "Austin, TX";
+    const addressLine =
+      seeded(seed + 15) > 0.78
+        ? `${addrNum} ${street} ${suffix} #${Math.floor(seeded(seed + 16) * 40) + 1}`
+        : `${addrNum} ${street} ${suffix}`;
+
+    const createdAtIso = new Date(now - (Math.floor(seeded(seed + 10) * 72) * 60 * 60 * 1000)).toISOString();
+
+    leads.push({
+      id: id("LEAD", seed),
+      addressLine,
+      cityState,
+      zip,
+      price,
+      beds,
+      baths,
+      distanceMiles: dist,
+      propertyType: t,
+      source: s,
+      blurb: pick(blurbs, seed + 30),
+      lat,
+      lng,
+      createdAtIso,
+    });
+  }
+
+  return leads;
+}
+
+function scoreLead(bb: BuyBox, lead: Lead): { score: number; reasons: string[]; confidence: number } {
+  // No “motivated seller guarantee”. This is fit + signals + constraints.
   let score = 50;
   const reasons: string[] = [];
 
-  // Price fit
-  const priceFit = lead.price >= bb.priceMin && lead.price <= bb.priceMax;
-  score += priceFit ? 18 : -12;
-  if (priceFit) reasons.push("Price fit");
+  const inPrice = lead.price >= bb.priceMin && lead.price <= bb.priceMax;
+  score += inPrice ? 18 : -14;
+  if (inPrice) reasons.push("Price fit");
 
-  // Beds fit
   const bedsFit = lead.beds >= bb.bedsMin && lead.beds <= bb.bedsMax;
   score += bedsFit ? 12 : -10;
   if (bedsFit) reasons.push("Beds fit");
 
-  // Baths fit
-  const bathFit = lead.baths >= bb.bathsMin;
-  score += bathFit ? 8 : -6;
-  if (bathFit) reasons.push("Baths fit");
+  const bathsFit = lead.baths >= bb.bathsMin;
+  score += bathsFit ? 8 : -7;
+  if (bathsFit) reasons.push("Baths fit");
 
-  // Distance fit
   const distFit = lead.distanceMiles <= bb.maxDistanceMiles;
-  score += distFit ? 14 : -14;
+  score += distFit ? 16 : -18;
   if (distFit) reasons.push("Distance fit");
 
-  // Type fit
   const typeFit = bb.propertyType === "Any" || lead.propertyType === bb.propertyType;
-  score += typeFit ? 8 : -6;
-  if (typeFit) reasons.push("Type fit");
+  score += typeFit ? 8 : -8;
+  if (typeFit && bb.propertyType !== "Any") reasons.push("Type match");
 
-  // Opportunity signals (NOT “motivated seller guarantee”)
-  const text = (lead.blurb || "").toLowerCase();
-  const plusSignals = ["price drop", "must sell", "relocating", "estate", "as-is", "motivated", "needs work", "investor"];
-  const minusSignals = ["no investors", "firm price", "do not contact", "no showings"];
-  const plusHit = plusSignals.some((k) => text.includes(k));
-  const minusHit = minusSignals.some((k) => text.includes(k));
-  if (plusHit) {
-    score += 8;
-    reasons.push("Opportunity signal");
-  }
-  if (minusHit) {
-    score -= 10;
-    reasons.push("Restriction signal");
-  }
-
-  // Keyword include/exclude
-  const include = bb.keywordsInclude
+  const include = bb.includeSignals
     .split(/[,\n]+/g)
-    .map((k) => k.trim().toLowerCase())
-    .filter(Boolean);
-  const exclude = bb.keywordsExclude
-    .split(/[,\n]+/g)
-    .map((k) => k.trim().toLowerCase())
+    .map((x) => x.trim().toLowerCase())
     .filter(Boolean);
 
+  const exclude = bb.excludeSignals
+    .split(/[,\n]+/g)
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+
+  const text = `${lead.blurb} ${lead.source}`.toLowerCase();
+
+  let includeHit = 0;
+  for (const k of include) if (text.includes(k)) includeHit++;
   if (include.length) {
-    const hit = include.some((k) => text.includes(k));
-    score += hit ? 6 : -6;
-    if (hit) reasons.push("Include keyword hit");
+    const boost = clamp(includeHit * 4, 0, 14);
+    score += boost;
+    if (includeHit > 0) reasons.push("Signal hit");
+    if (includeHit >= 2) reasons.push("Multiple signals");
   }
-  if (exclude.length) {
-    const hit = exclude.some((k) => text.includes(k));
-    score += hit ? -18 : 0;
-    if (hit) reasons.push("Exclude keyword hit");
+
+  let excludeHit = 0;
+  for (const k of exclude) if (text.includes(k)) excludeHit++;
+  if (excludeHit > 0) {
+    score -= clamp(excludeHit * 10, 10, 24);
+    reasons.push("Restriction hit");
   }
+
+  // Source weighting (demo)
+  if (lead.source === "Community") score += 4, reasons.push("Local signal");
+  if (lead.source === "Marketplace") score += 2;
+  if (lead.source === "Newsletter") score += 1;
+  if (lead.source === "Web") score += 0;
 
   score = clamp(Math.round(score), 1, 100);
 
-  // Keep reasons short and clean in UI
-  return { score, reasons: Array.from(new Set(reasons)).slice(0, 3) };
+  // Confidence is *not truth*; it’s a proxy for completeness of fields
+  let conf = 55;
+  if (lead.price > 0) conf += 10;
+  if (lead.beds > 0 && lead.baths > 0) conf += 10;
+  if (lead.distanceMiles > 0) conf += 10;
+  conf += clamp(includeHit * 4, 0, 10);
+  conf -= clamp(excludeHit * 6, 0, 12);
+  conf = clamp(Math.round(conf), 0, 100);
+
+  return { score, reasons: Array.from(new Set(reasons)).slice(0, 3), confidence: conf };
 }
 
-function buildMockLeads(zips: string[]): MockLead[] {
-  const z = (i: number) => zips[i % Math.max(1, zips.length)] || "78701";
-  return [
-    { id: "L-001", address: "1108 E 6th St, Austin, TX", zip: z(0), price: 525000, beds: 3, baths: 2, distanceMiles: 4.2, propertyType: "Single Family", source: "community", blurb: "Price drop this week. As-is. Needs work. Investor special language present." },
-    { id: "L-002", address: "2100 S Congress Ave #214, Austin, TX", zip: z(1), price: 389000, beds: 2, baths: 2, distanceMiles: 2.1, propertyType: "Condo", source: "web", blurb: "Relocating. Quick close preferred. Recent updates." },
-    { id: "L-003", address: "4507 Maple Run Dr, Austin, TX", zip: z(2), price: 610000, beds: 4, baths: 3, distanceMiles: 8.9, propertyType: "Single Family", source: "newsletter", blurb: "Estate sale mention. Cosmetic updates. Timeline pressure hinted." },
-    { id: "L-004", address: "7801 N Lamar Blvd Unit B, Austin, TX", zip: z(3), price: 289000, beds: 2, baths: 1, distanceMiles: 12.4, propertyType: "Townhome", source: "marketplace", blurb: "Firm price. No investors. Do not contact after 7pm." },
-    { id: "L-005", address: "9203 Riverside Dr, Austin, TX", zip: z(0), price: 499000, beds: 3, baths: 2, distanceMiles: 10.1, propertyType: "Single Family", source: "web", blurb: "Open to concessions. Job change. Wants faster closing." },
-    { id: "L-006", address: "1301 W Oltorf St, Austin, TX", zip: z(1), price: 735000, beds: 4, baths: 2, distanceMiles: 6.0, propertyType: "Single Family", source: "newsletter", blurb: "Renovated. Premium finishes. Strong comps; less urgency." },
-    { id: "L-007", address: "6000 Manor Rd #12, Austin, TX", zip: z(2), price: 345000, beds: 2, baths: 2, distanceMiles: 7.3, propertyType: "Condo", source: "community", blurb: "Price drop. Needs work. Cash only (strict)." },
-    { id: "L-008", address: "1901 E MLK Jr Blvd, Austin, TX", zip: z(3), price: 559000, beds: 3, baths: 2, distanceMiles: 3.6, propertyType: "Single Family", source: "marketplace", blurb: "As-is. Motivated language. Limited viewing windows." },
-    { id: "L-009", address: "3400 Speedway, Austin, TX", zip: z(0), price: 820000, beds: 4, baths: 3, distanceMiles: 5.1, propertyType: "Multi-Family", source: "web", blurb: "Income potential. Needs work. Investor mention." },
-    { id: "L-010", address: "701 Brazos St, Austin, TX", zip: z(1), price: 410000, beds: 1, baths: 1, distanceMiles: 1.2, propertyType: "Condo", source: "community", blurb: "Relocating. Quick close. Walkable. Recently updated." },
-    { id: "L-011", address: "8200 Burnet Rd, Austin, TX", zip: z(2), price: 475000, beds: 3, baths: 2, distanceMiles: 11.6, propertyType: "Single Family", source: "newsletter", blurb: "Price drop. Cosmetic updates. Timing pressure hinted." },
-    { id: "L-012", address: "2201 S 1st St, Austin, TX", zip: z(3), price: 515000, beds: 3, baths: 2, distanceMiles: 4.9, propertyType: "Townhome", source: "web", blurb: "No investors. Firm price. Clean and ready." },
-    { id: "L-013", address: "5812 Berkman Dr, Austin, TX", zip: z(0), price: 459000, beds: 3, baths: 2, distanceMiles: 9.7, propertyType: "Single Family", source: "marketplace", blurb: "As-is. Needs work. Seller wants quick close." },
-    { id: "L-014", address: "1200 E 12th St, Austin, TX", zip: z(1), price: 680000, beds: 4, baths: 3, distanceMiles: 3.2, propertyType: "Single Family", source: "web", blurb: "Relocating. Negotiable. Great location; limited showings." },
-    { id: "L-015", address: "3100 S Lamar Blvd, Austin, TX", zip: z(2), price: 399000, beds: 2, baths: 2, distanceMiles: 6.8, propertyType: "Condo", source: "newsletter", blurb: "Price drop. Updated. Fast closing preferred." },
-  ];
+function tagFor(bb: BuyBox, score: number): TagKey {
+  if (score >= bb.hotThreshold) return "Hot";
+  if (score >= bb.warmThreshold) return "Warm";
+  return "Cold";
 }
 
-function pillStyle(kind: "hot" | "warm" | "cold") {
-  if (kind === "hot") return { background: "rgba(244,208,63,0.20)", border: "1px solid rgba(244,208,63,0.45)", color: "rgba(255,255,255,0.95)" };
-  if (kind === "warm") return { background: "rgba(4,120,87,0.18)", border: "1px solid rgba(4,120,87,0.45)", color: "rgba(255,255,255,0.95)" };
-  return { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.85)" };
+function toneForTag(tag: TagKey) {
+  if (tag === "Hot") return { bg: "rgba(244,208,63,0.14)", br: "rgba(244,208,63,0.35)" };
+  if (tag === "Warm") return { bg: "rgba(16,185,129,0.12)", br: "rgba(16,185,129,0.30)" };
+  return { bg: "rgba(255,255,255,0.05)", br: "rgba(255,255,255,0.12)" };
 }
 
-function ringColor(tag: "Hot" | "Warm" | "Cold") {
-  if (tag === "Hot") return "rgba(244,208,63,0.65)";
-  if (tag === "Warm") return "rgba(4,120,87,0.65)";
-  return "rgba(255,255,255,0.22)";
+function minutesAgo(iso: string) {
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.max(0, Math.floor(ms / 60000));
+  if (m < 1) return "just now";
+  if (m === 1) return "1 min ago";
+  if (m < 60) return `${m} mins ago`;
+  const h = Math.floor(m / 60);
+  return h === 1 ? "1 hr ago" : `${h} hrs ago`;
 }
 
-function makeId() {
-  return Math.random().toString(36).slice(2, 9);
+function safeCopy(text: string) {
+  return navigator.clipboard?.writeText(text).catch(() => {});
+}
+
+function Sparkline({ data }: { data: number[] }) {
+  const w = 140;
+  const h = 42;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const xs = data.map((_, i) => (i / (data.length - 1)) * w);
+  const ys = data.map((v) => h - ((v - min) / Math.max(1, max - min)) * h);
+  const d = xs
+    .map((x, i) => `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${ys[i].toFixed(1)}`)
+    .join(" ");
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      <path d={d} fill="none" stroke="rgba(244,208,63,0.65)" strokeWidth="2.2" strokeLinecap="round" />
+      <path d={`${d} L ${w} ${h} L 0 ${h} Z`} fill="rgba(244,208,63,0.08)" stroke="none" />
+    </svg>
+  );
+}
+
+function Donut({ hot, warm, cold }: { hot: number; warm: number; cold: number }) {
+  const total = Math.max(1, hot + warm + cold);
+  const r = 18;
+  const c = 2 * Math.PI * r;
+
+  const aHot = (hot / total) * c;
+  const aWarm = (warm / total) * c;
+  const aCold = c - aHot - aWarm;
+
+  return (
+    <svg width={70} height={70} viewBox="0 0 70 70">
+      <g transform="translate(35,35)">
+        <circle r={r} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="8" />
+        <circle
+          r={r}
+          fill="none"
+          stroke="rgba(244,208,63,0.70)"
+          strokeWidth="8"
+          strokeDasharray={`${aHot} ${c - aHot}`}
+          strokeDashoffset={0}
+          transform="rotate(-90)"
+          strokeLinecap="round"
+        />
+        <circle
+          r={r}
+          fill="none"
+          stroke="rgba(16,185,129,0.65)"
+          strokeWidth="8"
+          strokeDasharray={`${aWarm} ${c - aWarm}`}
+          strokeDashoffset={-aHot}
+          transform="rotate(-90)"
+          strokeLinecap="round"
+        />
+        <circle
+          r={r}
+          fill="none"
+          stroke="rgba(255,255,255,0.22)"
+          strokeWidth="8"
+          strokeDasharray={`${aCold} ${c - aCold}`}
+          strokeDashoffset={-(aHot + aWarm)}
+          transform="rotate(-90)"
+          strokeLinecap="round"
+        />
+      </g>
+      <text x="35" y="38" textAnchor="middle" fontSize="12" fill="rgba(255,255,255,0.82)" fontWeight="700">
+        {total}
+      </text>
+      <text x="35" y="52" textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.55)">
+        leads
+      </text>
+    </svg>
+  );
+}
+
+function MiniMap({ lead, anchorLabel }: { lead?: ScoredLead | null; anchorLabel: string }) {
+  // Fake map: grid + pins. Still reads as a “map widget” in demo.
+  const w = 420;
+  const h = 260;
+  const pinX = lead ? 40 + (Math.abs(lead.lat) % 1) * (w - 80) : w * 0.58;
+  const pinY = lead ? 35 + (Math.abs(lead.lng) % 1) * (h - 70) : h * 0.48;
+
+  const anchorX = w * 0.55;
+  const anchorY = h * 0.52;
+
+  const t = lead ? toneForTag(lead.tag) : null;
+
+  return (
+    <div
+      className="rounded-3xl p-4"
+      style={{
+        background: `linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))`,
+        border: `1px solid ${BRAND.stroke}`,
+        boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
+      }}
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-xs font-semibold" style={{ color: BRAND.sub }}>
+            Map Preview
+          </div>
+          <div className="mt-1 text-sm font-semibold" style={{ color: BRAND.text }}>
+            Anchor: {anchorLabel.split(",")[0]}
+          </div>
+        </div>
+        <div className="text-xs font-semibold" style={{ color: BRAND.dim }}>
+          Demo widget
+        </div>
+      </div>
+
+      <div className="mt-3 overflow-hidden rounded-2xl" style={{ border: `1px solid ${BRAND.stroke}` }}>
+        <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="gridGlow" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="rgba(16,185,129,0.14)" />
+              <stop offset="60%" stopColor="rgba(244,208,63,0.10)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0.06)" />
+            </linearGradient>
+          </defs>
+
+          <rect x="0" y="0" width={w} height={h} fill="url(#gridGlow)" />
+          {/* Grid */}
+          {Array.from({ length: 10 }).map((_, i) => (
+            <line key={`v-${i}`} x1={(i / 9) * w} y1={0} x2={(i / 9) * w} y2={h} stroke="rgba(255,255,255,0.07)" />
+          ))}
+          {Array.from({ length: 7 }).map((_, i) => (
+            <line key={`h-${i}`} x1={0} y1={(i / 6) * h} x2={w} y2={(i / 6) * h} stroke="rgba(255,255,255,0.07)" />
+          ))}
+
+          {/* “Roads” */}
+          <path d={`M 0 ${h * 0.62} C ${w * 0.25} ${h * 0.50}, ${w * 0.55} ${h * 0.78}, ${w} ${h * 0.55}`} stroke="rgba(255,255,255,0.10)" strokeWidth="3" fill="none" />
+          <path d={`M ${w * 0.15} 0 C ${w * 0.30} ${h * 0.25}, ${w * 0.65} ${h * 0.35}, ${w * 0.85} ${h}`} stroke="rgba(255,255,255,0.10)" strokeWidth="3" fill="none" />
+
+          {/* Anchor pin */}
+          <circle cx={anchorX} cy={anchorY} r="10" fill="rgba(16,185,129,0.35)" stroke="rgba(16,185,129,0.65)" strokeWidth="2" />
+          <circle cx={anchorX} cy={anchorY} r="3" fill="rgba(255,255,255,0.9)" />
+          <text x={anchorX + 14} y={anchorY + 4} fontSize="10" fill="rgba(255,255,255,0.70)">
+            anchor
+          </text>
+
+          {/* Lead pin */}
+          {lead && (
+            <>
+              <circle cx={pinX} cy={pinY} r="12" fill={t?.bg || "rgba(244,208,63,0.20)"} stroke={t?.br || "rgba(244,208,63,0.40)"} strokeWidth="2" />
+              <circle cx={pinX} cy={pinY} r="3.5" fill="rgba(255,255,255,0.95)" />
+              <path
+                d={`M ${anchorX} ${anchorY} L ${pinX} ${pinY}`}
+                stroke={lead.tag === "Hot" ? "rgba(244,208,63,0.65)" : lead.tag === "Warm" ? "rgba(16,185,129,0.60)" : "rgba(255,255,255,0.18)"}
+                strokeWidth="2"
+                strokeDasharray="5 6"
+              />
+            </>
+          )}
+        </svg>
+      </div>
+
+      <div className="mt-3 text-xs" style={{ color: BRAND.sub }}>
+        {lead ? (
+          <>
+            Selected: <span style={{ color: BRAND.text, fontWeight: 700 }}>{lead.addressLine}</span> • {lead.distanceMiles.toFixed(1)} mi from anchor
+          </>
+        ) : (
+          <>Select a lead to preview distance + path.</>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+  hint,
+}: {
+  label: string;
+  children: React.ReactNode;
+  hint?: string;
+}) {
+  return (
+    <div>
+      <div className="mb-2 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
+        {label}
+      </div>
+      {children}
+      {hint ? (
+        <div className="mt-2 text-[11px]" style={{ color: BRAND.dim }}>
+          {hint}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export default function Page() {
   const [plan, setPlan] = useState<PlanKey>("demo");
   const meta = planMeta(plan);
 
+  const [territoryLocked, setTerritoryLocked] = useState(false);
+  const [territoryKey, setTerritoryKey] = useState("TX-TRAVIS-78701-CORE");
+
+  const [presetKey, setPresetKey] = useState<BuyBoxPresetKey>("Balanced");
+
   const [bb, setBb] = useState<BuyBox>({
     territoryName: "Austin Core",
-    targetAddress: "1100 Congress Ave, Austin, TX 78701",
+    countyOrArea: "Travis County",
+    anchorAddress: "1100 Congress Ave, Austin, TX 78701",
     zips: "78701, 78702, 78703, 78704",
     radiusMiles: 25,
 
@@ -251,872 +627,1222 @@ export default function Page() {
 
     maxDistanceMiles: 15,
 
-    keywordsInclude: "price drop, must sell, relocating, estate, as-is",
-    keywordsExclude: "no investors, firm price",
+    includeSignals: "price drop, relocating, estate, as-is, quick close",
+    excludeSignals: "no investors, firm price, do not contact",
 
-    hotThreshold: 80,
-    warmThreshold: 60,
+    hotThreshold: 82,
+    warmThreshold: 62,
 
-    alertsPerDay: 3,
+    dailyCapHotAlerts: 3,
   });
 
-  const zips = useMemo(() => parseZipList(bb.zips), [bb.zips]);
-  const mockLeads = useMemo(() => buildMockLeads(zips), [zips]);
+  // Apply preset
+  useEffect(() => {
+    const p = preset(presetKey);
+    setBb((prev) => ({ ...prev, ...p }));
+  }, [presetKey]);
 
-  const scoredAll = useMemo<ScoredLead[]>(() => {
-    const rows = mockLeads.map((l) => {
-      const s = scoreHeuristic(bb, l);
-      const tag: ScoredLead["tag"] = s.score >= bb.hotThreshold ? "Hot" : s.score >= bb.warmThreshold ? "Warm" : "Cold";
-      return { ...l, score: s.score, tag, reasons: s.reasons };
+  const universe = useMemo(() => buildDemoUniverse(bb), [bb.zips, bb.priceMin, bb.priceMax, bb.bedsMin, bb.bedsMax, bb.bathsMin, bb.maxDistanceMiles, bb.propertyType, bb.includeSignals, bb.excludeSignals]);
+
+  const scored = useMemo<ScoredLead[]>(() => {
+    const rows = universe.map((l) => {
+      const s = scoreLead(bb, l);
+      const tg = tagFor(bb, s.score);
+      return { ...l, score: s.score, tag: tg, reasons: s.reasons, confidence: s.confidence };
     });
     rows.sort((a, b) => b.score - a.score);
     return rows;
-  }, [bb, mockLeads]);
+  }, [universe, bb]);
 
-  const topN = plan === "proof197" ? 5 : 10;
-  const topRows = useMemo(() => scoredAll.slice(0, topN), [scoredAll, topN]);
+  // Filters
+  const [q, setQ] = useState("");
+  const [tagFilter, setTagFilter] = useState<TagKey | "All">("All");
+  const [sourceFilter, setSourceFilter] = useState<SourceKey | "All">("All");
+  const [onlyWithinDistance, setOnlyWithinDistance] = useState(true);
+
+  const filtered = useMemo(() => {
+    const qq = q.trim().toLowerCase();
+    return scored.filter((r) => {
+      if (tagFilter !== "All" && r.tag !== tagFilter) return false;
+      if (sourceFilter !== "All" && r.source !== sourceFilter) return false;
+      if (onlyWithinDistance && r.distanceMiles > bb.maxDistanceMiles) return false;
+      if (!qq) return true;
+      const blob = `${r.addressLine} ${r.cityState} ${r.zip} ${r.source} ${r.propertyType} ${r.blurb}`.toLowerCase();
+      return blob.includes(qq);
+    });
+  }, [scored, q, tagFilter, sourceFilter, onlyWithinDistance, bb.maxDistanceMiles]);
+
+  const topN = useMemo(() => filtered.slice(0, meta.topN), [filtered, meta.topN]);
 
   const counts = useMemo(() => {
-    const c = { hot: 0, warm: 0, cold: 0 };
-    for (const r of scoredAll) {
-      if (r.tag === "Hot") c.hot++;
-      else if (r.tag === "Warm") c.warm++;
-      else c.cold++;
+    let hot = 0,
+      warm = 0,
+      cold = 0;
+    for (const r of filtered) {
+      if (r.tag === "Hot") hot++;
+      else if (r.tag === "Warm") warm++;
+      else cold++;
     }
-    return c;
-  }, [scoredAll]);
+    return { hot, warm, cold, total: filtered.length };
+  }, [filtered]);
 
-  // Demo run animation
-  const steps = useMemo(
-    () => [
-      { key: "sources", label: "Sources" },
-      { key: "normalize", label: "Normalize" },
-      { key: "distance", label: "Distance" },
-      { key: "score", label: "Score" },
-      { key: "deliver", label: "Deliver" },
-    ],
-    []
-  );
+  // Analytics (demo trends)
+  const trend = useMemo(() => {
+    // build a fake 14-day sparkline derived from current distribution
+    const base = Math.max(10, Math.min(95, 40 + counts.hot * 2 - counts.cold));
+    const data = Array.from({ length: 14 }).map((_, i) => clamp(base + Math.round((seeded(i + counts.total + 33) - 0.5) * 20), 10, 95));
+    return data;
+  }, [counts.total, counts.hot, counts.cold]);
 
-  const [runId, setRunId] = useState<string>("");
+  // Drawer
+  const [selected, setSelected] = useState<ScoredLead | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  function openLead(r: ScoredLead) {
+    setSelected(r);
+    setDrawerOpen(true);
+  }
+
+  // Toasts
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  function pushToast(t: Omit<Toast, "id">) {
+    const tid = `T-${Math.random().toString(36).slice(2, 9)}`;
+    const toast: Toast = { id: tid, ...t };
+    setToasts((p) => [toast, ...p].slice(0, 4));
+    window.setTimeout(() => {
+      setToasts((p) => p.filter((x) => x.id !== tid));
+    }, 4200);
+  }
+
+  // Pipeline run sim
   const [running, setRunning] = useState(false);
-  const [stepIdx, setStepIdx] = useState(0);
   const [progress, setProgress] = useState(0);
-  const timerRef = useRef<number | null>(null);
+  const [step, setStep] = useState<"Idle" | "Ingest" | "Normalize" | "Distance" | "Score" | "Deliver">("Idle");
+  const [liveFeed, setLiveFeed] = useState<ScoredLead[]>([]);
+  const runTimer = useRef<number | null>(null);
 
-  function stopTimers() {
-    if (timerRef.current) window.clearInterval(timerRef.current);
-    timerRef.current = null;
+  function stopRun() {
+    if (runTimer.current) window.clearInterval(runTimer.current);
+    runTimer.current = null;
+    setRunning(false);
+    setProgress(0);
+    setStep("Idle");
   }
 
   function runDemo() {
-    stopTimers();
-    setRunId(`RUN-${new Date().toISOString().slice(0, 10)}-${makeId().toUpperCase()}`);
+    // Always deterministic and clean.
+    stopRun();
     setRunning(true);
-    setStepIdx(0);
     setProgress(0);
+    setStep("Ingest");
+    setLiveFeed([]);
 
+    // staged insertion so it feels “live”
+    const batch = [...topN].sort((a, b) => b.score - a.score);
+    let idx = 0;
     let p = 0;
-    let s = 0;
 
-    timerRef.current = window.setInterval(() => {
-      p += 2 + Math.random() * 6; // speed varies
-      if (p >= 100) {
-        p = 100;
-        stopTimers();
-        setProgress(100);
-        setStepIdx(steps.length - 1);
-        window.setTimeout(() => {
-          setRunning(false);
-        }, 250);
-        return;
+    pushToast({ title: "Pipeline started", message: "Running ingest → score → deliver", tone: "info" });
+
+    runTimer.current = window.setInterval(() => {
+      p += 3 + seeded(p + 17) * 6;
+      p = clamp(p, 0, 100);
+      setProgress(p);
+
+      if (p < 20) setStep("Ingest");
+      else if (p < 40) setStep("Normalize");
+      else if (p < 60) setStep("Distance");
+      else if (p < 82) setStep("Score");
+      else setStep("Deliver");
+
+      // emit rows
+      const shouldEmit = p > 22 && idx < batch.length && seeded(idx + Math.floor(p)) > 0.35;
+      if (shouldEmit) {
+        const r = batch[idx];
+        idx++;
+        setLiveFeed((prev) => [r, ...prev].slice(0, meta.topN));
+
+        if (r.tag === "Hot") {
+          pushToast({
+            title: `HOT (${r.score})`,
+            message: `${r.addressLine.split(",")[0]} • $${money(r.price)} • ${r.distanceMiles.toFixed(1)} mi`,
+            tone: "warn",
+          });
+        }
       }
 
-      // Move step by progress thresholds
-      const nextStep = Math.min(steps.length - 1, Math.floor((p / 100) * steps.length));
-      s = nextStep;
-      setProgress(p);
-      setStepIdx(s);
-    }, 90);
+      if (p >= 100) {
+        window.setTimeout(() => {
+          setRunning(false);
+          setStep("Deliver");
+          pushToast({ title: "Delivery complete", message: `Top ${meta.topN} queued + alerts capped`, tone: "success" });
+
+          // settle to idle after a moment
+          window.setTimeout(() => {
+            setStep("Idle");
+            setProgress(0);
+          }, 900);
+        }, 220);
+
+        if (runTimer.current) window.clearInterval(runTimer.current);
+        runTimer.current = null;
+      }
+    }, 120);
   }
 
   useEffect(() => {
-    return () => stopTimers();
+    return () => {
+      if (runTimer.current) window.clearInterval(runTimer.current);
+    };
   }, []);
 
-  const alertPreview = useMemo(() => {
-    const hot = topRows.filter((r) => r.tag === "Hot").slice(0, bb.alertsPerDay);
-    return hot.map((r) => ({
-      id: r.id,
-      title: `HOT (${r.score}) • ${r.address.split(",")[0]}`,
-      line: `$${formatMoney(r.price)} • ${r.beds}bd/${r.baths}ba • ${r.distanceMiles.toFixed(1)}mi`,
-      note: r.reasons.join(" • ") || "Ranked opportunity",
+  // Export payloads
+  const config = useMemo(() => ({ plan, territoryKey, territoryLocked, presetKey, buyBox: bb }), [plan, territoryKey, territoryLocked, presetKey, bb]);
+
+  const deliverablePreview = useMemo(() => {
+    // "What the realtor gets" style payload
+    const rows = (liveFeed.length ? liveFeed : topN).slice(0, meta.topN);
+    return rows.map((r) => ({
+      tag: r.tag,
+      score: r.score,
+      confidence: r.confidence,
+      address: `${r.addressLine}, ${r.cityState} ${r.zip}`,
+      price: r.price,
+      beds: r.beds,
+      baths: r.baths,
+      distanceMiles: r.distanceMiles,
+      source: r.source,
+      reasons: r.reasons,
+      summary: r.blurb,
+      mapLink: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${r.addressLine}, ${r.cityState} ${r.zip}`)}`,
     }));
-  }, [topRows, bb.alertsPerDay]);
+  }, [liveFeed, topN, meta.topN]);
 
-  const buyBoxSummary = useMemo(() => {
-    const zipLabel = zips.length ? `${zips.slice(0, 7).join(", ")}${zips.length > 7 ? "…" : ""}` : "—";
-    return [
-      { k: "Territory", v: bb.territoryName || "—" },
-      { k: "ZIPs", v: zipLabel },
-      { k: "Radius", v: `${bb.radiusMiles} mi` },
-      { k: "Price", v: `$${formatMoney(bb.priceMin)}–$${formatMoney(bb.priceMax)}` },
-      { k: "Beds", v: `${bb.bedsMin}–${bb.bedsMax}` },
-      { k: "Baths", v: `${bb.bathsMin}+` },
-      { k: "Max Distance", v: `${bb.maxDistanceMiles} mi` },
-      { k: "Type", v: bb.propertyType },
-      { k: "Hot ≥", v: `${bb.hotThreshold}` },
-    ];
-  }, [bb, zips]);
+  const hotAlerts = useMemo(() => {
+    const cap = bb.dailyCapHotAlerts;
+    const rows = (liveFeed.length ? liveFeed : topN).filter((r) => r.tag === "Hot").slice(0, cap);
+    return rows;
+  }, [liveFeed, topN, bb.dailyCapHotAlerts]);
 
-  async function copy(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {}
-  }
+  const exclusivityText = territoryLocked
+    ? `Reserved • ${territoryKey}`
+    : `Not reserved • ${territoryKey}`;
 
-  const configJson = useMemo(() => JSON.stringify({ plan, ...bb }, null, 2), [plan, bb]);
+  const headerKpi = useMemo(() => {
+    const avgScore = filtered.length ? Math.round(filtered.reduce((a, b) => a + b.score, 0) / filtered.length) : 0;
+    const hotRate = filtered.length ? Math.round((counts.hot / filtered.length) * 100) : 0;
+    return { avgScore, hotRate };
+  }, [filtered, counts.hot]);
+
+  // Visual tokens
+  const tagPill = (tag: TagKey) => {
+    const t = toneForTag(tag);
+    return { background: t.bg, border: `1px solid ${t.br}`, color: BRAND.text };
+  };
 
   return (
-    <div className="min-h-screen" style={{ background: BRAND.bg }}>
-      {/* Background glow */}
-      <div
-        className="pointer-events-none fixed inset-0 opacity-60"
-        style={{
+    <div className="min-h-screen" style={{ background: BRAND.ink }}>
+      {/* Global styles / keyframes */}
+      <style jsx global>{`
+        .glass {
+          background: linear-gradient(180deg, ${BRAND.panel} 0%, ${BRAND.panel2} 100%);
+          border: 1px solid ${BRAND.stroke};
+          box-shadow: 0 24px 80px rgba(0,0,0,0.42);
+          backdrop-filter: blur(10px);
+        }
+        .glow-border {
+          position: relative;
+        }
+        .glow-border:before {
+          content: "";
+          position: absolute;
+          inset: -1px;
+          border-radius: 24px;
+          padding: 1px;
+          background: linear-gradient(
+            135deg,
+            rgba(16,185,129,0.55),
+            rgba(244,208,63,0.35),
+            rgba(255,255,255,0.10)
+          );
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+          opacity: 0.55;
+        }
+        .shine {
+          position: relative;
+          overflow: hidden;
+        }
+        .shine:after {
+          content: "";
+          position: absolute;
+          top: -60%;
+          left: -40%;
+          width: 80%;
+          height: 220%;
+          transform: rotate(18deg);
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
+          animation: sweep 4.2s infinite;
+          opacity: 0.55;
+        }
+        @keyframes sweep {
+          0% { transform: translateX(-30%) rotate(18deg); }
+          60% { transform: translateX(170%) rotate(18deg); }
+          100% { transform: translateX(170%) rotate(18deg); }
+        }
+        .bg-orb {
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          opacity: 0.75;
           background:
-            "radial-gradient(900px 500px at 20% 10%, rgba(4,120,87,0.35), transparent 60%), radial-gradient(700px 500px at 80% 20%, rgba(244,208,63,0.20), transparent 55%), radial-gradient(800px 600px at 50% 90%, rgba(255,255,255,0.10), transparent 60%)",
-        }}
-      />
+            radial-gradient(900px 520px at 18% 10%, rgba(16,185,129,0.30), transparent 60%),
+            radial-gradient(780px 560px at 82% 18%, rgba(244,208,63,0.22), transparent 58%),
+            radial-gradient(1000px 650px at 50% 92%, rgba(255,255,255,0.10), transparent 60%);
+          filter: saturate(120%);
+        }
+        .btn {
+          border-radius: 18px;
+          padding: 12px 14px;
+          font-weight: 700;
+          font-size: 13px;
+          transition: transform .12s ease, filter .12s ease, background .12s ease;
+          user-select: none;
+        }
+        .btn:active { transform: translateY(1px) scale(0.99); }
+        .btnPrimary {
+          background: linear-gradient(135deg, ${BRAND.emerald} 0%, rgba(16,185,129,0.92) 55%, rgba(244,208,63,0.24) 100%);
+          color: rgba(255,255,255,0.96);
+          box-shadow: 0 18px 44px rgba(0,0,0,0.35);
+          border: 1px solid rgba(16,185,129,0.35);
+        }
+        .btnGhost {
+          background: rgba(255,255,255,0.06);
+          border: 1px solid ${BRAND.stroke};
+          color: rgba(255,255,255,0.90);
+        }
+        .chip {
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-weight: 800;
+          font-size: 11px;
+          border: 1px solid ${BRAND.stroke};
+          background: rgba(255,255,255,0.06);
+          color: rgba(255,255,255,0.84);
+          white-space: nowrap;
+        }
+        .mono {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+      `}</style>
 
-      <div className="relative mx-auto max-w-6xl px-4 py-8">
-        {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold" style={{ border: `1px solid ${BRAND.border}`, background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.85)" }}>
-              <span className="h-2 w-2 rounded-full" style={{ background: BRAND.gold }} />
-              Opportunity Intelligence Feed
-              <span className="opacity-60">•</span>
-              <span className="opacity-90">Territory-based delivery</span>
+      <div className="bg-orb" />
+
+      {/* Top Nav */}
+      <div className="relative mx-auto max-w-7xl px-4 pt-6">
+        <div className="glass glow-border shine flex flex-col gap-4 rounded-3xl p-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl" style={{ background: "rgba(244,208,63,0.16)", border: "1px solid rgba(244,208,63,0.28)" }}>
+              <span className="text-lg" style={{ color: BRAND.text }}>✦</span>
             </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white md:text-4xl">
-              Demo Console: Buy Box → Ranked Feed → Alerts
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.72)" }}>
-              This is the screen-share page. It shows what they get without relying on live scraping.
-              You sell “ranked opportunities,” not “guaranteed motivated sellers.”
-            </p>
+            <div>
+              <div className="text-sm font-extrabold tracking-tight" style={{ color: BRAND.text }}>
+                Territory Opportunity Console
+              </div>
+              <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
+                Buy Box → Ranked Feed → Hot Alerts (capped) → Weekly/Monthly delivery
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="chip" style={{ borderColor: territoryLocked ? "rgba(244,208,63,0.42)" : BRAND.stroke, background: territoryLocked ? "rgba(244,208,63,0.10)" : "rgba(255,255,255,0.06)" }}>
+                  {territoryLocked ? "Territory Reserved" : "Territory Available"}
+                </span>
+                <span className="chip mono">{exclusivityText}</span>
+                <span className="chip" style={{ borderColor: "rgba(16,185,129,0.30)", background: "rgba(16,185,129,0.10)" }}>
+                  Avg Score {headerKpi.avgScore}
+                </span>
+                <span className="chip" style={{ borderColor: "rgba(244,208,63,0.28)", background: "rgba(244,208,63,0.10)" }}>
+                  Hot Rate {headerKpi.hotRate}%
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-col items-start gap-2 md:items-end">
-            <div className="inline-flex items-center gap-2 rounded-2xl px-4 py-2" style={{ border: `1px solid ${BRAND.border2}`, background: "rgba(255,255,255,0.06)" }}>
-              <span className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>
-                Selected
-              </span>
-              <span className="text-sm font-semibold text-white">{meta.label}</span>
-              <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: "rgba(244,208,63,0.18)", border: "1px solid rgba(244,208,63,0.4)", color: "rgba(255,255,255,0.95)" }}>
-                {meta.badge}
-              </span>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={runDemo}
-                className="rounded-2xl px-5 py-3 text-sm font-semibold text-white transition"
-                style={{
-                  background: `linear-gradient(135deg, ${BRAND.emerald} 0%, ${BRAND.emeraldDark} 65%)`,
-                  boxShadow: "0 18px 40px rgba(0,0,0,0.28)",
-                }}
-              >
-                {running ? "Running…" : "Run Demo"}
+          <div className="flex flex-col items-stretch gap-3 md:min-w-[420px] md:items-end">
+            <div className="flex w-full gap-2">
+              <div className="flex-1">
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Search address / zip / notes…"
+                  className="w-full rounded-2xl px-4 py-3 text-sm outline-none"
+                  style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
+                />
+              </div>
+              <button className={cx("btn btnPrimary")} onClick={runDemo} disabled={running} style={{ filter: running ? "grayscale(0.4) brightness(0.9)" : "none" }}>
+                {running ? `Running • ${step}` : "Run Demo"}
               </button>
-              <button
-                onClick={() => copy(configJson)}
-                className="rounded-2xl px-5 py-3 text-sm font-semibold transition"
-                style={{
-                  background: "rgba(255,255,255,0.06)",
-                  border: `1px solid ${BRAND.border}`,
-                  color: "rgba(255,255,255,0.9)",
-                }}
-              >
+              <button className={cx("btn btnGhost")} onClick={() => safeCopy(JSON.stringify(config, null, 2))}>
                 Copy Config
               </button>
             </div>
+
+            <div className="flex items-center justify-between gap-2 text-xs" style={{ color: BRAND.sub }}>
+              <div className="flex items-center gap-2">
+                <span className="mono">{meta.name}</span>
+                <span className="chip" style={{ borderColor: "rgba(244,208,63,0.35)", background: "rgba(244,208,63,0.10)" }}>
+                  {meta.badge}
+                </span>
+                <span className="chip" style={{ borderColor: "rgba(255,255,255,0.14)" }}>
+                  {meta.caps}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full" style={{ background: running ? "rgba(244,208,63,0.85)" : "rgba(16,185,129,0.55)" }} />
+                <span>{running ? "Live run" : "Ready"}</span>
+              </div>
+            </div>
+
+            {/* progress bar */}
+            <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${running ? progress : 0}%`,
+                  transition: "width 120ms ease",
+                  background: `linear-gradient(90deg, ${BRAND.emerald2} 0%, ${BRAND.gold} 65%, rgba(255,255,255,0.25) 100%)`,
+                }}
+              />
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Grid */}
-        <div className="mt-7 grid gap-6 lg:grid-cols-12">
-          {/* Left: Plan Selector */}
+      {/* Main */}
+      <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-6">
+        <div className="grid gap-6 lg:grid-cols-12">
+          {/* Sidebar */}
           <div className="lg:col-span-3">
-            <GlassCard>
+            <div className="glass rounded-3xl p-5">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-white">Plans</div>
-                <span className="rounded-full px-2 py-1 text-[11px] font-semibold" style={{ background: "rgba(4,120,87,0.18)", border: "1px solid rgba(4,120,87,0.35)", color: "rgba(255,255,255,0.9)" }}>
-                  4 workflows
+                <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+                  Workflows
+                </div>
+                <span className="chip" style={{ background: "rgba(255,255,255,0.05)" }}>
+                  4 modes
                 </span>
               </div>
 
               <div className="mt-4 grid gap-2">
                 {(
                   [
-                    { k: "demo", t: "Demo Workflow", s: "Always works (mock data)" },
-                    { k: "proof197", t: "Proof Sprint", s: "Top 5 daily (tight caps)" },
-                    { k: "monthly750", t: "Monthly $750", s: "Solo territory" },
-                    { k: "monthly1500", t: "Monthly $1,500", s: "Team / high volume" },
-                  ] as Array<{ k: PlanKey; t: string; s: string }>
-                ).map((p) => {
-                  const active = plan === p.k;
-                  const m = planMeta(p.k);
+                    { k: "demo", t: "Demo Workflow", d: "Always stable preview" },
+                    { k: "proof197", t: "$197 Proof Sprint", d: "Top 5 daily" },
+                    { k: "monthly750", t: "$750 Monthly", d: "Solo territory" },
+                    { k: "monthly1500", t: "$1,500 Monthly", d: "High volume + watchlist" },
+                  ] as Array<{ k: PlanKey; t: string; d: string }>
+                ).map((x) => {
+                  const active = plan === x.k;
                   return (
                     <button
-                      key={p.k}
-                      onClick={() => setPlan(p.k)}
-                      className="w-full rounded-2xl px-3 py-3 text-left transition"
+                      key={x.k}
+                      onClick={() => setPlan(x.k)}
+                      className="w-full rounded-2xl px-4 py-3 text-left"
                       style={{
-                        border: `1px solid ${active ? "rgba(244,208,63,0.45)" : BRAND.border}`,
                         background: active ? "rgba(244,208,63,0.10)" : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${active ? "rgba(244,208,63,0.35)" : BRAND.stroke}`,
+                        transition: "transform .12s ease, background .12s ease",
                       }}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <div className="text-sm font-semibold text-white">{p.t}</div>
-                          <div className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
-                            {p.s}
+                          <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+                            {x.t}
+                          </div>
+                          <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
+                            {x.d}
                           </div>
                         </div>
-                        <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.border}`, color: "rgba(255,255,255,0.85)" }}>
-                          {m.mode}
-                        </span>
+                        <span className="chip">{planMeta(x.k).topN === 5 ? "Top 5" : "Top 10"}</span>
                       </div>
                     </button>
                   );
                 })}
               </div>
 
-              <div className="mt-4 rounded-2xl px-3 py-3" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.border}` }}>
-                <div className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.75)" }}>
-                  What you say (one line)
+              <div className="mt-5 rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
+                <div className="text-xs font-extrabold" style={{ color: BRAND.text }}>
+                  Territory Lock (Exclusivity UI)
                 </div>
-                <div className="mt-2 text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.65)" }}>
-                  {meta.sub}
+                <div className="mt-2 text-xs leading-relaxed" style={{ color: BRAND.sub }}>
+                  You can’t promise outcomes. You can promise <span style={{ color: BRAND.text, fontWeight: 800 }}>exclusivity on delivery</span> for a territory key.
+                </div>
+
+                <div className="mt-3">
+                  <div className="mb-2 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
+                    Territory key
+                  </div>
+                  <input
+                    value={territoryKey}
+                    onChange={(e) => setTerritoryKey(e.target.value)}
+                    className="w-full rounded-2xl px-3 py-2 text-xs outline-none mono"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
+                  />
+                </div>
+
+                <div className="mt-3 flex items-center justify-between">
+                  <button
+                    className="btn btnGhost"
+                    onClick={() => {
+                      setTerritoryLocked((v) => !v);
+                      pushToast({
+                        title: territoryLocked ? "Territory released" : "Territory reserved",
+                        message: territoryLocked ? "Key is now available" : "Key is now reserved for this client",
+                        tone: territoryLocked ? "info" : "success",
+                      });
+                    }}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 16,
+                      width: "100%",
+                      background: territoryLocked ? "rgba(244,208,63,0.10)" : "rgba(255,255,255,0.06)",
+                      border: `1px solid ${territoryLocked ? "rgba(244,208,63,0.35)" : BRAND.stroke}`,
+                    }}
+                  >
+                    {territoryLocked ? "Release Territory" : "Reserve Territory"}
+                  </button>
+                </div>
+
+                <div className="mt-2 text-[11px]" style={{ color: BRAND.dim }}>
+                  In your back-end later: a DB unique constraint on territory_key.
                 </div>
               </div>
-            </GlassCard>
 
-            <div className="mt-6">
-              <GlassCard>
+              <div className="mt-5 rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-white">Run</div>
-                  <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.65)" }}>
-                    {runId || "—"}
+                  <div className="text-xs font-extrabold" style={{ color: BRAND.text }}>
+                    Health
+                  </div>
+                  <span className="chip" style={{ borderColor: "rgba(16,185,129,0.30)", background: "rgba(16,185,129,0.10)" }}>
+                    OK
                   </span>
                 </div>
 
-                <div className="mt-3 grid gap-2">
-                  <div className="flex items-center justify-between text-xs" style={{ color: "rgba(255,255,255,0.70)" }}>
+                <div className="mt-3 grid gap-2 text-xs" style={{ color: BRAND.sub }}>
+                  <div className="flex items-center justify-between">
                     <span>Pipeline</span>
-                    <span>{running ? `${Math.round(progress)}%` : "Ready"}</span>
+                    <span style={{ color: BRAND.text, fontWeight: 800 }}>{running ? step : "Idle"}</span>
                   </div>
-
-                  <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${running ? progress : 0}%`,
-                        background: `linear-gradient(90deg, ${BRAND.emerald} 0%, ${BRAND.gold} 70%)`,
-                      }}
-                    />
+                  <div className="flex items-center justify-between">
+                    <span>Alerts capped</span>
+                    <span style={{ color: BRAND.text, fontWeight: 800 }}>{bb.dailyCapHotAlerts}/day</span>
                   </div>
-
-                  <div className="mt-3 grid gap-2">
-                    {steps.map((s, i) => {
-                      const done = !running && progress === 100 ? true : i < stepIdx;
-                      const active = running && i === stepIdx;
-                      return (
-                        <div
-                          key={s.key}
-                          className="flex items-center justify-between rounded-xl px-3 py-2"
-                          style={{
-                            background: active ? "rgba(244,208,63,0.10)" : "rgba(255,255,255,0.03)",
-                            border: `1px solid ${active ? "rgba(244,208,63,0.35)" : BRAND.border}`,
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="h-2.5 w-2.5 rounded-full"
-                              style={{ background: done ? BRAND.emerald : active ? BRAND.gold : "rgba(255,255,255,0.20)" }}
-                            />
-                            <span className="text-xs font-semibold text-white">{s.label}</span>
-                          </div>
-                          <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.65)" }}>
-                            {done ? "Done" : active ? "Working" : "Queued"}
-                          </span>
-                        </div>
-                      );
-                    })}
+                  <div className="flex items-center justify-between">
+                    <span>Delivery</span>
+                    <span style={{ color: BRAND.text, fontWeight: 800 }}>{meta.topN === 5 ? "Top 5" : "Top 10"}</span>
                   </div>
                 </div>
-              </GlassCard>
+              </div>
             </div>
-          </div>
 
-          {/* Middle: Results */}
-          <div className="lg:col-span-6">
-            <GlassCard>
-              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <div className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.75)" }}>
-                    Ranked queue preview
-                  </div>
-                  <div className="mt-1 text-lg font-semibold text-white">
-                    {plan === "proof197" ? "Top 5 for Proof Sprint" : "Top 10 Daily Board"}
-                  </div>
-                  <div className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.62)" }}>
-                    Clean, reason-coded, threshold-based. This is the “product feel.”
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full px-2 py-1 text-[11px] font-semibold" style={pillStyle("hot")}>
-                    Hot {counts.hot}
-                  </span>
-                  <span className="rounded-full px-2 py-1 text-[11px] font-semibold" style={pillStyle("warm")}>
-                    Warm {counts.warm}
-                  </span>
-                  <span className="rounded-full px-2 py-1 text-[11px] font-semibold" style={pillStyle("cold")}>
-                    Cold {counts.cold}
-                  </span>
-                </div>
-              </div>
-
-              {/* Distribution mini chart */}
-              <div className="mt-4 rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.border}` }}>
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.70)" }}>
-                    Score distribution
-                  </div>
-                  <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.60)" }}>
-                    Hot ≥ {bb.hotThreshold} • Warm ≥ {bb.warmThreshold}
-                  </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-12 gap-1">
-                  {scoredAll.slice(0, 24).map((r) => (
-                    <div
-                      key={r.id}
-                      title={`${r.tag} ${r.score} — ${r.address}`}
-                      className="h-10 rounded-lg"
-                      style={{
-                        background: r.tag === "Hot" ? "rgba(244,208,63,0.18)" : r.tag === "Warm" ? "rgba(4,120,87,0.18)" : "rgba(255,255,255,0.06)",
-                        border: `1px solid ${ringColor(r.tag)}`,
-                        display: "flex",
-                        alignItems: "flex-end",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        className="w-full"
-                        style={{
-                          height: `${clamp(r.score, 1, 100)}%`,
-                          background: r.tag === "Hot" ? "rgba(244,208,63,0.35)" : r.tag === "Warm" ? "rgba(4,120,87,0.35)" : "rgba(255,255,255,0.12)",
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Board */}
-              <div className="mt-4 overflow-hidden rounded-2xl" style={{ border: `1px solid ${BRAND.border}` }}>
-                <div className="grid grid-cols-12 gap-2 px-4 py-3 text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.70)" }}>
-                  <div className="col-span-5">Opportunity</div>
-                  <div className="col-span-2">Price</div>
-                  <div className="col-span-2">Specs</div>
-                  <div className="col-span-2">Distance</div>
-                  <div className="col-span-1 text-right">Score</div>
-                </div>
-
-                <div className="divide-y" style={{ borderColor: BRAND.border }}>
-                  {(running ? Array.from({ length: topN }) : topRows).map((row: any, idx: number) => {
-                    if (running) {
-                      return <SkeletonRow key={`sk-${idx}`} />;
-                    }
-
-                    const r = row as ScoredLead;
-                    return (
-                      <div key={r.id} className="grid grid-cols-12 gap-2 px-4 py-4">
-                        <div className="col-span-5">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="text-sm font-semibold text-white">{r.address.split(",")[0]}</div>
-                              <div className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
-                                {r.source.toUpperCase()} • {r.propertyType} • ZIP {r.zip}
-                              </div>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {r.reasons.map((x) => (
-                                  <span key={x} className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.border}`, color: "rgba(255,255,255,0.82)" }}>
-                                    {x}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-
-                            <span className="rounded-full px-2 py-1 text-[11px] font-semibold" style={r.tag === "Hot" ? pillStyle("hot") : r.tag === "Warm" ? pillStyle("warm") : pillStyle("cold")}>
-                              {r.tag}
-                            </span>
-                          </div>
-
-                          <div className="mt-2 text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.62)" }}>
-                            {r.blurb}
-                          </div>
-                        </div>
-
-                        <div className="col-span-2 text-sm font-semibold text-white">${formatMoney(r.price)}</div>
-                        <div className="col-span-2 text-sm" style={{ color: "rgba(255,255,255,0.80)" }}>
-                          {r.beds}bd / {r.baths}ba
-                        </div>
-                        <div className="col-span-2 text-sm" style={{ color: "rgba(255,255,255,0.80)" }}>
-                          {r.distanceMiles.toFixed(1)} mi
-                        </div>
-
-                        <div className="col-span-1 flex items-center justify-end">
-                          <div className="relative">
-                            <div className="h-8 w-14 rounded-xl text-center text-sm font-semibold text-white" style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${ringColor(r.tag)}`, lineHeight: "32px" }}>
-                              {r.score}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  onClick={() => copy(JSON.stringify(topRows, null, 2))}
-                  className="rounded-2xl px-4 py-2 text-sm font-semibold text-white"
-                  style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.border}` }}
-                >
-                  Copy Preview Rows
-                </button>
-                <button
-                  onClick={() =>
-                    copy(
-                      topRows
-                        .map((r) => `${r.tag} ${r.score} — ${r.address} — $${formatMoney(r.price)} — ${r.distanceMiles.toFixed(1)}mi`)
-                        .join("\n")
-                    )
-                  }
-                  className="rounded-2xl px-4 py-2 text-sm font-semibold text-white"
-                  style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.border}` }}
-                >
-                  Copy as Text
-                </button>
-              </div>
-            </GlassCard>
-
-            {/* Alerts preview */}
-            <div className="mt-6">
-              <GlassCard>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-white">Hot Alerts Preview</div>
-                    <div className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
-                      Threshold based. Capped to {bb.alertsPerDay}/day.
-                    </div>
-                  </div>
-                  <span className="rounded-full px-2 py-1 text-[11px] font-semibold" style={pillStyle("hot")}>
-                    Send on Hot only
-                  </span>
-                </div>
-
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {(running ? Array.from({ length: 2 }) : alertPreview.length ? alertPreview : []).map((a: any, idx: number) => {
-                    if (running) return <SkeletonCard key={`skc-${idx}`} />;
-                    if (!a) return null;
-
-                    return (
-                      <div key={a.id} className="rounded-2xl p-4" style={{ background: "rgba(244,208,63,0.08)", border: "1px solid rgba(244,208,63,0.25)" }}>
-                        <div className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.75)" }}>
-                          🔥 HOT ALERT
-                        </div>
-                        <div className="mt-2 text-sm font-semibold text-white">{a.title}</div>
-                        <div className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.72)" }}>
-                          {a.line}
-                        </div>
-                        <div className="mt-2 text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
-                          {a.note}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {!running && !alertPreview.length && (
-                    <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.border}` }}>
-                      <div className="text-sm font-semibold text-white">No hot alerts</div>
-                      <div className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
-                        Raise scoring by tightening the buy box, or lower the hot threshold.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </GlassCard>
-            </div>
-          </div>
-
-          {/* Right: Buy Box Panel */}
-          <div className="lg:col-span-3">
-            <GlassCard>
+            {/* Buy box panel */}
+            <div className="mt-6 glass rounded-3xl p-5">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-white">Buy Box</div>
-                <span className="rounded-full px-2 py-1 text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.border}`, color: "rgba(255,255,255,0.85)" }}>
-                  Client-configured
+                <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+                  Buy Box
+                </div>
+                <span className="chip" style={{ borderColor: "rgba(255,255,255,0.14)" }}>
+                  client-config
                 </span>
               </div>
 
+              <div className="mt-4">
+                <Field label="Preset">
+                  <select
+                    value={presetKey}
+                    onChange={(e) => setPresetKey(e.target.value as BuyBoxPresetKey)}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
+                  >
+                    {(["Balanced", "Investor", "Family", "Luxury", "Starter"] as BuyBoxPresetKey[]).map((k) => (
+                      <option key={k} value={k} style={{ color: "#000" }}>
+                        {k}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
               <div className="mt-4 grid gap-3">
-                <Labeled label="Territory name">
+                <Field label="Territory name">
                   <input
                     value={bb.territoryName}
                     onChange={(e) => setBb((p) => ({ ...p, territoryName: e.target.value }))}
-                    className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                    style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                   />
-                </Labeled>
+                </Field>
 
-                <Labeled label="Target address (anchor)">
+                <Field label="County/Area">
                   <input
-                    value={bb.targetAddress}
-                    onChange={(e) => setBb((p) => ({ ...p, targetAddress: e.target.value }))}
-                    className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                    style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
+                    value={bb.countyOrArea}
+                    onChange={(e) => setBb((p) => ({ ...p, countyOrArea: e.target.value }))}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                   />
-                </Labeled>
+                </Field>
 
-                <Labeled label="ZIPs (comma/space)">
+                <Field label="Anchor address">
+                  <input
+                    value={bb.anchorAddress}
+                    onChange={(e) => setBb((p) => ({ ...p, anchorAddress: e.target.value }))}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
+                  />
+                </Field>
+
+                <Field label="ZIPs" hint={`Parsed: ${parseZipList(bb.zips).length}`}>
                   <input
                     value={bb.zips}
                     onChange={(e) => setBb((p) => ({ ...p, zips: e.target.value }))}
-                    className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                    style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                   />
-                  <div className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.62)" }}>
-                    Parsed ZIPs: {zips.length}
-                  </div>
-                </Labeled>
+                </Field>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Labeled label="Radius (mi)">
+                  <Field label="Price min">
                     <input
                       type="number"
-                      min={1}
-                      max={200}
-                      value={bb.radiusMiles}
-                      onChange={(e) => setBb((p) => ({ ...p, radiusMiles: clamp(Number(e.target.value || 0), 1, 200) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
-                    />
-                  </Labeled>
-
-                  <Labeled label="Max dist (mi)">
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={bb.maxDistanceMiles}
-                      onChange={(e) => setBb((p) => ({ ...p, maxDistanceMiles: clamp(Number(e.target.value || 0), 1, 100) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
-                    />
-                  </Labeled>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Labeled label="Price min">
-                    <input
-                      type="number"
-                      min={0}
                       value={bb.priceMin}
                       onChange={(e) => setBb((p) => ({ ...p, priceMin: Math.max(0, Number(e.target.value || 0)) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
+                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                     />
-                  </Labeled>
-
-                  <Labeled label="Price max">
+                  </Field>
+                  <Field label="Price max">
                     <input
                       type="number"
-                      min={0}
                       value={bb.priceMax}
                       onChange={(e) => setBb((p) => ({ ...p, priceMax: Math.max(0, Number(e.target.value || 0)) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
+                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                     />
-                  </Labeled>
+                  </Field>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Labeled label="Beds min">
+                  <Field label="Beds min">
                     <input
                       type="number"
-                      min={0}
-                      max={10}
                       value={bb.bedsMin}
                       onChange={(e) => setBb((p) => ({ ...p, bedsMin: clamp(Number(e.target.value || 0), 0, 10) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
+                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                     />
-                  </Labeled>
-
-                  <Labeled label="Beds max">
+                  </Field>
+                  <Field label="Beds max">
                     <input
                       type="number"
-                      min={0}
-                      max={15}
                       value={bb.bedsMax}
                       onChange={(e) => setBb((p) => ({ ...p, bedsMax: clamp(Number(e.target.value || 0), 0, 15) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
+                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                     />
-                  </Labeled>
+                  </Field>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Labeled label="Baths min">
+                  <Field label="Baths min">
                     <input
                       type="number"
                       step="0.5"
-                      min={0}
-                      max={10}
                       value={bb.bathsMin}
                       onChange={(e) => setBb((p) => ({ ...p, bathsMin: clamp(Number(e.target.value || 0), 0, 10) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
+                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                     />
-                  </Labeled>
-
-                  <Labeled label="Property type">
-                    <select
-                      value={bb.propertyType}
-                      onChange={(e) => setBb((p) => ({ ...p, propertyType: e.target.value as PropertyType }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
-                    >
-                      {["Any", "Single Family", "Condo", "Townhome", "Multi-Family"].map((v) => (
-                        <option key={v} value={v} style={{ color: "#000" }}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </Labeled>
+                  </Field>
+                  <Field label="Max distance (mi)">
+                    <input
+                      type="number"
+                      value={bb.maxDistanceMiles}
+                      onChange={(e) => setBb((p) => ({ ...p, maxDistanceMiles: clamp(Number(e.target.value || 0), 1, 100) }))}
+                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
+                    />
+                  </Field>
                 </div>
+
+                <Field label="Property type">
+                  <select
+                    value={bb.propertyType}
+                    onChange={(e) => setBb((p) => ({ ...p, propertyType: e.target.value as PropertyType }))}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
+                  >
+                    {(["Any", "Single Family", "Condo", "Townhome", "Multi-Family"] as PropertyType[]).map((k) => (
+                      <option key={k} value={k} style={{ color: "#000" }}>
+                        {k}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="Include signals (comma)">
+                  <textarea
+                    value={bb.includeSignals}
+                    onChange={(e) => setBb((p) => ({ ...p, includeSignals: e.target.value }))}
+                    className="h-20 w-full resize-none rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
+                  />
+                </Field>
+
+                <Field label="Exclude signals (comma)">
+                  <textarea
+                    value={bb.excludeSignals}
+                    onChange={(e) => setBb((p) => ({ ...p, excludeSignals: e.target.value }))}
+                    className="h-20 w-full resize-none rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
+                  />
+                </Field>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Labeled label="Warm ≥">
+                  <Field label="Warm ≥">
                     <input
                       type="number"
-                      min={1}
-                      max={99}
                       value={bb.warmThreshold}
                       onChange={(e) => setBb((p) => ({ ...p, warmThreshold: clamp(Number(e.target.value || 0), 1, 99) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
+                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                     />
-                  </Labeled>
-
-                  <Labeled label="Hot ≥">
+                  </Field>
+                  <Field label="Hot ≥">
                     <input
                       type="number"
-                      min={1}
-                      max={100}
                       value={bb.hotThreshold}
                       onChange={(e) => setBb((p) => ({ ...p, hotThreshold: clamp(Number(e.target.value || 0), 1, 100) }))}
-                      className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
+                      className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                     />
-                  </Labeled>
+                  </Field>
                 </div>
 
-                <Labeled label="Keywords include (comma separated)">
-                  <textarea
-                    value={bb.keywordsInclude}
-                    onChange={(e) => setBb((p) => ({ ...p, keywordsInclude: e.target.value }))}
-                    className="h-20 w-full resize-none rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                    style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
-                  />
-                </Labeled>
-
-                <Labeled label="Keywords exclude (comma separated)">
-                  <textarea
-                    value={bb.keywordsExclude}
-                    onChange={(e) => setBb((p) => ({ ...p, keywordsExclude: e.target.value }))}
-                    className="h-20 w-full resize-none rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                    style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
-                  />
-                </Labeled>
-
-                <Labeled label="Alerts/day cap">
+                <Field label="Hot alerts cap/day">
                   <input
                     type="number"
-                    min={0}
-                    max={25}
-                    value={bb.alertsPerDay}
-                    onChange={(e) => setBb((p) => ({ ...p, alertsPerDay: clamp(Number(e.target.value || 0), 0, 25) }))}
-                    className="w-full rounded-2xl px-3 py-2 text-sm text-white outline-none"
-                    style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.border}` }}
+                    value={bb.dailyCapHotAlerts}
+                    onChange={(e) => setBb((p) => ({ ...p, dailyCapHotAlerts: clamp(Number(e.target.value || 0), 0, 25) }))}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                   />
-                </Labeled>
+                </Field>
+              </div>
+            </div>
+          </div>
 
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    onClick={() =>
-                      setBb((p) => ({
-                        ...p,
-                        priceMin: 350000,
-                        priceMax: 650000,
-                        bedsMin: 3,
-                        bedsMax: 4,
-                        bathsMin: 2,
-                        maxDistanceMiles: 12,
-                        hotThreshold: 82,
-                        warmThreshold: 62,
-                      }))
-                    }
-                    className="rounded-2xl px-3 py-2 text-xs font-semibold text-white"
-                    style={{ background: "rgba(244,208,63,0.12)", border: "1px solid rgba(244,208,63,0.25)" }}
+          {/* Center */}
+          <div className="lg:col-span-6">
+            {/* Analytics header */}
+            <div className="glass rounded-3xl p-5">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-xs font-semibold" style={{ color: BRAND.sub }}>
+                    Live board
+                  </div>
+                  <div className="mt-1 text-xl font-extrabold tracking-tight" style={{ color: BRAND.text }}>
+                    Ranked Opportunities — Top {meta.topN}
+                  </div>
+                  <div className="mt-2 text-xs" style={{ color: BRAND.sub }}>
+                    You sell ranked fit + speed. You do not sell “motivated seller guarantees.”
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Donut hot={counts.hot} warm={counts.warm} cold={counts.cold} />
+                  <div>
+                    <div className="text-xs font-extrabold" style={{ color: BRAND.text }}>
+                      {counts.total} leads
+                    </div>
+                    <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
+                      Hot {counts.hot} • Warm {counts.warm} • Cold {counts.cold}
+                    </div>
+                    <div className="mt-2">
+                      <Sparkline data={trend} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter bar */}
+              <div className="mt-5 grid gap-3 md:grid-cols-4">
+                <div>
+                  <div className="mb-2 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
+                    Tag
+                  </div>
+                  <select
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value as any)}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                   >
-                    Tighten filters
-                  </button>
-                  <button
-                    onClick={() =>
-                      setBb((p) => ({
-                        ...p,
-                        priceMin: 250000,
-                        priceMax: 850000,
-                        bedsMin: 2,
-                        bedsMax: 6,
-                        bathsMin: 2,
-                        maxDistanceMiles: 20,
-                        hotThreshold: 78,
-                        warmThreshold: 58,
-                      }))
-                    }
-                    className="rounded-2xl px-3 py-2 text-xs font-semibold text-white"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.border}` }}
+                    {(["All", "Hot", "Warm", "Cold"] as const).map((v) => (
+                      <option key={v} value={v} style={{ color: "#000" }}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <div className="mb-2 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
+                    Source
+                  </div>
+                  <select
+                    value={sourceFilter}
+                    onChange={(e) => setSourceFilter(e.target.value as any)}
+                    className="w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.stroke}`, color: BRAND.text }}
                   >
-                    Widen filters
+                    {(["All", "Newsletter", "Marketplace", "Web", "Community"] as const).map((v) => (
+                      <option key={v} value={v} style={{ color: "#000" }}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <div className="mb-2 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
+                    Distance filter
+                  </div>
+                  <button
+                    className="btn btnGhost w-full"
+                    onClick={() => setOnlyWithinDistance((v) => !v)}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 16,
+                      background: onlyWithinDistance ? "rgba(16,185,129,0.10)" : "rgba(255,255,255,0.06)",
+                      border: `1px solid ${onlyWithinDistance ? "rgba(16,185,129,0.30)" : BRAND.stroke}`,
+                    }}
+                  >
+                    {onlyWithinDistance ? `Within ${bb.maxDistanceMiles} mi (ON)` : "Distance filter (OFF)"}
                   </button>
                 </div>
               </div>
-            </GlassCard>
+            </div>
 
-            <div className="mt-6">
-              <GlassCard>
-                <div className="text-sm font-semibold text-white">Top Criteria (plug-in)</div>
-                <div className="mt-3 grid gap-2">
-                  {buyBoxSummary.map((x) => (
-                    <div key={x.k} className="flex items-start justify-between gap-3">
-                      <div className="text-xs font-semibold text-white">{x.k}</div>
-                      <div className="text-xs text-right" style={{ color: "rgba(255,255,255,0.70)" }}>
-                        {x.v}
+            {/* Board */}
+            <div className="mt-6 glass rounded-3xl p-0 overflow-hidden">
+              <div className="grid grid-cols-12 gap-2 px-5 py-4 text-[11px] font-extrabold" style={{ color: BRAND.sub, background: "rgba(255,255,255,0.03)", borderBottom: `1px solid ${BRAND.stroke}` }}>
+                <div className="col-span-5">Opportunity</div>
+                <div className="col-span-2">Price</div>
+                <div className="col-span-2">Specs</div>
+                <div className="col-span-2">Distance</div>
+                <div className="col-span-1 text-right">Score</div>
+              </div>
+
+              <div className="divide-y" style={{ borderColor: BRAND.stroke }}>
+                {(liveFeed.length ? liveFeed : topN).slice(0, meta.topN).map((r) => (
+                  <button
+                    key={r.id}
+                    className="w-full text-left"
+                    onClick={() => openLead(r)}
+                    style={{ background: "transparent" }}
+                  >
+                    <div className="grid grid-cols-12 gap-2 px-5 py-4 hover:opacity-95" style={{ transition: "opacity .12s ease" }}>
+                      <div className="col-span-5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+                              {r.addressLine}
+                            </div>
+                            <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
+                              {r.cityState} • ZIP {r.zip} • {r.propertyType} • {r.source}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {r.reasons.map((x) => (
+                                <span key={x} className="chip" style={{ background: "rgba(255,255,255,0.05)" }}>
+                                  {x}
+                                </span>
+                              ))}
+                              <span className="chip mono" title="heuristic completeness proxy">
+                                conf {r.confidence}%
+                              </span>
+                            </div>
+                          </div>
+
+                          <span className="chip" style={tagPill(r.tag)}>
+                            {r.tag}
+                          </span>
+                        </div>
+
+                        <div className="mt-2 text-xs leading-relaxed" style={{ color: BRAND.sub }}>
+                          {r.blurb}
+                        </div>
+                      </div>
+
+                      <div className="col-span-2 text-sm font-extrabold" style={{ color: BRAND.text }}>
+                        ${money(r.price)}
+                      </div>
+
+                      <div className="col-span-2 text-sm" style={{ color: BRAND.text }}>
+                        {r.beds}bd • {r.baths}ba
+                        <div className="mt-1 text-xs" style={{ color: BRAND.dim }}>
+                          {minutesAgo(r.createdAtIso)}
+                        </div>
+                      </div>
+
+                      <div className="col-span-2 text-sm" style={{ color: BRAND.text }}>
+                        {r.distanceMiles.toFixed(1)} mi
+                      </div>
+
+                      <div className="col-span-1 flex justify-end">
+                        <div
+                          className="flex h-9 w-14 items-center justify-center rounded-2xl text-sm font-extrabold"
+                          style={{
+                            background: toneForTag(r.tag).bg,
+                            border: `1px solid ${toneForTag(r.tag).br}`,
+                            color: BRAND.text,
+                          }}
+                        >
+                          {r.score}
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </button>
+                ))}
+              </div>
 
-                <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={() => copy(JSON.stringify(buyBoxSummary, null, 2))}
-                    className="rounded-2xl px-3 py-2 text-xs font-semibold text-white"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.border}` }}
-                  >
-                    Copy Top List
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4" style={{ borderTop: `1px solid ${BRAND.stroke}`, background: "rgba(255,255,255,0.02)" }}>
+                <div className="text-xs" style={{ color: BRAND.sub }}>
+                  Delivery payload is <span style={{ color: BRAND.text, fontWeight: 900 }}>structured</span> and exportable (email, Airtable, Slack, SMS caps later).
+                </div>
+                <div className="flex gap-2">
+                  <button className="btn btnGhost" onClick={() => safeCopy(JSON.stringify(deliverablePreview, null, 2))}>
+                    Copy Deliverable JSON
                   </button>
                   <button
-                    onClick={() => copy(buyBoxSummary.map((x) => `${x.k}: ${x.v}`).join("\n"))}
-                    className="rounded-2xl px-3 py-2 text-xs font-semibold text-white"
-                    style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BRAND.border}` }}
+                    className="btn btnGhost"
+                    onClick={() =>
+                      safeCopy(
+                        deliverablePreview
+                          .map((x) => `${x.tag} ${x.score} • ${x.address} • $${money(x.price)} • ${x.distanceMiles.toFixed(1)}mi`)
+                          .join("\n")
+                      )
+                    }
                   >
                     Copy as Text
                   </button>
                 </div>
-              </GlassCard>
+              </div>
+            </div>
+          </div>
+
+          {/* Right column */}
+          <div className="lg:col-span-3">
+            <MiniMap lead={selected} anchorLabel={bb.anchorAddress} />
+
+            <div className="mt-6 glass rounded-3xl p-5">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+                  Hot Alerts (capped)
+                </div>
+                <span className="chip" style={{ borderColor: "rgba(244,208,63,0.35)", background: "rgba(244,208,63,0.10)" }}>
+                  cap {bb.dailyCapHotAlerts}/day
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                {hotAlerts.length ? (
+                  hotAlerts.map((r) => (
+                    <div key={r.id} className="rounded-2xl p-4" style={{ background: "rgba(244,208,63,0.08)", border: "1px solid rgba(244,208,63,0.25)" }}>
+                      <div className="text-[11px] font-extrabold" style={{ color: BRAND.text }}>
+                        🔥 HOT ({r.score})
+                      </div>
+                      <div className="mt-2 text-sm font-extrabold" style={{ color: BRAND.text }}>
+                        {r.addressLine.split(",")[0]}
+                      </div>
+                      <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
+                        ${money(r.price)} • {r.beds}bd/{r.baths}ba • {r.distanceMiles.toFixed(1)} mi
+                      </div>
+                      <button className="mt-3 btn btnGhost w-full" onClick={() => openLead(r)} style={{ padding: "10px 12px", borderRadius: 16 }}>
+                        View
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
+                    <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+                      No hot alerts
+                    </div>
+                    <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
+                      Tighten buy box or lower hot threshold.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 glass rounded-3xl p-5">
+              <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+                What you’re actually selling
+              </div>
+              <div className="mt-3 text-xs leading-relaxed" style={{ color: BRAND.sub }}>
+                <ul className="list-disc pl-4">
+                  <li>
+                    <span style={{ color: BRAND.text, fontWeight: 900 }}>Exclusive delivery</span> for a territory key (not “exclusive leads everywhere”).
+                  </li>
+                  <li>
+                    <span style={{ color: BRAND.text, fontWeight: 900 }}>Ranked opportunities</span> based on fit + signals + distance.
+                  </li>
+                  <li>
+                    <span style={{ color: BRAND.text, fontWeight: 900 }}>Speed</span>: alerts for hot only, capped to avoid spam.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="mt-4 grid gap-2">
+                <button
+                  className="btn btnGhost"
+                  onClick={() => {
+                    pushToast({ title: "Demo deliverable", message: `Generated Top ${meta.topN} list + capped alerts`, tone: "success" });
+                    safeCopy(JSON.stringify({ territory: territoryKey, reserved: territoryLocked, deliverablePreview }, null, 2));
+                  }}
+                >
+                  Export “Client Report” (copy)
+                </button>
+
+                <button
+                  className="btn btnGhost"
+                  onClick={() => {
+                    setSelected(null);
+                    setDrawerOpen(false);
+                    setLiveFeed([]);
+                    pushToast({ title: "Reset", message: "Cleared live feed + selection", tone: "info" });
+                  }}
+                >
+                  Reset view
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Footer note */}
-        <div className="mt-8 text-center text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
-          Demo mode uses deterministic sample opportunities so you never debug live sources on a sales call.
+      {/* Toast stack */}
+      <div className="fixed right-4 top-4 z-50 grid gap-2">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="glass rounded-2xl px-4 py-3"
+            style={{
+              width: 340,
+              borderColor:
+                t.tone === "success"
+                  ? "rgba(16,185,129,0.35)"
+                  : t.tone === "warn"
+                  ? "rgba(244,208,63,0.35)"
+                  : BRAND.stroke,
+            }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="text-xs font-extrabold" style={{ color: BRAND.text }}>
+                  {t.title}
+                </div>
+                <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
+                  {t.message}
+                </div>
+              </div>
+              <button
+                className="text-xs font-extrabold"
+                style={{ color: BRAND.dim }}
+                onClick={() => setToasts((p) => p.filter((x) => x.id !== t.id))}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Lead Drawer */}
+      <div
+        className={cx("fixed inset-0 z-40", drawerOpen ? "pointer-events-auto" : "pointer-events-none")}
+        style={{
+          background: drawerOpen ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0)",
+          transition: "background .16s ease",
+        }}
+        onClick={() => setDrawerOpen(false)}
+      />
+
+      <div
+        className="fixed right-0 top-0 z-50 h-full w-full max-w-xl"
+        style={{
+          transform: drawerOpen ? "translateX(0)" : "translateX(110%)",
+          transition: "transform .18s ease",
+        }}
+      >
+        <div className="h-full glass rounded-l-[32px] p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold" style={{ color: BRAND.sub }}>
+                Lead details
+              </div>
+              <div className="mt-1 text-lg font-extrabold" style={{ color: BRAND.text }}>
+                {selected ? selected.addressLine : "—"}
+              </div>
+              <div className="mt-1 text-xs" style={{ color: BRAND.sub }}>
+                {selected ? `${selected.cityState} • ZIP ${selected.zip} • ${selected.propertyType} • ${selected.source}` : "Select a lead"}
+              </div>
+            </div>
+            <button className="btn btnGhost" style={{ padding: "10px 12px", borderRadius: 16 }} onClick={() => setDrawerOpen(false)}>
+              Close
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-4">
+            <div className="rounded-3xl p-5" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+                  Score
+                </div>
+                {selected ? (
+                  <span className="chip" style={tagPill(selected.tag)}>
+                    {selected.tag}
+                  </span>
+                ) : (
+                  <span className="chip">—</span>
+                )}
+              </div>
+
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <Stat label="Score" value={selected ? selected.score : "—"} accent={selected?.tag === "Hot" ? "gold" : selected?.tag === "Warm" ? "emerald" : "neutral"} />
+                <Stat label="Confidence" value={selected ? `${selected.confidence}%` : "—"} accent="neutral" />
+                <Stat label="Distance" value={selected ? `${selected.distanceMiles.toFixed(1)} mi` : "—"} accent="neutral" />
+              </div>
+
+              <div className="mt-4">
+                <div className="text-[11px] font-semibold" style={{ color: BRAND.sub }}>
+                  Reasons
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(selected?.reasons || ["—"]).map((x) => (
+                    <span key={x} className="chip" style={{ background: "rgba(255,255,255,0.05)" }}>
+                      {x}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl p-5" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
+              <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+                Property snapshot
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-xs" style={{ color: BRAND.sub }}>
+                <Row k="Price" v={selected ? `$${money(selected.price)}` : "—"} />
+                <Row k="Beds/Baths" v={selected ? `${selected.beds} / ${selected.baths}` : "—"} />
+                <Row k="Created" v={selected ? minutesAgo(selected.createdAtIso) : "—"} />
+                <Row k="Type" v={selected ? selected.propertyType : "—"} />
+              </div>
+
+              <div className="mt-4 text-[11px] font-semibold" style={{ color: BRAND.sub }}>
+                Summary
+              </div>
+              <div className="mt-2 text-xs leading-relaxed" style={{ color: BRAND.sub }}>
+                {selected?.blurb || "—"}
+              </div>
+            </div>
+
+            <div className="rounded-3xl p-5" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.stroke}` }}>
+              <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+                Actions
+              </div>
+              <div className="mt-4 grid gap-2">
+                <button
+                  className="btn btnPrimary"
+                  onClick={() => {
+                    if (!selected) return;
+                    safeCopy(
+                      `HOT? ${selected.tag === "Hot"}\nScore: ${selected.score}\nAddress: ${selected.addressLine}, ${selected.cityState} ${selected.zip}\nPrice: $${money(selected.price)}\nBeds/Baths: ${selected.beds}/${selected.baths}\nDistance: ${selected.distanceMiles.toFixed(1)} mi\nNotes: ${selected.blurb}`
+                    );
+                    pushToast({ title: "Copied lead", message: "Paste into SMS/email/CRM", tone: "success" });
+                  }}
+                >
+                  Copy lead card (text)
+                </button>
+
+                <button
+                  className="btn btnGhost"
+                  onClick={() => {
+                    if (!selected) return;
+                    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selected.addressLine}, ${selected.cityState} ${selected.zip}`)}`;
+                    safeCopy(url);
+                    pushToast({ title: "Map link copied", message: "Open in browser", tone: "info" });
+                  }}
+                >
+                  Copy map link
+                </button>
+
+                <button
+                  className="btn btnGhost"
+                  onClick={() => {
+                    pushToast({ title: "Demo only", message: "Outreach automation is a separate workflow later", tone: "info" });
+                  }}
+                >
+                  Add to Watchlist (demo)
+                </button>
+              </div>
+
+              <div className="mt-3 text-[11px]" style={{ color: BRAND.dim }}>
+                Later in your workflow JSON: upsert to Airtable/DB + notify if Hot + cap.
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function GlassCard({ children }: { children: React.ReactNode }) {
+function Stat({ label, value, accent }: { label: string; value: string | number; accent: "gold" | "emerald" | "neutral" }) {
+  const border =
+    accent === "gold"
+      ? "rgba(244,208,63,0.35)"
+      : accent === "emerald"
+      ? "rgba(16,185,129,0.32)"
+      : "rgba(255,255,255,0.14)";
+  const bg =
+    accent === "gold"
+      ? "rgba(244,208,63,0.10)"
+      : accent === "emerald"
+      ? "rgba(16,185,129,0.08)"
+      : "rgba(255,255,255,0.05)";
   return (
-    <div
-      className="rounded-3xl p-5"
-      style={{
-        background: `linear-gradient(180deg, ${BRAND.card} 0%, ${BRAND.card2} 100%)`,
-        border: `1px solid ${BRAND.border}`,
-        boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
-        backdropFilter: "blur(10px)",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="mb-2 text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.75)" }}>
+    <div className="rounded-3xl p-4" style={{ background: bg, border: `1px solid ${border}` }}>
+      <div className="text-[11px] font-semibold" style={{ color: BRAND.sub }}>
         {label}
       </div>
-      {children}
-    </div>
-  );
-}
-
-function SkeletonRow() {
-  return (
-    <div className="grid grid-cols-12 gap-2 px-4 py-4">
-      <div className="col-span-5 space-y-2">
-        <div className="h-4 w-2/3 animate-pulse rounded-lg" style={{ background: "rgba(255,255,255,0.10)" }} />
-        <div className="h-3 w-1/2 animate-pulse rounded-lg" style={{ background: "rgba(255,255,255,0.08)" }} />
-        <div className="mt-2 flex gap-2">
-          <div className="h-5 w-20 animate-pulse rounded-full" style={{ background: "rgba(255,255,255,0.08)" }} />
-          <div className="h-5 w-24 animate-pulse rounded-full" style={{ background: "rgba(255,255,255,0.08)" }} />
-        </div>
-      </div>
-      <div className="col-span-2">
-        <div className="h-4 w-20 animate-pulse rounded-lg" style={{ background: "rgba(255,255,255,0.10)" }} />
-      </div>
-      <div className="col-span-2">
-        <div className="h-4 w-20 animate-pulse rounded-lg" style={{ background: "rgba(255,255,255,0.10)" }} />
-      </div>
-      <div className="col-span-2">
-        <div className="h-4 w-16 animate-pulse rounded-lg" style={{ background: "rgba(255,255,255,0.10)" }} />
-      </div>
-      <div className="col-span-1 flex justify-end">
-        <div className="h-8 w-14 animate-pulse rounded-xl" style={{ background: "rgba(255,255,255,0.10)" }} />
+      <div className="mt-2 text-xl font-extrabold" style={{ color: BRAND.text }}>
+        {value}
       </div>
     </div>
   );
 }
 
-function SkeletonCard() {
+function Row({ k, v }: { k: string; v: string }) {
   return (
-    <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${BRAND.border}` }}>
-      <div className="h-3 w-20 animate-pulse rounded" style={{ background: "rgba(255,255,255,0.10)" }} />
-      <div className="mt-3 h-4 w-3/4 animate-pulse rounded" style={{ background: "rgba(255,255,255,0.10)" }} />
-      <div className="mt-2 h-3 w-1/2 animate-pulse rounded" style={{ background: "rgba(255,255,255,0.08)" }} />
-      <div className="mt-3 h-3 w-2/3 animate-pulse rounded" style={{ background: "rgba(255,255,255,0.08)" }} />
+    <div className="flex items-center justify-between gap-3">
+      <div className="text-[11px] font-semibold" style={{ color: BRAND.dim }}>
+        {k}
+      </div>
+      <div className="text-xs font-extrabold" style={{ color: BRAND.text }}>
+        {v}
+      </div>
     </div>
   );
 }
