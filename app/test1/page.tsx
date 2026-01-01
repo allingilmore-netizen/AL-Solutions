@@ -1,1512 +1,2216 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-type PlanKey = "demo" | "week197" | "monthly750" | "monthly1500";
-type NavKey = "workflows" | "modules" | "activity" | "settings";
+type PresetId = "listing" | "buyer" | "investor" | "rental" | "luxury" | "multifamily";
+type TerritoryType = "zip_cluster" | "radius";
+type PropertyType = "single_family" | "condo" | "townhome" | "multi_family" | "land" | "mixed";
+type AlertFrequency = "daily" | "weekday" | "twice_week" | "weekly";
+type Decision = "unmarked" | "pursue" | "ignore";
 
 const BRAND = {
   emerald: "#047857",
-  emeraldDark: "#065f46",
   gold: "#F4D03F",
-  charcoal: "#0F172A",
   deepBg: "#020617",
-  muted: "#9CA3AF",
-  offwhite: "#F9FAFB",
-};
+  charcoal: "#0F172A",
+} as const;
+
+const PRICING = {
+  proof: { name: "Proof Sprint (7 days)", price: 197 },
+  solo: { name: "Solo Territory", price: 750, cadence: "/mo" },
+  team: { name: "Team / High Volume", price: 1500, cadence: "/mo" },
+} as const;
+
+const CAPS = {
+  proof: {
+    processedRawPerWeek: 1500,
+    aiScoredPerWeek: 600,
+    hotAlertsPerWeek: 10,
+    dailyTopSms: 5,
+  },
+  solo: {
+    aiScoredPerDay: 30,
+    hotAlertsPerWeek: 10,
+    tuningChangesPerMonth: 1,
+    territoryZipMax: 10,
+    territoryRadiusMiles: 10,
+  },
+  team: {
+    aiScoredPerDay: 120,
+    hotAlertsPerWeek: 50,
+    territories: 2,
+    territoryZipLargeMax: 30,
+  },
+} as const;
+
+const PRESETS: Array<{
+  id: PresetId;
+  title: string;
+  blurb: string;
+  signals: string[];
+  alertSnippet: string;
+}> = [
+  {
+    id: "listing",
+    title: "Listing-focused",
+    blurb: "Prioritize listing-side opportunities and pricing movement signals.",
+    signals: ["Price Drop", "Stale Listing", "Relist/Withdraw", "High DOM vs Area", "Underpriced vs Comps"],
+    alertSnippet: "Alert: 76 score - Stale listing + recent price drop. Possible listing-side outreach angle.",
+  },
+  {
+    id: "buyer",
+    title: "Buyer-focused",
+    blurb: "Find inventory that fits buyer demand patterns in your territory.",
+    signals: ["New Listing Velocity", "Open House Signals", "DOM Sweet Spot", "Price Band Fit", "School Zone Priority"],
+    alertSnippet: "Digest: 10 picks - Strong buyer-fit inventory clustered near target schools and price bands.",
+  },
+  {
+    id: "investor",
+    title: "Investor",
+    blurb: "Surface yield, rehab, and distress-adjacent signals for investor conversations.",
+    signals: ["Rent-to-Price", "Rehab Indicators", "Distress Keywords", "Tax/HOA Flags", "Days on Market"],
+    alertSnippet: "Alert: 82 score - Rent-to-price strong + rehab indicators. Worth underwriting quickly.",
+  },
+  {
+    id: "rental",
+    title: "Rental",
+    blurb: "Rental inventory and landlord-style opportunities with a low-friction daily digest.",
+    signals: ["Tenant-Friendly Layout", "Rent Band Fit", "Turnover Indicators", "Listing Activity Spikes", "DOM Threshold"],
+    alertSnippet: "Digest: Rental-fit set - Properties matching rent band and quick-turn features.",
+  },
+  {
+    id: "luxury",
+    title: "Luxury",
+    blurb: "High-end inventory movement, off-cycle changes, and concierge-style alerting.",
+    signals: ["High-Value Bands", "Low Inventory Pockets", "Price Adjustments", "Premium Amenities", "Pocket Market Shifts"],
+    alertSnippet: "Alert: 71 score - Premium pocket inventory shift + recent price adjustment. Soft-touch outreach recommended.",
+  },
+  {
+    id: "multifamily",
+    title: "Multifamily",
+    blurb: "2-20 unit opportunities and signals that matter to small multifamily buyers.",
+    signals: ["Unit Count Fit", "Cap-Rate Adjacent", "Value-Add Notes", "Stabilization Signals", "Days on Market"],
+    alertSnippet: "Digest: Multifamily shortlist - Value-add notes + stable demand pockets within territory.",
+  },
+];
+
+const DIGEST_ROWS: Array<{ id: string; title: string; score: number; reasons: string[] }> = [
+  { id: "r1", title: "3BR Ranch - Price reduction + above-area DOM", score: 79, reasons: ["Price Drop", "Stale Listing"] },
+  { id: "r2", title: "Townhome cluster - strong price-band fit", score: 73, reasons: ["Price Band Fit", "DOM Sweet Spot"] },
+  { id: "r3", title: "2-4 Unit - value-add notes in remarks", score: 81, reasons: ["Value-Add Notes", "Unit Count Fit"] },
+  { id: "r4", title: "Condo - relisted after withdraw", score: 68, reasons: ["Relist/Withdraw", "Underpriced vs Comps"] },
+  { id: "r5", title: "SFR - rehab indicators + rent-to-price signal", score: 84, reasons: ["Rehab Indicators", "Rent-to-Price"] },
+  { id: "r6", title: "New listing pocket - low inventory zone", score: 70, reasons: ["Low Inventory Pockets", "New Listing Velocity"] },
+  { id: "r7", title: "School-zone match - stable demand band", score: 76, reasons: ["School Zone Priority", "Price Band Fit"] },
+  { id: "r8", title: "Multifamily - longer DOM + notes suggest flexibility", score: 74, reasons: ["Days on Market", "Stabilization Signals"] },
+  { id: "r9", title: "Luxury - small adjustment in premium pocket", score: 66, reasons: ["Price Adjustments", "Pocket Market Shifts"] },
+  { id: "r10", title: "Rental-fit - turnover indicators + band fit", score: 72, reasons: ["Turnover Indicators", "Rent Band Fit"] },
+];
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function formatDate(ts: number) {
-  const d = new Date(ts);
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  let hh = d.getHours();
-  const ampm = hh >= 12 ? "PM" : "AM";
-  hh = hh % 12;
-  hh = hh ? hh : 12;
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${mm}/${dd} ${hh}:${min} ${ampm}`;
+function formatMoney(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 
-function money(n: number) {
-  return n.toLocaleString("en-US");
+function clampInt(input: string, min: number, max: number, fallback: number) {
+  const v = Number.parseInt(input, 10);
+  if (Number.isFinite(v)) return Math.min(max, Math.max(min, v));
+  return fallback;
 }
 
-function planMeta(plan: PlanKey) {
-  switch (plan) {
-    case "demo":
-      return {
-        title: "Demo Workflow",
-        price: "Preview",
-        cadence: "Mock runs",
-        delivery: "Top 10 + health",
-        cap: "Stable demo data",
-        highlight: "Best for: screen share + onboarding call",
-      };
-    case "week197":
-      return {
-        title: "$197 Proof Sprint",
-        price: "$197",
-        cadence: "7 days",
-        delivery: "Top 5 essentials + reporting",
-        cap: "Tight scope, fast setup",
-        highlight: "Best for: proof + confidence before scaling",
-      };
-    case "monthly750":
-      return {
-        title: "$750 Monthly",
-        price: "$750/mo",
-        cadence: "Ongoing",
-        delivery: "Top 10 + alerts + monitoring",
-        cap: "Solo territory / standard caps",
-        highlight: "Best for: consistent inbound and follow-up",
-      };
-    case "monthly1500":
-      return {
-        title: "$1,500 Monthly",
-        price: "$1,500/mo",
-        cadence: "Ongoing",
-        delivery: "High-volume + watchlist + SLA",
-        cap: "Higher caps / advanced routing",
-        highlight: "Best for: teams + multiple pipelines",
-      };
-  }
-}
-
-type WorkflowRow = {
-  id: string;
-  name: string;
-  tier: "Core" | "Billing" | "Ops" | "Safety";
-  trigger: string;
-  status: "Ready" | "Paused" | "Running" | "Error";
-  lastRun: number;
-  nextRun: number | null;
-  runs7d: number;
-  successRate: number; // 0-100
-  notes: string;
-};
-
-type ModuleRow = {
-  key: string;
-  name: string;
-  category: "Core" | "Follow-up" | "Scheduling" | "Billing" | "Reporting" | "Safety";
-  value: string;
-  complexity: "Low" | "Medium" | "High";
-  includedIn: Array<PlanKey>;
-};
-
-type EventRow = {
-  id: string;
-  ts: number;
-  source: "Webhook" | "DB" | "Scheduler" | "Monitor";
-  type: string;
-  outcome: "ok" | "warn" | "fail";
-  message: string;
-};
-
-function seeded(n: number) {
-  const x = Math.sin(n * 9301.11) * 10000;
-  return x - Math.floor(x);
-}
-
-function Badge(props: { tone?: "gold" | "emerald" | "slate"; children: React.ReactNode }) {
-  const tone = props.tone ?? "slate";
-  const style =
-    tone === "gold"
-      ? { border: "1px solid rgba(244,208,63,.38)", background: "rgba(244,208,63,.10)" }
-      : tone === "emerald"
-      ? { border: "1px solid rgba(16,185,129,.30)", background: "rgba(16,185,129,.10)" }
-      : { border: "1px solid rgba(148,163,184,.40)", background: "rgba(2,6,23,.45)" };
-
+function Badge({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "emerald" | "gold";
+}) {
   return (
-    <span className="badge" style={style}>
-      {props.children}
+    <span className={cx("badge", tone === "emerald" && "badge-emerald", tone === "gold" && "badge-gold")}>
+      {children}
     </span>
   );
 }
 
-function PillButton(props: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
+function Toggle({
+  label,
+  value,
+  onChange,
+  hint,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  hint?: string;
+}) {
   return (
-    <button type="button" className={cx("pillBtn", props.active && "pillBtnActive")} onClick={props.onClick}>
-      {props.children}
+    <button
+      type="button"
+      className={cx("toggle", value && "toggle-on")}
+      onClick={() => onChange(!value)}
+      aria-pressed={value}
+    >
+      <span className="toggle-label">
+        <span className="toggle-title">{label}</span>
+        {hint ? <span className="toggle-hint">{hint}</span> : null}
+      </span>
+      <span className="toggle-pill" aria-hidden="true">
+        <span className="toggle-knob" />
+      </span>
     </button>
   );
 }
 
-function IconDot({ tone }: { tone: "emerald" | "gold" | "red" | "slate" }) {
-  const bg =
-    tone === "emerald"
-      ? "radial-gradient(circle at 30% 20%, #BBF7D0 0, #22C55E 40%, #166534 100%)"
-      : tone === "gold"
-      ? "radial-gradient(circle at 30% 20%, #FEF9C3 0, #FACC15 45%, #B45309 100%)"
-      : tone === "red"
-      ? "radial-gradient(circle at 30% 20%, #FECACA 0, #EF4444 45%, #7F1D1D 100%)"
-      : "radial-gradient(circle at 30% 20%, #E5E7EB 0, #94A3B8 45%, #334155 100%)";
+function Select({
+  label,
+  value,
+  onChange,
+  options,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<{ value: string; label: string }>;
+  hint?: string;
+}) {
+  return (
+    <label className="field">
+      <span className="field-label">
+        {label}
+        {hint ? <span className="field-hint">{hint}</span> : null}
+      </span>
+      <select className="field-input" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
-  return <span className="idot" style={{ background: bg }} />;
+function Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+  hint,
+  suffix,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  hint?: string;
+  suffix?: string;
+}) {
+  return (
+    <label className="field">
+      <span className="field-label">
+        {label}
+        {hint ? <span className="field-hint">{hint}</span> : null}
+      </span>
+      <div className="field-row">
+        <input
+          className="field-input"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+        />
+        {suffix ? <span className="field-suffix">{suffix}</span> : null}
+      </div>
+    </label>
+  );
+}
+
+function Accordion({ items }: { items: Array<{ q: string; a: React.ReactNode }> }) {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+
+  return (
+    <div className="accordion">
+      {items.map((it, idx) => {
+        const open = openIndex === idx;
+        return (
+          <div key={it.q} className={cx("acc-item", open && "acc-open")}>
+            <button
+              type="button"
+              className="acc-q"
+              onClick={() => setOpenIndex(open ? null : idx)}
+              aria-expanded={open}
+            >
+              <span>{it.q}</span>
+              <span className="acc-icon" aria-hidden="true">
+                {open ? "-" : "+"}
+              </span>
+            </button>
+            <div className="acc-a" role="region">
+              <div className="acc-a-inner">{it.a}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Toast({ open, message, onClose }: { open: boolean; message: string; onClose: () => void }) {
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => onClose(), 2200);
+    return () => window.clearTimeout(t);
+  }, [open, onClose]);
+
+  return (
+    <div className={cx("toast-wrap", open && "toast-open")} aria-live="polite" aria-atomic="true">
+      <div className="toast">
+        <span className="toast-dot" aria-hidden="true" />
+        <span className="toast-msg">{message}</span>
+        <button type="button" className="toast-x" onClick={onClose} aria-label="Close status">
+          x
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function Page() {
-  const [mode, setMode] = useState<"configure" | "workspace">("configure");
-  const [nav, setNav] = useState<NavKey>("workflows");
+  const exampleRef = useRef<HTMLElement | null>(null);
+  const pricingRef = useRef<HTMLElement | null>(null);
 
-  // Config form
-  const [plan, setPlan] = useState<PlanKey>("demo");
-  const meta = planMeta(plan);
+  const [toast, setToast] = useState<{ open: boolean; message: string }>({ open: false, message: "" });
 
-  const [businessName, setBusinessName] = useState("All In Digital — Client Workspace");
-  const [territoryKey, setTerritoryKey] = useState("TX-AUSTIN-CORE-78701");
-  const [primaryCalendar, setPrimaryCalendar] = useState("Google Calendar");
-  const [notifyChannel, setNotifyChannel] = useState("Telegram");
-  const [integrations, setIntegrations] = useState({
-    stripe: true,
-    telnyx: true,
-    vapi: true,
-    email: true,
-    telegram: true,
-    slack: false,
+  const [preset, setPreset] = useState<PresetId>("investor");
+
+  const [territoryType, setTerritoryType] = useState<TerritoryType>("zip_cluster");
+  const [zipCount, setZipCount] = useState<string>("8");
+  const [radiusMiles, setRadiusMiles] = useState<string>("10");
+  const [priceMin, setPriceMin] = useState<string>("300000");
+  const [priceMax, setPriceMax] = useState<string>("750000");
+  const [propertyTypes, setPropertyTypes] = useState<Record<PropertyType, boolean>>({
+    single_family: true,
+    condo: false,
+    townhome: true,
+    multi_family: false,
+    land: false,
+    mixed: false,
+  });
+  const [domThreshold, setDomThreshold] = useState<string>("21");
+  const [distressKeywords, setDistressKeywords] = useState<boolean>(true);
+  const [schoolZonePriority, setSchoolZonePriority] = useState<boolean>(false);
+  const [rehabIndicator, setRehabIndicator] = useState<boolean>(true);
+  const [cashBuyerFriendly, setCashBuyerFriendly] = useState<boolean>(true);
+  const [alertFrequency, setAlertFrequency] = useState<AlertFrequency>("daily");
+
+  const [revealConfig, setRevealConfig] = useState<boolean>(false);
+
+  const [digestDecisions, setDigestDecisions] = useState<Record<string, Decision>>(() => {
+    const init: Record<string, Decision> = {};
+    for (const r of DIGEST_ROWS) init[r.id] = "unmarked";
+    return init;
   });
 
-  // Workspace state
-  const [toast, setToast] = useState<{ on: boolean; title: string; msg: string; tone: "ok" | "warn" | "fail" }>({
-    on: false,
-    title: "",
-    msg: "",
-    tone: "ok",
-  });
+  const presetObj = useMemo(() => PRESETS.find((p) => p.id === preset)!, [preset]);
 
-  const [sortKey, setSortKey] = useState<keyof WorkflowRow>("successRate");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [q, setQ] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const now = Date.now();
-
-  const workflowsBase: WorkflowRow[] = useMemo(() => {
-    const rows: WorkflowRow[] = [
-      {
-        id: "W1",
-        name: "Stripe Webhook Router (LIVE)",
-        tier: "Billing",
-        trigger: "stripe.events → /webhook",
-        status: "Ready",
-        lastRun: now - 1000 * 60 * (8 + Math.floor(seeded(2) * 25)),
-        nextRun: null,
-        runs7d: 142,
-        successRate: 99,
-        notes: "Routes invoice.paid, payment_failed, dispute.created + idempotency guard.",
-      },
-      {
-        id: "W2",
-        name: "Invoice Paid → Grant Credits",
-        tier: "Billing",
-        trigger: "route: invoice.paid",
-        status: "Ready",
-        lastRun: now - 1000 * 60 * (16 + Math.floor(seeded(6) * 25)),
-        nextRun: null,
-        runs7d: 57,
-        successRate: 98,
-        notes: "Wallet credit + receipt log + notify.",
-      },
-      {
-        id: "W3",
-        name: "Invoice Payment Failed → Halt + Notify",
-        tier: "Billing",
-        trigger: "route: invoice.payment_failed",
-        status: "Ready",
-        lastRun: now - 1000 * 60 * (41 + Math.floor(seeded(9) * 25)),
-        nextRun: null,
-        runs7d: 12,
-        successRate: 100,
-        notes: "Sets account hold flags and sends critical alert.",
-      },
-      {
-        id: "W4",
-        name: "Dispute Created → CRITICAL Notify",
-        tier: "Safety",
-        trigger: "route: charge.dispute.created",
-        status: "Ready",
-        lastRun: now - 1000 * 60 * (190 + Math.floor(seeded(11) * 60)),
-        nextRun: null,
-        runs7d: 0,
-        successRate: 100,
-        notes: "Immediate escalation. No retries.",
-      },
-      {
-        id: "W5",
-        name: "Refill Engine (Threshold + Cooldown)",
-        tier: "Ops",
-        trigger: "cron / on-usage / low-balance",
-        status: "Ready",
-        lastRun: now - 1000 * 60 * (27 + Math.floor(seeded(15) * 25)),
-        nextRun: now + 1000 * 60 * (40 + Math.floor(seeded(17) * 40)),
-        runs7d: 88,
-        successRate: 97,
-        notes: "Cooldown lock prevents repeat charges.",
-      },
-      {
-        id: "W6",
-        name: "Global Error Trigger → CRITICAL Notify",
-        tier: "Safety",
-        trigger: "workflow.error",
-        status: "Ready",
-        lastRun: now - 1000 * 60 * (66 + Math.floor(seeded(19) * 25)),
-        nextRun: null,
-        runs7d: 9,
-        successRate: 100,
-        notes: "Captures stack + node + payload snapshot.",
-      },
-      {
-        id: "W7",
-        name: "Client Provisioner (Clone + Config)",
-        tier: "Ops",
-        trigger: "manual / onboarding",
-        status: "Paused",
-        lastRun: now - 1000 * 60 * (520 + Math.floor(seeded(25) * 90)),
-        nextRun: null,
-        runs7d: 2,
-        successRate: 96,
-        notes: "Creates client config row + assigns pricing catalog + creds placeholders.",
-      },
-      {
-        id: "W8",
-        name: "Usage Collector (Voice + SMS)",
-        tier: "Ops",
-        trigger: "webhook: usage.*",
-        status: "Ready",
-        lastRun: now - 1000 * 60 * (19 + Math.floor(seeded(29) * 22)),
-        nextRun: null,
-        runs7d: 211,
-        successRate: 98,
-        notes: "Normalizes usage records and appends ledger transactions.",
-      },
-      {
-        id: "W9",
-        name: "Daily Digest (Ops + Billing)",
-        tier: "Reporting",
-        trigger: "cron: daily 7am",
-        status: "Ready",
-        lastRun: now - 1000 * 60 * (600 + Math.floor(seeded(33) * 120)),
-        nextRun: now + 1000 * 60 * (900 + Math.floor(seeded(35) * 180)),
-        runs7d: 7,
-        successRate: 100,
-        notes: "Summary: top failures, charges, credit usage, alerts sent.",
-      } as any,
-    ];
-
-    // Ensure tier type correctness (Reporting isn't in union, map to Ops but label later)
-    return rows.map((r) => {
-      if ((r as any).tier === "Reporting") return { ...r, tier: "Ops", name: r.name.replace("Daily Digest (Ops + Billing)", "Daily Digest (Ops + Billing)") };
-      return r;
-    });
-  }, [now]);
-
-  const modules: ModuleRow[] = useMemo(() => {
-    const rows: ModuleRow[] = [
-      { key: "M1", name: "Client Config (source of truth)", category: "Core", value: "Prevents drift + makes builds repeatable", complexity: "Low", includedIn: ["demo", "week197", "monthly750", "monthly1500"] },
-      { key: "M2", name: "Workflow Health + Global Error Trap", category: "Safety", value: "Audit trail + instant escalation", complexity: "Medium", includedIn: ["demo", "week197", "monthly750", "monthly1500"] },
-      { key: "M3", name: "Stripe Webhook Router + Idempotency", category: "Billing", value: "No duplicate credits / no double charges", complexity: "High", includedIn: ["demo", "week197", "monthly750", "monthly1500"] },
-      { key: "M4", name: "Wallet + Ledger (credits)", category: "Billing", value: "Credits, packs, thresholds, cooldown locks", complexity: "High", includedIn: ["demo", "week197", "monthly750", "monthly1500"] },
-      { key: "M5", name: "Refill Engine (threshold + cooldown)", category: "Billing", value: "Auto-rebill without runaway charges", complexity: "High", includedIn: ["demo", "week197", "monthly750", "monthly1500"] },
-
-      { key: "M6", name: "SMS Notify Templates (ops + billing)", category: "Reporting", value: "Cleaner client comms (alerts & digests)", complexity: "Medium", includedIn: ["demo", "monthly750", "monthly1500"] },
-      { key: "M7", name: "Voice Usage Normalizer", category: "Reporting", value: "Usage → ledger, with reconciliation", complexity: "High", includedIn: ["demo", "monthly750", "monthly1500"] },
-      { key: "M8", name: "Audit Log Browser (client view)", category: "Reporting", value: "Proof that the system ran", complexity: "Medium", includedIn: ["demo", "monthly750", "monthly1500"] },
-      { key: "M9", name: "Client Provisioner (clone + config)", category: "Core", value: "Spin up new client in minutes", complexity: "High", includedIn: ["demo", "monthly750", "monthly1500"] },
-      { key: "M10", name: "SLA Monitor (latency + failure rate)", category: "Safety", value: "Stops silent breakage", complexity: "High", includedIn: ["monthly1500"] },
-    ];
-    return rows;
-  }, []);
-
-  const essentialsTop5 = useMemo(() => ["M1", "M2", "M3", "M4", "M5"], []);
-
-  const events: EventRow[] = useMemo(() => {
-    const base: EventRow[] = [];
-    for (let i = 0; i < 16; i++) {
-      const s = seeded(i + 7);
-      const outcome: EventRow["outcome"] = s > 0.86 ? "fail" : s > 0.70 ? "warn" : "ok";
-      base.push({
-        id: `E-${i + 1}`,
-        ts: now - 1000 * 60 * (4 + i * 13 + Math.floor(seeded(i + 77) * 10)),
-        source: s > 0.6 ? "Webhook" : s > 0.35 ? "Scheduler" : s > 0.2 ? "DB" : "Monitor",
-        type:
-          outcome === "fail"
-            ? "delivery.failed"
-            : outcome === "warn"
-            ? "cooldown.prevented"
-            : i % 3 === 0
-            ? "invoice.paid"
-            : i % 3 === 1
-            ? "usage.ingested"
-            : "health.ok",
-        outcome,
-        message:
-          outcome === "fail"
-            ? "Webhook payload rejected: missing required field"
-            : outcome === "warn"
-            ? "Cooldown lock active — prevented duplicate charge"
-            : i % 3 === 0
-            ? "Invoice paid — credits granted"
-            : i % 3 === 1
-            ? "Usage records normalized + appended to ledger"
-            : "All monitors green",
-      });
-    }
-    return base.sort((a, b) => b.ts - a.ts);
-  }, [now]);
-
-  const workflows = useMemo(() => {
-    // Filter based on plan (simple gating to sell the tiers)
-    const allow = (row: WorkflowRow) => {
-      if (plan === "week197") {
-        // Show the “essentials” only (what proof sprint includes)
-        return ["W1", "W2", "W3", "W4", "W5", "W6"].includes(row.id);
-      }
-      if (plan === "monthly750") {
-        return ["W1", "W2", "W3", "W4", "W5", "W6", "W8"].includes(row.id);
-      }
-      if (plan === "monthly1500") {
-        return true;
-      }
-      return true; // demo shows all
+  const selectedPropertyTypeList = useMemo(() => {
+    const labels: Record<PropertyType, string> = {
+      single_family: "Single-family",
+      condo: "Condo",
+      townhome: "Townhome",
+      multi_family: "Multi-family",
+      land: "Land",
+      mixed: "Mixed",
     };
+    return (Object.keys(propertyTypes) as PropertyType[])
+      .filter((k) => propertyTypes[k])
+      .map((k) => labels[k]);
+  }, [propertyTypes]);
 
-    const qq = q.trim().toLowerCase();
-    const filtered = workflowsBase.filter(allow).filter((r) => {
-      if (!qq) return true;
-      return `${r.id} ${r.name} ${r.tier} ${r.trigger} ${r.status} ${r.notes}`.toLowerCase().includes(qq);
-    });
+  const configSummary = useMemo(() => {
+    const min = clampInt(priceMin.replace(/[^0-9]/g, ""), 0, 100000000, 0);
+    const max = clampInt(priceMax.replace(/[^0-9]/g, ""), 0, 100000000, 0);
+    const dom = clampInt(domThreshold.replace(/[^0-9]/g, ""), 0, 365, 0);
 
-    const sorted = [...filtered].sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
-      const dir = sortDir === "asc" ? 1 : -1;
-      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
-      return String(av).localeCompare(String(bv)) * dir;
-    });
+    const territory =
+      territoryType === "zip_cluster"
+        ? `${clampInt(zipCount.replace(/[^0-9]/g, ""), 1, 99, 8)} ZIPs`
+        : `${clampInt(radiusMiles.replace(/[^0-9]/g, ""), 1, 50, 10)}-mile radius`;
 
-    return sorted;
-  }, [workflowsBase, plan, q, sortKey, sortDir]);
+    const toggles: string[] = [];
+    if (distressKeywords) toggles.push("Distress keyword scan");
+    if (schoolZonePriority) toggles.push("School-zone weighting");
+    if (rehabIndicator) toggles.push("Rehab indicators");
+    if (cashBuyerFriendly) toggles.push("Cash-friendly tilt");
 
-  const selected = useMemo(() => workflows.find((w) => w.id === selectedId) ?? null, [workflows, selectedId]);
+    return {
+      territory,
+      price: min && max && max >= min ? `${formatMoney(min)}-${formatMoney(max)}` : "Set price band",
+      dom: dom ? `${dom}+ DOM` : "Set DOM threshold",
+      propertyTypes: selectedPropertyTypeList.length ? selectedPropertyTypeList.join(", ") : "Select property types",
+      toggles: toggles.length ? toggles.join(" · ") : "No extra toggles",
+      alertFreq:
+        alertFrequency === "daily"
+          ? "Daily"
+          : alertFrequency === "weekday"
+            ? "Weekdays"
+            : alertFrequency === "twice_week"
+              ? "2x / week"
+              : "Weekly",
+    };
+  }, [
+    territoryType,
+    zipCount,
+    radiusMiles,
+    priceMin,
+    priceMax,
+    domThreshold,
+    distressKeywords,
+    schoolZonePriority,
+    rehabIndicator,
+    cashBuyerFriendly,
+    alertFrequency,
+    selectedPropertyTypeList,
+  ]);
 
-  const kpis = useMemo(() => {
-    const total = workflows.length || 1;
-    const ready = workflows.filter((w) => w.status === "Ready").length;
-    const paused = workflows.filter((w) => w.status === "Paused").length;
-    const error = workflows.filter((w) => w.status === "Error").length;
-    const running = workflows.filter((w) => w.status === "Running").length;
-    const avgSuccess = Math.round(workflows.reduce((a, b) => a + b.successRate, 0) / total);
-    return { total, ready, paused, error, running, avgSuccess };
-  }, [workflows]);
-
-  function toggleSort(k: keyof WorkflowRow) {
-    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(k);
-      setSortDir("desc");
-    }
+  function pushToast(message: string) {
+    setToast({ open: true, message });
   }
 
-  function showToast(title: string, msg: string, tone: "ok" | "warn" | "fail") {
-    setToast({ on: true, title, msg, tone });
-    window.setTimeout(() => setToast((t) => ({ ...t, on: false })), 3600);
+  function closeToast() {
+    setToast((t) => ({ ...t, open: false }));
   }
 
-  function simulateRun() {
-    // Don’t pretend this is “real” — it’s a UI demo to show polish.
-    showToast("Run queued", "Simulating workflow run + health updates", "ok");
+  function scrollToExample() {
+    exampleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function enterWorkspace() {
-    // Your $5k offer needs this reveal. This is the “aha” moment.
-    setMode("workspace");
-    setNav("workflows");
-    showToast("Workspace ready", "Configuration applied. Showing client-ready deliverables.", "ok");
+  function scrollToPricing() {
+    pricingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  const moduleRowsForPlan = useMemo(() => modules.filter((m) => m.includedIn.includes(plan)), [modules, plan]);
+  function onPrimaryCta() {
+    pushToast("Proof Sprint clicked. Next: confirm your territory + buy box (UI-only here).");
+    setRevealConfig(true);
+    scrollToPricing();
+  }
+
+  function setDecision(id: string, d: Decision) {
+    setDigestDecisions((prev) => ({ ...prev, [id]: d }));
+  }
 
   return (
-    <main className="aid">
+    <>
       <style>{`
         :root{
           --emerald:${BRAND.emerald};
-          --emeraldDark:${BRAND.emeraldDark};
           --gold:${BRAND.gold};
-          --charcoal:${BRAND.charcoal};
-          --deepBg:${BRAND.deepBg};
-          --muted:${BRAND.muted};
-          --offwhite:${BRAND.offwhite};
+          --deep:${BRAND.deepBg};
+          --char:${BRAND.charcoal};
+          --text: rgba(255,255,255,.92);
+          --muted: rgba(255,255,255,.66);
+          --faint: rgba(255,255,255,.46);
+          --line: rgba(255,255,255,.12);
+          --glass: rgba(255,255,255,.06);
+          --shadow: 0 18px 50px rgba(0,0,0,.35);
+          --shadow2: 0 10px 30px rgba(0,0,0,.28);
+          --radius: 18px;
+          --radius2: 22px;
+          --max: 1100px;
         }
 
+        *{ box-sizing:border-box; }
+        html, body { height:100%; }
         body{
           margin:0;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-          background:
-            radial-gradient(900px 520px at 18% 8%, rgba(16,185,129,.24) 0, transparent 60%),
-            radial-gradient(760px 540px at 86% 16%, rgba(244,208,63,.18) 0, transparent 58%),
-            radial-gradient(1000px 600px at 50% 92%, rgba(255,255,255,.08) 0, transparent 60%),
-            linear-gradient(180deg, #020617 0%, #000000 100%);
-          color:#E5E7EB;
+          font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+          background: radial-gradient(1200px 700px at 18% 12%, rgba(4,120,87,.18), transparent 55%),
+                      radial-gradient(900px 550px at 86% 16%, rgba(244,208,63,.12), transparent 55%),
+                      radial-gradient(700px 500px at 65% 85%, rgba(4,120,87,.14), transparent 55%),
+                      linear-gradient(180deg, var(--deep), #050b1f 60%, #030712);
+          color: var(--text);
         }
 
-        .aid{ min-height:100vh; }
-        .wrap{
-          max-width: 1180px;
-          margin: 0 auto;
-          padding: 26px 16px 90px;
-        }
+        a{ color:inherit; text-decoration:none; }
+        button, input, select{ font:inherit; color:inherit; }
+        .page{ min-height:100%; }
+        .container{ max-width: var(--max); margin:0 auto; padding: 24px; }
 
-        /* Top */
-        .top{
+        .topbar{
           display:flex;
+          align-items:center;
           justify-content:space-between;
-          align-items:center;
-          gap:16px;
-          margin-bottom:16px;
+          gap: 14px;
+          padding: 10px 0 18px;
         }
-        @media (max-width: 900px){ .top{ flex-direction:column; align-items:flex-start; } }
-
-        .brand{
-          display:inline-flex;
-          gap:12px;
-          align-items:center;
-        }
+        .brand{ display:flex; align-items:center; gap:10px; user-select:none; }
         .logo{
-          width:42px; height:42px; border-radius:15px;
-          background: radial-gradient(circle at 30% 20%, #6EE7B7 0, var(--emerald) 45%, #022c22 100%);
-          box-shadow: 0 14px 38px rgba(5,150,105,.45);
+          width:38px;
+          height:38px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, rgba(4,120,87,.55), rgba(244,208,63,.35));
+          box-shadow: 0 10px 30px rgba(0,0,0,.28);
+          position: relative;
+          border: 1px solid rgba(255,255,255,.16);
         }
-        .btxt{ display:flex; flex-direction:column; }
-        .bname{
-          font-weight:900;
-          letter-spacing:.12em;
-          text-transform:uppercase;
-          font-size:1rem;
+        .logo:after{
+          content:"";
+          position:absolute;
+          inset:10px;
+          border-radius: 10px;
+          background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 60%),
+                      linear-gradient(135deg, rgba(0,0,0,.12), transparent);
+          border: 1px solid rgba(255,255,255,.10);
         }
-        .btag{ color: rgba(226,232,240,.75); font-size:.92rem; }
+        .brand-title{
+          font-weight: 760;
+          letter-spacing: .2px;
+          display:flex;
+          flex-direction:column;
+        }
+        .brand-title small{
+          font-weight: 560;
+          color: var(--muted);
+          letter-spacing: .3px;
+        }
 
-        .pill{
-          border: 1px solid rgba(148,163,184,.45);
-          background: rgba(15,23,42,.62);
-          backdrop-filter: blur(12px);
+        .nav{ display:flex; gap:10px; flex-wrap:wrap; }
+        .nav a, .nav button{
+          padding: 9px 12px;
           border-radius: 999px;
-          padding: 8px 14px;
+          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(255,255,255,.04);
+          color: var(--muted);
+          transition: transform .18s ease, background .18s ease, border-color .18s ease;
+          cursor:pointer;
+        }
+        .nav a:hover, .nav button:hover{
+          transform: translateY(-1px);
+          background: rgba(255,255,255,.06);
+          border-color: rgba(255,255,255,.22);
+          color: var(--text);
+        }
+
+        .hero{
+          display:grid;
+          grid-template-columns: 1.15fr .85fr;
+          gap: 18px;
+          padding: 18px 0 8px;
+          align-items: stretch;
+        }
+
+        .card{
+          border-radius: var(--radius2);
+          background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+          border: 1px solid rgba(255,255,255,.14);
+          box-shadow: var(--shadow2);
+          overflow:hidden;
+          position: relative;
+        }
+        .card:before{
+          content:"";
+          position:absolute;
+          inset:0;
+          background: radial-gradient(700px 300px at 10% 20%, rgba(4,120,87,.18), transparent 55%),
+                      radial-gradient(600px 260px at 85% 30%, rgba(244,208,63,.13), transparent 55%);
+          opacity:.9;
+          pointer-events:none;
+        }
+        .card > *{ position:relative; }
+        .card-pad{ padding: 22px; }
+        .subtle{
+          border-radius: var(--radius2);
+          background: rgba(255,255,255,.04);
+          border: 1px solid rgba(255,255,255,.10);
+        }
+
+        .hero h1{
+          margin: 8px 0 10px;
+          font-size: 44px;
+          line-height: 1.05;
+          letter-spacing: -0.6px;
+        }
+        .hero p{
+          margin: 0 0 14px;
+          color: var(--muted);
+          font-size: 16px;
+          line-height: 1.45;
+        }
+        .hero .no-promise{
+          display:flex;
+          gap:10px;
+          align-items:flex-start;
+          padding: 12px 12px;
+          border-radius: 14px;
+          background: rgba(244,208,63,.08);
+          border: 1px solid rgba(244,208,63,.22);
+          color: rgba(255,255,255,.85);
+        }
+        .dot{
+          width: 10px;
+          height:10px;
+          border-radius: 999px;
+          background: var(--gold);
+          box-shadow: 0 0 0 4px rgba(244,208,63,.18);
+          margin-top: 4px;
+          flex: 0 0 auto;
+        }
+
+        .hero-cta{ display:flex; flex-wrap:wrap; gap:10px; margin-top: 14px; }
+        .btn{
+          padding: 11px 14px;
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(255,255,255,.06);
+          color: var(--text);
+          cursor:pointer;
+          transition: transform .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
           display:inline-flex;
           align-items:center;
           gap:10px;
-          font-size:.92rem;
-          color:#D1D5DB;
-          white-space:nowrap;
+          user-select:none;
         }
-        .idot{
-          width:10px; height:10px; border-radius:999px;
-          box-shadow: 0 0 14px rgba(244,208,63,.25);
-          display:inline-block;
+        .btn:hover{
+          transform: translateY(-1px);
+          background: rgba(255,255,255,.08);
+          border-color: rgba(255,255,255,.24);
         }
+        .btn-primary{
+          background: linear-gradient(135deg, rgba(4,120,87,.70), rgba(4,120,87,.42));
+          border-color: rgba(4,120,87,.55);
+          box-shadow: 0 14px 40px rgba(4,120,87,.18);
+        }
+        .btn-primary:hover{
+          background: linear-gradient(135deg, rgba(4,120,87,.80), rgba(4,120,87,.48));
+          border-color: rgba(4,120,87,.70);
+        }
+        .btn-secondary{ background: rgba(2,6,23,.35); }
+        .btn-ghost{
+          background: transparent;
+          border-color: rgba(255,255,255,.12);
+          color: var(--muted);
+        }
+        .btn-mini{ padding: 7px 10px; border-radius: 12px; font-size: 13px; }
+        .btn-pill{ border-radius: 999px; padding: 8px 11px; font-size: 13px; }
 
-        /* Shared cards */
-        .card{
-          border-radius: 20px;
-          background: rgba(15,23,42,.90);
-          border: 1px solid rgba(148,163,184,.55);
-          box-shadow: 0 18px 60px rgba(15,23,42,.78);
+        .hero-right{ display:flex; flex-direction:column; gap: 12px; }
+
+        .kpi{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .kpi .box{
           padding: 14px;
+          border-radius: 16px;
+          background: rgba(255,255,255,.04);
+          border: 1px solid rgba(255,255,255,.10);
+          overflow:hidden;
+          position: relative;
         }
-        .glass{
-          background: rgba(15,23,42,.70);
-          border: 1px solid rgba(148,163,184,.45);
-          backdrop-filter: blur(12px);
+        .kpi .box:before{
+          content:"";
+          position:absolute;
+          inset:-40px;
+          background: radial-gradient(200px 120px at 10% 10%, rgba(4,120,87,.18), transparent 60%),
+                      radial-gradient(220px 140px at 80% 20%, rgba(244,208,63,.14), transparent 60%);
+          opacity:.9;
         }
-        .cardSoft{
+        .kpi .box > *{ position:relative; }
+        .kpi .label{ color: var(--muted); font-size: 12px; }
+        .kpi .val{ font-weight: 780; font-size: 16px; margin-top: 6px; }
+        .kpi .val span{ color: rgba(244,208,63,.95); }
+
+        .timeline{
+          padding: 14px;
           border-radius: 18px;
-          background: rgba(2,6,23,.48);
-          border: 1px solid rgba(148,163,184,.35);
-          padding: 12px;
+          background: rgba(255,255,255,.04);
+          border: 1px solid rgba(255,255,255,.10);
         }
-        .ct{ font-weight: 950; margin:0 0 4px; color:#F9FAFB; }
-        .csub{ color: rgba(203,213,225,.85); margin:0; font-size:.93rem; line-height:1.4; }
+        .timeline h3{ margin: 0 0 10px; font-size: 14px; letter-spacing:.2px; }
+        .steps{ display:grid; gap: 10px; }
+        .step{ display:flex; gap: 10px; align-items:flex-start; }
+        .step .n{
+          width: 22px;
+          height:22px;
+          border-radius: 8px;
+          border: 1px solid rgba(244,208,63,.28);
+          background: rgba(244,208,63,.10);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-size: 12px;
+          flex: 0 0 auto;
+          margin-top: 1px;
+        }
+        .step .t{ font-size: 13px; color: var(--muted); line-height: 1.35; }
+        .step .t b{ color: rgba(255,255,255,.90); font-weight: 680; }
+
+        .section{ padding: 18px 0; }
+        .section h2{ margin: 0 0 10px; font-size: 22px; letter-spacing: -0.2px; }
+        .section p.lead{ margin: 0 0 14px; color: var(--muted); line-height: 1.5; }
+
+        .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .split{ display:grid; grid-template-columns: 1.05fr .95fr; gap: 14px; }
+
+        .preset-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .preset{
+          padding: 14px;
+          border-radius: 18px;
+          border: 1px solid rgba(255,255,255,.12);
+          background: rgba(255,255,255,.04);
+          cursor:pointer;
+          transition: transform .18s ease, border-color .18s ease, background .18s ease;
+          min-height: 120px;
+        }
+        .preset:hover{
+          transform: translateY(-1px);
+          background: rgba(255,255,255,.05);
+          border-color: rgba(255,255,255,.22);
+        }
+        .preset.sel{
+          border-color: rgba(4,120,87,.65);
+          background: linear-gradient(180deg, rgba(4,120,87,.18), rgba(255,255,255,.04));
+          box-shadow: 0 14px 40px rgba(4,120,87,.12);
+        }
+        .preset h3{ margin: 0 0 6px; font-size: 15px; letter-spacing: .1px; }
+        .preset p{ margin: 0; color: var(--muted); font-size: 13px; line-height: 1.35; }
 
         .badge{
           display:inline-flex;
           align-items:center;
           gap:8px;
-          border-radius:999px;
           padding: 6px 10px;
-          font-weight: 900;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(255,255,255,.04);
+          color: rgba(255,255,255,.84);
+          font-size: 12px;
+          line-height: 1;
+          white-space: nowrap;
+        }
+        .badge-emerald{ border-color: rgba(4,120,87,.45); background: rgba(4,120,87,.12); }
+        .badge-gold{ border-color: rgba(244,208,63,.35); background: rgba(244,208,63,.10); }
+
+        .chips{ display:flex; flex-wrap:wrap; gap: 8px; }
+
+        .panel-title{
+          display:flex;
+          align-items:baseline;
+          justify-content:space-between;
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .panel-title h3{ margin:0; font-size: 15px; }
+        .panel-title span{ color: var(--muted); font-size: 12px; }
+
+        .snippet{
+          padding: 12px;
+          border-radius: 16px;
+          border: 1px dashed rgba(255,255,255,.18);
+          background: rgba(2,6,23,.30);
+          color: rgba(255,255,255,.84);
+          line-height: 1.35;
+          font-size: 13px;
+        }
+
+        .config{ display:grid; gap: 10px; }
+        .field{ display:grid; gap: 6px; }
+        .field-label{
+          font-size: 12px;
+          color: var(--muted);
+          display:flex;
+          align-items:center;
+          gap: 8px;
+        }
+        .field-hint{
+          color: var(--faint);
           font-size: 11px;
-          color: rgba(255,255,255,.86);
+          border: 1px solid rgba(255,255,255,.10);
+          padding: 3px 8px;
+          border-radius: 999px;
+          background: rgba(255,255,255,.04);
+        }
+        .field-input{
+          width:100%;
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(255,255,255,.05);
+          padding: 10px 12px;
+          outline:none;
+          transition: border-color .18s ease, background .18s ease;
+        }
+        .field-input:focus{
+          border-color: rgba(244,208,63,.35);
+          background: rgba(255,255,255,.06);
+        }
+        .field-row{ display:flex; align-items:center; gap: 10px; }
+        .field-suffix{
+          padding: 10px 12px;
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,.12);
+          background: rgba(255,255,255,.04);
+          color: var(--muted);
           white-space: nowrap;
         }
 
-        .btn{
-          border:none;
-          border-radius:999px;
-          padding: 10px 14px;
-          font-weight: 950;
-          cursor:pointer;
-          text-decoration:none;
-          display:inline-flex;
-          align-items:center;
-          justify-content:center;
-          gap:8px;
-          letter-spacing:.01em;
-          transition: transform .12s ease, filter .12s ease, background .12s ease;
-          user-select:none;
-        }
-        .btn:active{ transform: translateY(1px) scale(.99); }
-        .btnPrimary{
-          background: linear-gradient(135deg, var(--emerald), #22C55E);
-          color: #ECFDF5;
-          box-shadow: 0 14px 40px rgba(16,185,129,.42);
-        }
-        .btnGold{
-          background: linear-gradient(135deg, rgba(244,208,63,.95), #F59E0B);
-          color: rgba(15,23,42,.95);
-          box-shadow: 0 14px 40px rgba(244,208,63,.18);
-        }
-        .btnGhost{
-          background: rgba(2,6,23,.55);
-          border: 1px solid rgba(148,163,184,.55);
-          color: #E5E7EB;
-        }
-
-        .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-
-        /* Configure */
-        .hero{
-          display:grid;
-          grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
-          gap: 14px;
-          margin-top: 10px;
-          align-items: stretch;
-        }
-        @media (max-width: 980px){ .hero{ grid-template-columns: 1fr; } }
-
-        .eyebrow{
-          font-size:.86rem;
-          letter-spacing:.18em;
-          text-transform:uppercase;
-          color: rgba(226,232,240,.70);
-          margin-bottom: 6px;
-        }
-        .h1{
-          margin: 0 0 8px;
-          font-size: clamp(2.05rem, 3.2vw, 2.85rem);
-          letter-spacing: -0.04em;
-          line-height: 1.08;
-          color: #F9FAFB;
-          text-shadow: 0 2px 22px rgba(0,0,0,.55);
-        }
-        .h1 span{
-          background: linear-gradient(120deg, var(--gold), #F59E0B);
-          -webkit-background-clip:text;
-          background-clip:text;
-          color: transparent;
-          text-shadow:none;
-        }
-
-        .grid2{
-          display:grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          gap: 12px;
-          margin-top: 12px;
-        }
-        @media (max-width: 980px){ .grid2{ grid-template-columns:1fr; } }
-
-        .row{
+        .type-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .type-btn{
           display:flex;
           align-items:center;
           justify-content:space-between;
           gap: 10px;
           padding: 10px 12px;
-          border-radius: 16px;
-          background: rgba(2,6,23,.55);
-          border: 1px solid rgba(148,163,184,.40);
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(255,255,255,.04);
+          cursor:pointer;
+          transition: transform .18s ease, border-color .18s ease, background .18s ease;
         }
-        .kvl{ color: rgba(226,232,240,.82); font-size:.9rem; }
-        .kvr{ color: #E5E7EB; font-weight: 950; font-size:.92rem; }
+        .type-btn:hover{
+          transform: translateY(-1px);
+          border-color: rgba(255,255,255,.22);
+          background: rgba(255,255,255,.05);
+        }
+        .type-btn.sel{
+          border-color: rgba(4,120,87,.65);
+          background: rgba(4,120,87,.12);
+        }
+        .type-btn .l{ display:flex; flex-direction:column; gap: 4px; }
+        .type-btn .l b{ font-size: 13px; font-weight: 720; }
+        .type-btn .l small{ color: var(--muted); font-size: 12px; }
+        .type-btn .r{
+          width: 10px;
+          height:10px;
+          border-radius: 999px;
+          border: 2px solid rgba(255,255,255,.25);
+          background: transparent;
+          position: relative;
+        }
+        .type-btn.sel .r{ border-color: rgba(4,120,87,.75); }
+        .type-btn.sel .r:after{
+          content:"";
+          position:absolute;
+          inset:2px;
+          border-radius: 999px;
+          background: var(--emerald);
+        }
 
-        .pillRow{
+        .toggle{
+          width:100%;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap: 12px;
+          padding: 12px 12px;
+          border-radius: 16px;
+          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(255,255,255,.04);
+          cursor:pointer;
+          transition: transform .18s ease, border-color .18s ease, background .18s ease;
+          text-align:left;
+        }
+        .toggle:hover{
+          transform: translateY(-1px);
+          border-color: rgba(255,255,255,.22);
+          background: rgba(255,255,255,.05);
+        }
+        .toggle-on{
+          border-color: rgba(244,208,63,.35);
+          background: rgba(244,208,63,.08);
+        }
+        .toggle-label{ display:flex; flex-direction:column; gap: 3px; }
+        .toggle-title{ font-weight: 680; font-size: 13px; }
+        .toggle-hint{ color: var(--muted); font-size: 12px; }
+        .toggle-pill{
+          width: 44px;
+          height: 24px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,.18);
+          background: rgba(255,255,255,.06);
+          position: relative;
+          flex: 0 0 auto;
+        }
+        .toggle-on .toggle-pill{
+          border-color: rgba(4,120,87,.55);
+          background: rgba(4,120,87,.16);
+        }
+        .toggle-knob{
+          position:absolute;
+          top: 3px;
+          left: 3px;
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: rgba(255,255,255,.82);
+          transition: transform .18s ease;
+          box-shadow: 0 10px 20px rgba(0,0,0,.28);
+        }
+        .toggle-on .toggle-knob{
+          transform: translateX(20px);
+          background: rgba(255,255,255,.92);
+        }
+
+        .summary{
+          padding: 14px;
+          border-radius: 18px;
+          background: rgba(255,255,255,.04);
+          border: 1px solid rgba(255,255,255,.10);
+          display:grid;
+          gap: 10px;
+        }
+        .summary-row{
           display:flex;
           flex-wrap:wrap;
-          gap: 8px;
-          margin-top: 10px;
-        }
-        .pillBtn{
-          border-radius:999px;
-          border: 1px solid rgba(148,163,184,.55);
-          background: rgba(15,23,42,.80);
-          color:#E5E7EB;
-          padding: 7px 11px;
-          font-size:.86rem;
-          cursor:pointer;
-          transition: transform .12s ease, border-color .12s ease, background .12s ease;
-        }
-        .pillBtn:hover{ transform: translateY(-1px); }
-        .pillBtnActive{
-          background: rgba(4,120,87,.85);
-          border-color: rgba(244,208,63,.70);
-          color:#ECFDF5;
-          box-shadow: 0 14px 34px rgba(4,120,87,.28);
-        }
-
-        .gridInputs{
-          display:grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          align-items:center;
+          justify-content:space-between;
           gap: 10px;
-          margin-top: 10px;
         }
-        @media (max-width: 720px){ .gridInputs{ grid-template-columns: 1fr; } }
-        .label{
-          color: rgba(226,232,240,.75);
-          font-size: .84rem;
-          font-weight: 850;
-        }
-        .in{
-          width:100%;
-          margin-top: 6px;
-          padding: 9px 10px;
-          border-radius: 14px;
-          border: 1px solid rgba(148,163,184,.55);
-          background: rgba(2,6,23,.55);
-          color:#E5E7EB;
-          outline:none;
-          font-size:.95rem;
-        }
-        .in:focus{
-          border-color: rgba(16,185,129,.75);
-          box-shadow: 0 0 0 1px rgba(4,120,87,.38);
-        }
+        .summary-row .k{ color: var(--muted); font-size: 12px; }
+        .summary-row .v{ font-size: 13px; color: rgba(255,255,255,.88); font-weight: 650; }
 
-        /* Reveal */
-        .revealWrap{
-          margin-top: 14px;
+        .divider{ height:1px; background: rgba(255,255,255,.10); margin: 10px 0; }
+
+        .pricing{
           display:grid;
-          grid-template-columns: 270px minmax(0, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 12px;
+          align-items: stretch;
         }
-        @media (max-width: 980px){ .revealWrap{ grid-template-columns: 1fr; } }
-
-        .side{
-          position: sticky;
-          top: 14px;
-          align-self: start;
-        }
-        @media (max-width: 980px){ .side{ position: static; } }
-
-        .navBtn{
-          width:100%;
-          text-align:left;
-          border-radius: 16px;
-          border: 1px solid rgba(148,163,184,.40);
-          background: rgba(2,6,23,.45);
-          color:#E5E7EB;
-          padding: 10px 12px;
-          cursor:pointer;
-          transition: transform .12s ease, background .12s ease, border-color .12s ease;
-          display:flex;
-          align-items:center;
-          justify-content:space-between;
-          gap:10px;
-        }
-        .navBtn:hover{ transform: translateY(-1px); }
-        .navActive{
-          background: radial-gradient(circle at top left, rgba(4,120,87,.42), rgba(15,23,42,.82));
-          border-color: rgba(244,208,63,.55);
-          box-shadow: 0 18px 55px rgba(4,120,87,.25);
-        }
-
-        /* Data grid */
-        .gridShell{
+        .price-card{
+          padding: 18px;
           border-radius: 20px;
+          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(255,255,255,.05);
+          position: relative;
           overflow:hidden;
-          border: 1px solid rgba(148,163,184,.45);
-          background: rgba(15,23,42,.86);
-          box-shadow: 0 18px 60px rgba(0,0,0,.35);
+          display:flex;
+          flex-direction:column;
+          gap: 12px;
+          min-height: 330px;
         }
-        .gridTop{
-          padding: 12px 12px;
+        .price-card:before{
+          content:"";
+          position:absolute;
+          inset:-60px;
+          background: radial-gradient(380px 160px at 12% 16%, rgba(4,120,87,.20), transparent 60%),
+                      radial-gradient(380px 160px at 86% 16%, rgba(244,208,63,.14), transparent 60%);
+          opacity:.8;
+        }
+        .price-card > *{ position: relative; }
+        .price-top{
+          display:flex;
+          align-items:flex-start;
+          justify-content:space-between;
+          gap: 10px;
+        }
+        .price-top h3{ margin:0; font-size: 15px; letter-spacing: .1px; }
+        .price{ font-weight: 860; font-size: 30px; letter-spacing: -0.4px; }
+        .cadence{ color: var(--muted); font-size: 13px; font-weight: 650; margin-left: 6px; }
+        .price-sub{ color: var(--muted); font-size: 13px; margin-top: 2px; line-height: 1.35; }
+
+        .list{ display:grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+        .li{
+          display:flex;
+          gap: 10px;
+          align-items:flex-start;
+          color: rgba(255,255,255,.84);
+          font-size: 13px;
+          line-height: 1.35;
+        }
+        .check{
+          width: 18px;
+          height: 18px;
+          border-radius: 7px;
+          border: 1px solid rgba(4,120,87,.55);
+          background: rgba(4,120,87,.14);
+          flex: 0 0 auto;
+          margin-top: 1px;
+          position: relative;
+        }
+        .check:after{
+          content:"";
+          position:absolute;
+          width: 7px;
+          height: 4px;
+          border-left: 2px solid rgba(255,255,255,.86);
+          border-bottom: 2px solid rgba(255,255,255,.86);
+          transform: rotate(-45deg);
+          left: 4px;
+          top: 6px;
+          opacity: .95;
+        }
+        .caps{
+          padding: 12px;
+          border-radius: 16px;
+          border: 1px solid rgba(255,255,255,.12);
+          background: rgba(2,6,23,.30);
+          display:grid;
+          gap: 8px;
+        }
+        .caps h4{
+          margin:0;
+          font-size: 12px;
+          letter-spacing: .3px;
+          color: var(--muted);
+          text-transform: uppercase;
+        }
+        .caprow{
           display:flex;
           align-items:center;
           justify-content:space-between;
           gap: 10px;
-          background: rgba(2,6,23,.42);
-          border-bottom: 1px solid rgba(148,163,184,.30);
+          font-size: 13px;
+          color: rgba(255,255,255,.86);
         }
-        .search{
-          flex:1;
+        .caprow span{ color: var(--muted); font-size: 12px; }
+
+        .price-cta{ margin-top:auto; display:flex; flex-wrap:wrap; gap: 10px; }
+
+        .note{
+          margin-top: 10px;
+          color: var(--muted);
+          font-size: 12.5px;
+          line-height: 1.5;
+        }
+
+        .digest{
+          padding: 14px;
+          border-radius: 18px;
+          border: 1px solid rgba(255,255,255,.12);
+          background: rgba(255,255,255,.04);
+          overflow:hidden;
+        }
+        .digest-head{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .digest-head .left{ display:flex; flex-direction:column; gap: 4px; }
+        .digest-head h3{ margin:0; font-size: 15px; }
+        .digest-head .sub{ color: var(--muted); font-size: 12px; }
+
+        .table{
+          width:100%;
+          border-collapse: collapse;
+          overflow:hidden;
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,.10);
+        }
+        .table th, .table td{
+          padding: 10px 10px;
+          border-bottom: 1px solid rgba(255,255,255,.08);
+          text-align:left;
+          vertical-align: top;
+        }
+        .table th{
+          font-size: 12px;
+          color: var(--muted);
+          font-weight: 650;
+          background: rgba(2,6,23,.30);
+        }
+        .table td{
+          font-size: 13px;
+          color: rgba(255,255,255,.86);
+          background: rgba(255,255,255,.02);
+        }
+        .row-title{ display:flex; flex-direction:column; gap: 6px; }
+        .row-title b{ font-weight: 700; }
+        .row-actions{ display:flex; gap: 8px; flex-wrap:wrap; }
+
+        .pill{
+          padding: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(255,255,255,.04);
+          color: rgba(255,255,255,.86);
+          font-size: 12px;
+          line-height: 1;
+          white-space: nowrap;
+          user-select:none;
+        }
+        .pill-on{ border-color: rgba(4,120,87,.62); background: rgba(4,120,87,.14); }
+        .pill-off{ border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.04); color: var(--muted); }
+
+        .faqwrap{ display:grid; grid-template-columns: 1fr; gap: 14px; }
+        .accordion{ display:grid; gap: 10px; }
+        .acc-item{
+          border-radius: 18px;
+          border: 1px solid rgba(255,255,255,.12);
+          background: rgba(255,255,255,.04);
+          overflow:hidden;
+        }
+        .acc-q{
+          width:100%;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap: 12px;
+          padding: 14px;
+          background: transparent;
+          border: none;
+          cursor:pointer;
+          color: rgba(255,255,255,.90);
+          font-weight: 680;
+          text-align:left;
+        }
+        .acc-icon{
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(255,255,255,.04);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          color: var(--muted);
+          flex: 0 0 auto;
+        }
+        .acc-a{ height: 0; overflow:hidden; transition: height .22s ease; }
+        .acc-open .acc-a{ height: auto; }
+        .acc-a-inner{
+          padding: 0 14px 14px;
+          color: var(--muted);
+          font-size: 13px;
+          line-height: 1.5;
+        }
+
+        .footer{
+          padding: 20px 0 34px;
+          color: rgba(255,255,255,.58);
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .toast-wrap{
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 18px;
+          display:flex;
+          justify-content:center;
+          pointer-events:none;
+          opacity: 0;
+          transform: translateY(10px);
+          transition: opacity .18s ease, transform .18s ease;
+          z-index: 50;
+        }
+        .toast-open{ opacity: 1; transform: translateY(0); }
+        .toast{
+          pointer-events:auto;
           display:flex;
           align-items:center;
           gap: 10px;
-        }
-        .search input{
-          width:100%;
-          border-radius: 14px;
-          border: 1px solid rgba(148,163,184,.45);
-          background: rgba(2,6,23,.55);
-          padding: 9px 10px;
-          color:#E5E7EB;
-          outline:none;
-          font-size:.95rem;
-        }
-
-        .gridHead{
-          display:grid;
-          grid-template-columns: 72px minmax(240px, 1.2fr) 130px 190px 110px 95px;
-          gap: 0px;
-          padding: 10px 12px;
-          font-size: 12px;
-          font-weight: 950;
-          color: rgba(226,232,240,.70);
-          background: rgba(2,6,23,.55);
-          border-bottom: 1px solid rgba(148,163,184,.22);
-        }
-        .hcell{
-          cursor:pointer;
-          user-select:none;
-          display:flex;
-          align-items:center;
-          gap:8px;
-        }
-        .sortArrow{
-          opacity: .8;
-          font-size: 12px;
-        }
-        .gridBody{
-          max-height: 460px;
-          overflow:auto;
-        }
-        .rowGrid{
-          display:grid;
-          grid-template-columns: 72px minmax(240px, 1.2fr) 130px 190px 110px 95px;
-          padding: 10px 12px;
-          gap:0px;
-          border-bottom: 1px solid rgba(148,163,184,.16);
-          transition: background .12s ease;
-          cursor:pointer;
-        }
-        .rowGrid:hover{ background: rgba(255,255,255,.03); }
-        .rowSel{ background: rgba(244,208,63,.06); }
-
-        .cellMain{
-          font-weight: 950;
-          color:#F9FAFB;
-          font-size:.95rem;
-        }
-        .cellSub{
-          font-size:.84rem;
-          color: rgba(203,213,225,.80);
-          margin-top:2px;
-          line-height:1.25;
-        }
-        .status{
-          display:inline-flex;
-          align-items:center;
-          gap:8px;
-          border-radius: 999px;
-          padding: 6px 10px;
-          font-weight: 950;
-          font-size: 11px;
-          border: 1px solid rgba(148,163,184,.35);
-          background: rgba(2,6,23,.45);
-          width: fit-content;
-        }
-        .statusReady{ border-color: rgba(16,185,129,.30); background: rgba(16,185,129,.08); }
-        .statusPaused{ border-color: rgba(148,163,184,.35); background: rgba(255,255,255,.04); }
-        .statusRunning{ border-color: rgba(244,208,63,.35); background: rgba(244,208,63,.08); }
-        .statusError{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.08); }
-
-        /* Drawer */
-        .overlay{
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,.55);
-          z-index: 30;
-        }
-        .drawer{
-          position: fixed;
-          top: 0;
-          right: 0;
-          height: 100vh;
-          width: min(520px, 100%);
-          z-index: 40;
-          background: rgba(15,23,42,.90);
-          border-left: 1px solid rgba(148,163,184,.35);
-          backdrop-filter: blur(14px);
-          padding: 16px;
-          box-shadow: -20px 0 70px rgba(0,0,0,.45);
-        }
-
-        /* Toast */
-        .toast{
-          position: fixed;
-          top: 14px;
-          right: 14px;
-          z-index: 60;
-          width: 340px;
-          border-radius: 18px;
           padding: 12px 12px;
-          background: rgba(15,23,42,.92);
-          border: 1px solid rgba(148,163,184,.35);
-          box-shadow: 0 18px 70px rgba(0,0,0,.45);
+          border-radius: 18px;
+          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(2,6,23,.72);
+          box-shadow: var(--shadow);
+          min-width: min(560px, calc(100vw - 40px));
+        }
+        .toast-dot{
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+          background: var(--emerald);
+          box-shadow: 0 0 0 4px rgba(4,120,87,.18);
+          flex: 0 0 auto;
+        }
+        .toast-msg{ color: rgba(255,255,255,.90); font-size: 13px; line-height: 1.35; flex: 1 1 auto; }
+        .toast-x{
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,.14);
+          background: rgba(255,255,255,.04);
+          color: rgba(255,255,255,.78);
+          cursor:pointer;
+        }
+
+        .reveal{
+          max-height: 0;
+          opacity: 0;
+          transform: translateY(6px);
+          overflow:hidden;
+          transition: max-height .35s ease, opacity .25s ease, transform .25s ease;
+        }
+        .reveal.on{
+          max-height: 1500px;
+          opacity: 1;
+          transform: translateY(0);
+        }
+
+        @media (max-width: 980px){
+          .hero{ grid-template-columns: 1fr; }
+          .preset-grid{ grid-template-columns: 1fr 1fr; }
+          .pricing{ grid-template-columns: 1fr; }
+          .split{ grid-template-columns: 1fr; }
+          .grid2{ grid-template-columns: 1fr; }
+        }
+        @media (max-width: 520px){
+          .container{ padding: 18px; }
+          .hero h1{ font-size: 36px; }
+          .preset-grid{ grid-template-columns: 1fr; }
+          .kpi{ grid-template-columns: 1fr; }
+          .nav{ display:none; }
+          .table th:nth-child(2), .table td:nth-child(2){ display:none; }
         }
       `}</style>
 
-      <div className="wrap">
-        {/* Top */}
-        <header className="top">
-          <div className="brand">
-            <div className="logo" />
-            <div className="btxt">
-              <div className="bname">ALL IN DIGITAL</div>
-              <div className="btag">Client-Ready Stack Workspace (Billing + Ops + Deliverables)</div>
+      <div className="page">
+        <div className="container">
+          <header className="topbar">
+            <div className="brand">
+              <div className="logo" aria-hidden="true" />
+              <div className="brand-title">
+                <span>Exclusive Territory Opportunity Intelligence Feed</span>
+                <small>Ranked opportunity feed + hot alerts tuned to your buy box</small>
+              </div>
             </div>
-          </div>
 
-          <div className="pill">
-            <IconDot tone={mode === "workspace" ? "emerald" : "gold"} />
-            <span>{mode === "workspace" ? "Workspace active • deliverables visible" : "Configure → Reveal workspace"}</span>
-          </div>
-        </header>
+            <nav className="nav" aria-label="Sections">
+              <button
+                type="button"
+                onClick={() => setRevealConfig(true)}
+                className="btn btn-pill btn-ghost"
+              >
+                Presets + Buy Box
+              </button>
+              <button type="button" onClick={scrollToPricing} className="btn btn-pill btn-ghost">
+                Pricing
+              </button>
+              <button type="button" onClick={scrollToExample} className="btn btn-pill btn-ghost">
+                Example Digest
+              </button>
+            </nav>
+          </header>
 
-        {/* CONFIGURE */}
-        {mode === "configure" ? (
           <section className="hero">
             <div className="card">
-              <div className="eyebrow">Front-end reveal experience</div>
-              <h1 className="h1">
-                A <span>client-ready stack</span> that looks like it costs $5,000 to install.
-              </h1>
-              <p className="csub" style={{ fontSize: "1.02rem", maxWidth: 820 }}>
-                Don’t show “options.” Show a configured system: workflows, health, audit trail, and modules. Submit below to reveal the workspace view.
-              </p>
+              <div className="card-pad">
+                <Badge tone="emerald">Exclusive territory concept</Badge>{" "}
+                <Badge tone="gold">ZIP cluster / radius</Badge>
 
-              <div className="pillRow">
-                <PillButton active={plan === "demo"} onClick={() => setPlan("demo")}>
-                  Demo
-                </PillButton>
-                <PillButton active={plan === "week197"} onClick={() => setPlan("week197")}>
-                  $197 week
-                </PillButton>
-                <PillButton active={plan === "monthly750"} onClick={() => setPlan("monthly750")}>
-                  $750/mo
-                </PillButton>
-                <PillButton active={plan === "monthly1500"} onClick={() => setPlan("monthly1500")}>
-                  $1,500/mo
-                </PillButton>
-              </div>
+                <h1>Ranked opportunity feed + hot alerts tuned to your &quot;buy box&quot;.</h1>
 
-              <div className="grid2">
-                <div className="cardSoft">
-                  <div className="ct">{meta.title}</div>
-                  <p className="csub">{meta.highlight}</p>
-                  <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    <Badge tone="gold">{meta.price}</Badge>
-                    <Badge tone="emerald">{meta.delivery}</Badge>
-                    <Badge>{meta.cap}</Badge>
+                <p>
+                  You define territory and what you care about. We rank opportunities and send a
+                  daily digest plus a capped set of high-signal alerts.
+                </p>
+
+                <div className="no-promise">
+                  <span className="dot" aria-hidden="true" />
+                  <div>
+                    <b>No promise line:</b> We rank opportunities. We do not guarantee
+                    motivated/contract-ready sellers.
                   </div>
                 </div>
 
-                <div className="cardSoft">
-                  <div className="ct">What gets revealed</div>
-                  <p className="csub">
-                    A workspace view with a smooth data grid, audit trail, modules, and “run simulation” controls for screen share.
-                  </p>
-                  <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    <Badge tone="emerald">Workflows</Badge>
-                    <Badge>Health</Badge>
-                    <Badge>Activity</Badge>
-                    <Badge tone="gold">Modules</Badge>
-                  </div>
-                </div>
-              </div>
+                <div className="hero-cta">
+                  <button type="button" className="btn btn-primary" onClick={onPrimaryCta}>
+                    <span>Start Proof Sprint - {formatMoney(PRICING.proof.price)}</span>
+                    <span aria-hidden="true">-&gt;</span>
+                  </button>
 
-              <div className="gridInputs">
-                <div>
-                  <div className="label">Workspace name</div>
-                  <input className="in" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
-                </div>
-                <div>
-                  <div className="label">Territory key</div>
-                  <input className="in mono" value={territoryKey} onChange={(e) => setTerritoryKey(e.target.value)} />
+                  <button type="button" className="btn btn-secondary" onClick={scrollToExample}>
+                    See example feed
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      setRevealConfig((v) => !v);
+                      pushToast(
+                        revealConfig
+                          ? "Collapsed configuration panel."
+                          : "Opened presets + buy box configuration."
+                      );
+                    }}
+                  >
+                    {revealConfig ? "Hide presets + buy box" : "Customize presets + buy box"}
+                  </button>
                 </div>
 
-                <div>
-                  <div className="label">Primary calendar</div>
-                  <select className="in" value={primaryCalendar} onChange={(e) => setPrimaryCalendar(e.target.value)}>
-                    <option value="Google Calendar">Google Calendar</option>
-                    <option value="GoHighLevel Calendar">GoHighLevel Calendar</option>
-                    <option value="Other (custom)">Other (custom)</option>
-                  </select>
-                </div>
-                <div>
-                  <div className="label">Primary notifications</div>
-                  <select className="in" value={notifyChannel} onChange={(e) => setNotifyChannel(e.target.value)}>
-                    <option value="Telegram">Telegram</option>
-                    <option value="Email">Email</option>
-                    <option value="Slack">Slack</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="cardSoft" style={{ marginTop: 12 }}>
-                <div className="ct">Integrations toggles</div>
-                <p className="csub">This is visual proof that the build is modular and controlled — not “random automations.”</p>
-                <div className="pillRow">
-                  {([
-                    ["stripe", "Stripe"],
-                    ["telnyx", "Telnyx"],
-                    ["vapi", "Voice AI"],
-                    ["email", "Email"],
-                    ["telegram", "Telegram"],
-                    ["slack", "Slack"],
-                  ] as const).map(([k, label]) => (
-                    <button
-                      key={k}
-                      type="button"
-                      className={cx("pillBtn", integrations[k] && "pillBtnActive")}
-                      onClick={() => setIntegrations((p) => ({ ...p, [k]: !p[k] }))}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button className={cx("btn", "btnGold")} onClick={enterWorkspace}>
-                  Reveal workspace ↗
-                </button>
-                <button
-                  className={cx("btn", "btnGhost")}
-                  onClick={() => {
-                    setBusinessName("All In Digital — Client Workspace");
-                    setTerritoryKey("TX-AUSTIN-CORE-78701");
-                    setPlan("demo");
-                    showToast("Reset", "Configuration reset to defaults", "warn");
-                  }}
-                >
-                  Reset
-                </button>
-              </div>
-
-              <div style={{ marginTop: 10, color: "rgba(203,213,225,.78)", fontSize: ".88rem", lineHeight: 1.45 }}>
-                If your “setup fee feels expensive,” it’s usually because your front-end looks like a landing page. Your reveal needs to look like an
-                installed product with monitoring, auditability, and modular expansion.
+                <p className="note">
+                  Designed for clarity: auditability, tuning, caps, and a clean &quot;what happens
+                  next&quot;. This is a landing page, not a fake ops dashboard.
+                </p>
               </div>
             </div>
 
-            <div className="card">
-              <div className="ct">Quick snapshot</div>
-              <p className="csub">This makes the offer feel like a system, not a service.</p>
-
-              <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-                <div className="row">
-                  <div className="kvl">Territory</div>
-                  <div className="kvr mono">{territoryKey}</div>
+            <div className="hero-right">
+              <div className="kpi">
+                <div className="box">
+                  <div className="label">Territory structure</div>
+                  <div className="val">
+                    ZIP cluster <span>or</span> radius
+                  </div>
                 </div>
-                <div className="row">
-                  <div className="kvl">Plan</div>
-                  <div className="kvr">{meta.title}</div>
+                <div className="box">
+                  <div className="label">Alert discipline</div>
+                  <div className="val">
+                    Capped <span>hot</span> alerts
+                  </div>
                 </div>
-                <div className="row">
-                  <div className="kvl">Calendar</div>
-                  <div className="kvr">{primaryCalendar}</div>
+                <div className="box">
+                  <div className="label">Auditability</div>
+                  <div className="val">
+                    Reason chips <span>+</span> queue
+                  </div>
                 </div>
-                <div className="row">
-                  <div className="kvl">Alerts</div>
-                  <div className="kvr">{notifyChannel}</div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 14 }} className="cardSoft">
-                <div className="ct">Top {plan === "week197" ? "5 essentials" : "10 modules"}</div>
-                <p className="csub">
-                  {plan === "week197"
-                    ? "Proof sprint includes the essentials only. That’s deliberate: tight scope = fast install."
-                    : "Higher tiers add reporting, usage normalization, and monitoring layers."}
-                </p>
-                <div className="pillRow">
-                  {(plan === "week197" ? moduleRowsForPlan.filter((m) => essentialsTop5.includes(m.key)) : moduleRowsForPlan)
-                    .slice(0, plan === "week197" ? 5 : 10)
-                    .map((m) => (
-                      <Badge key={m.key} tone={essentialsTop5.includes(m.key) ? "gold" : "slate"}>
-                        {m.name}
-                      </Badge>
-                    ))}
+                <div className="box">
+                  <div className="label">Tuning</div>
+                  <div className="val">
+                    Preset weights <span>+</span> rules
+                  </div>
                 </div>
               </div>
 
-              <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <a className={cx("btn", "btnPrimary")} href="tel:+14695008848">
-                  Call 469-500-8848 ↗
-                </a>
-                <a className={cx("btn", "btnGhost")} href="mailto:info@allindigitalmktg.com">
-                  Email info@allindigitalmktg.com ↗
-                </a>
+              <div className="timeline">
+                <h3>What happens next</h3>
+                <div className="steps">
+                  <div className="step">
+                    <div className="n">1</div>
+                    <div className="t">
+                      <b>Define territory + preset</b> - ZIP cluster or radius, then pick a starting
+                      profile.
+                    </div>
+                  </div>
+                  <div className="step">
+                    <div className="n">2</div>
+                    <div className="t">
+                      <b>Configure buy box</b> - price band, property types, DOM threshold, toggles,
+                      alert cadence.
+                    </div>
+                  </div>
+                  <div className="step">
+                    <div className="n">3</div>
+                    <div className="t">
+                      <b>Receive digest + capped hot alerts</b> - you get reasons, not vague
+                      &quot;magic&quot;.
+                    </div>
+                  </div>
+                  <div className="step">
+                    <div className="n">4</div>
+                    <div className="t">
+                      <b>Tune</b> - adjust weights/rules to match your workflow and preferences.
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
-        ) : null}
 
-        {/* WORKSPACE */}
-        {mode === "workspace" ? (
-          <section className="revealWrap">
-            <div className={cx("card", "side")}>
-              <div className="ct">{businessName}</div>
-              <p className="csub">
-                Territory <span className="mono">{territoryKey}</span>
-              </p>
+          <section className="section">
+            <h2>Presets + Buy Box (interactive)</h2>
+            <p className="lead">
+              Start with a preset, then tighten the buy box. This is lightweight UI - no form
+              submission, just a clear configuration footprint.
+            </p>
 
-              <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                <Badge tone="gold">{meta.price}</Badge>
-                <Badge tone="emerald">{meta.delivery}</Badge>
-                <Badge>{meta.cadence}</Badge>
-              </div>
-
-              <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-                <button className={cx("navBtn", nav === "workflows" && "navActive")} onClick={() => setNav("workflows")}>
-                  <span>Workflows</span>
-                  <Badge tone="emerald">{kpis.ready}/{kpis.total}</Badge>
-                </button>
-                <button className={cx("navBtn", nav === "modules" && "navActive")} onClick={() => setNav("modules")}>
-                  <span>Modules</span>
-                  <Badge tone="gold">{moduleRowsForPlan.length}</Badge>
-                </button>
-                <button className={cx("navBtn", nav === "activity" && "navActive")} onClick={() => setNav("activity")}>
-                  <span>Activity</span>
-                  <Badge>{events.length}</Badge>
-                </button>
-                <button className={cx("navBtn", nav === "settings" && "navActive")} onClick={() => setNav("settings")}>
-                  <span>Settings</span>
-                  <Badge>Config</Badge>
-                </button>
-              </div>
-
-              <div className="cardSoft" style={{ marginTop: 12 }}>
-                <div className="ct">Health</div>
-                <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                  <div className="row">
-                    <div className="kvl">Avg success</div>
-                    <div className="kvr">{kpis.avgSuccess}%</div>
-                  </div>
-                  <div className="row">
-                    <div className="kvl">Errors</div>
-                    <div className="kvr">{kpis.error}</div>
-                  </div>
-                  <div className="row">
-                    <div className="kvl">Paused</div>
-                    <div className="kvr">{kpis.paused}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-                <button className={cx("btn", "btnGold")} onClick={simulateRun}>
-                  Simulate run
-                </button>
-                <button
-                  className={cx("btn", "btnGhost")}
-                  onClick={() => {
-                    setMode("configure");
-                    setDrawerOpen(false);
-                    setSelectedId(null);
-                    showToast("Back to configure", "Edit configuration and reveal again", "warn");
-                  }}
-                >
-                  Back to configure
-                </button>
-              </div>
-            </div>
-
-            <div>
-              {/* WORKFLOWS */}
-              {nav === "workflows" ? (
-                <div className="gridShell">
-                  <div className="gridTop">
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                      <div>
-                        <div className="ct" style={{ marginBottom: 0 }}>
-                          Workflow Library
-                        </div>
-                        <div className="csub">Sorted + searchable grid with details drawer.</div>
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        <Badge tone="emerald">Ready {kpis.ready}</Badge>
-                        <Badge tone="gold">Avg {kpis.avgSuccess}%</Badge>
-                        <Badge>Plan: {meta.title}</Badge>
-                      </div>
-                    </div>
-
-                    <div className="search">
-                      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search workflows, triggers, notes…" />
+            <div className={cx("reveal", revealConfig && "on")}>
+              <div className="card">
+                <div className="card-pad">
+                  <div className="preset-grid" role="list" aria-label="Presets">
+                    {PRESETS.map((p) => (
                       <button
-                        className={cx("btn", "btnGhost")}
-                        onClick={() => showToast("Export", "This would export JSON + runbook in production.", "ok")}
-                        style={{ padding: "10px 12px" }}
+                        key={p.id}
+                        type="button"
+                        className={cx("preset", preset === p.id && "sel")}
+                        onClick={() => {
+                          setPreset(p.id);
+                          pushToast(`Preset selected: ${p.title}`);
+                        }}
+                        role="listitem"
                       >
-                        Export
+                        <h3>{p.title}</h3>
+                        <p>{p.blurb}</p>
                       </button>
-                    </div>
-                  </div>
-
-                  <div className="gridHead">
-                    <div className="hcell" onClick={() => toggleSort("id")}>
-                      ID {sortKey === "id" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
-                    </div>
-                    <div className="hcell" onClick={() => toggleSort("name")}>
-                      Name {sortKey === "name" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
-                    </div>
-                    <div className="hcell" onClick={() => toggleSort("status")}>
-                      Status {sortKey === "status" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
-                    </div>
-                    <div className="hcell" onClick={() => toggleSort("lastRun")}>
-                      Last run {sortKey === "lastRun" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
-                    </div>
-                    <div className="hcell" onClick={() => toggleSort("runs7d")}>
-                      Runs 7d {sortKey === "runs7d" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
-                    </div>
-                    <div className="hcell" onClick={() => toggleSort("successRate")}>
-                      Success {sortKey === "successRate" ? <span className="sortArrow">{sortDir === "asc" ? "▲" : "▼"}</span> : null}
-                    </div>
-                  </div>
-
-                  <div className="gridBody">
-                    {workflows.map((w) => {
-                      const sel = w.id === selectedId;
-                      const statusClass =
-                        w.status === "Ready"
-                          ? "statusReady"
-                          : w.status === "Paused"
-                          ? "statusPaused"
-                          : w.status === "Running"
-                          ? "statusRunning"
-                          : "statusError";
-
-                      const dotTone =
-                        w.status === "Ready" ? "emerald" : w.status === "Running" ? "gold" : w.status === "Error" ? "red" : "slate";
-
-                      return (
-                        <div
-                          key={w.id}
-                          className={cx("rowGrid", sel && "rowSel")}
-                          onClick={() => {
-                            setSelectedId(w.id);
-                            setDrawerOpen(true);
-                          }}
-                        >
-                          <div className="mono cellMain">{w.id}</div>
-
-                          <div>
-                            <div className="cellMain">{w.name}</div>
-                            <div className="cellSub">{w.trigger}</div>
-                          </div>
-
-                          <div>
-                            <div className={cx("status", statusClass)}>
-                              <IconDot tone={dotTone as any} />
-                              {w.status}
-                            </div>
-                            <div className="cellSub" style={{ marginTop: 6 }}>
-                              Tier: <span className="mono">{w.tier}</span>
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="cellMain">{formatDate(w.lastRun)}</div>
-                            <div className="cellSub">
-                              Next: {w.nextRun ? formatDate(w.nextRun) : "—"}
-                            </div>
-                          </div>
-
-                          <div className="cellMain">{w.runs7d}</div>
-
-                          <div className="cellMain">{w.successRate}%</div>
-                        </div>
-                      );
-                    })}
-                    {!workflows.length ? (
-                      <div style={{ padding: 18, color: "rgba(203,213,225,.78)" }}>No results.</div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-
-              {/* MODULES */}
-              {nav === "modules" ? (
-                <div className="card">
-                  <div className="ct">Modules you can plug in</div>
-                  <p className="csub">
-                    This is what makes your $5k setup feel justified: a modular system with clear expansion paths, not a one-off build.
-                  </p>
-
-                  <div className="cardSoft" style={{ marginTop: 12 }}>
-                    <div className="ct">Top 10 (with Top 5 highlighted)</div>
-                    <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {modules.map((m) => (
-                        <Badge key={m.key} tone={essentialsTop5.includes(m.key) ? "gold" : "slate"}>
-                          {m.key} • {m.name}
-                        </Badge>
-                      ))}
-                    </div>
-                    <div style={{ marginTop: 10, color: "rgba(203,213,225,.78)", fontSize: ".88rem" }}>
-                      Proof sprint ($197) includes: <span className="mono">{essentialsTop5.join(", ")}</span>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                    {moduleRowsForPlan.map((m) => (
-                      <div key={m.key} className="row" style={{ alignItems: "flex-start" }}>
-                        <div style={{ display: "grid", gap: 4 }}>
-                          <div className="kvr">
-                            {m.name}{" "}
-                            {essentialsTop5.includes(m.key) ? <Badge tone="gold">Top 5</Badge> : null}
-                          </div>
-                          <div className="csub">{m.value}</div>
-                          <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <Badge tone="emerald">{m.category}</Badge>
-                            <Badge>{m.complexity}</Badge>
-                          </div>
-                        </div>
-
-                        <button
-                          className={cx("btn", "btnGhost")}
-                          style={{ padding: "10px 12px", borderRadius: 16, minWidth: 120 }}
-                          onClick={() => showToast("Module added (demo)", `${m.name} staged for provisioning`, "ok")}
-                        >
-                          Add
-                        </button>
-                      </div>
                     ))}
                   </div>
-                </div>
-              ) : null}
 
-              {/* ACTIVITY */}
-              {nav === "activity" ? (
-                <div className="card">
-                  <div className="ct">Activity / Audit trail</div>
-                  <p className="csub">This is the “proof layer.” Without this, your offer looks like invisible automation.</p>
+                  <div className="divider" />
 
-                  <div className="gridShell" style={{ marginTop: 12 }}>
-                    <div className="gridHead" style={{ gridTemplateColumns: "110px 140px 150px minmax(220px, 1fr) 90px" }}>
-                      <div>ID</div>
-                      <div>Time</div>
-                      <div>Source</div>
-                      <div>Message</div>
-                      <div>Outcome</div>
-                    </div>
-
-                    <div className="gridBody" style={{ maxHeight: 520 }}>
-                      {events.map((e) => {
-                        const tone = e.outcome === "ok" ? "emerald" : e.outcome === "warn" ? "gold" : "red";
-                        return (
-                          <div
-                            key={e.id}
-                            className="rowGrid"
-                            style={{ gridTemplateColumns: "110px 140px 150px minmax(220px, 1fr) 90px" }}
-                            onClick={() => showToast(e.type, e.message, e.outcome === "ok" ? "ok" : e.outcome === "warn" ? "warn" : "fail")}
-                          >
-                            <div className="mono cellMain">{e.id}</div>
-                            <div className="cellMain">{formatDate(e.ts)}</div>
-                            <div className="cellMain">{e.source}</div>
-                            <div>
-                              <div className="cellMain">{e.type}</div>
-                              <div className="cellSub">{e.message}</div>
-                            </div>
-                            <div className={cx("status", tone === "emerald" ? "statusReady" : tone === "gold" ? "statusRunning" : "statusError")}>
-                              <IconDot tone={tone as any} />
-                              {e.outcome}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* SETTINGS */}
-              {nav === "settings" ? (
-                <div className="card">
-                  <div className="ct">Workspace configuration</div>
-                  <p className="csub">In production this would map to your client_config row + environment settings.</p>
-
-                  <div className="grid2">
-                    <div className="cardSoft">
-                      <div className="ct">Core</div>
-                      <div style={{ marginTop: 8, display: "grid", gap: 10 }}>
-                        <div className="row">
-                          <div className="kvl">Workspace</div>
-                          <div className="kvr">{businessName}</div>
-                        </div>
-                        <div className="row">
-                          <div className="kvl">Plan</div>
-                          <div className="kvr">{meta.title}</div>
-                        </div>
-                        <div className="row">
-                          <div className="kvl">Territory key</div>
-                          <div className="kvr mono">{territoryKey}</div>
-                        </div>
+                  <div className="split">
+                    <div className="subtle" style={{ padding: 16, borderRadius: 18 }}>
+                      <div className="panel-title">
+                        <h3>Top signals we prioritize</h3>
+                        <span>Preset: {presetObj.title}</span>
                       </div>
-                    </div>
-
-                    <div className="cardSoft">
-                      <div className="ct">Integrations</div>
-                      <div className="pillRow" style={{ marginTop: 8 }}>
-                        {Object.entries(integrations).map(([k, v]) => (
-                          <Badge key={k} tone={v ? "emerald" : "slate"}>
-                            {k.toUpperCase()} {v ? "ON" : "OFF"}
+                      <div className="chips">
+                        {presetObj.signals.map((s) => (
+                          <Badge
+                            key={s}
+                            tone={s.includes("Price") || s.includes("DOM") ? "gold" : "emerald"}
+                          >
+                            {s}
                           </Badge>
                         ))}
                       </div>
 
-                      <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                        <div className="row">
-                          <div className="kvl">Calendar</div>
-                          <div className="kvr">{primaryCalendar}</div>
+                      <div style={{ height: 12 }} />
+
+                      <div className="panel-title">
+                        <h3>What the alerts look like</h3>
+                        <span>Example snippet</span>
+                      </div>
+                      <div className="snippet">{presetObj.alertSnippet}</div>
+
+                      <div style={{ height: 12 }} />
+
+                      <div className="summary">
+                        <div className="summary-row">
+                          <span className="k">Territory</span>
+                          <span className="v">{configSummary.territory}</span>
                         </div>
-                        <div className="row">
-                          <div className="kvl">Notify</div>
-                          <div className="kvr">{notifyChannel}</div>
+                        <div className="summary-row">
+                          <span className="k">Price band</span>
+                          <span className="v">{configSummary.price}</span>
+                        </div>
+                        <div className="summary-row">
+                          <span className="k">Property types</span>
+                          <span className="v">{configSummary.propertyTypes}</span>
+                        </div>
+                        <div className="summary-row">
+                          <span className="k">DOM threshold</span>
+                          <span className="v">{configSummary.dom}</span>
+                        </div>
+                        <div className="summary-row">
+                          <span className="k">Toggles</span>
+                          <span className="v">{configSummary.toggles}</span>
+                        </div>
+                        <div className="summary-row">
+                          <span className="k">Alert frequency</span>
+                          <span className="v">{configSummary.alertFreq}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="subtle" style={{ padding: 16, borderRadius: 18 }}>
+                      <div className="panel-title">
+                        <h3>10-question buy box configuration</h3>
+                        <span>UI-only</span>
+                      </div>
+
+                      <div className="config">
+                        <div className="type-grid" role="group" aria-label="Territory type">
+                          <button
+                            type="button"
+                            className={cx("type-btn", territoryType === "zip_cluster" && "sel")}
+                            onClick={() => setTerritoryType("zip_cluster")}
+                          >
+                            <span className="l">
+                              <b>ZIP cluster</b>
+                              <small>Define a list/count of ZIPs</small>
+                            </span>
+                            <span className="r" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            className={cx("type-btn", territoryType === "radius" && "sel")}
+                            onClick={() => setTerritoryType("radius")}
+                          >
+                            <span className="l">
+                              <b>Radius</b>
+                              <small>Define a mile radius</small>
+                            </span>
+                            <span className="r" aria-hidden="true" />
+                          </button>
+                        </div>
+
+                        {territoryType === "zip_cluster" ? (
+                          <Input
+                            label="ZIP count"
+                            hint="2 of 10"
+                            value={zipCount}
+                            onChange={setZipCount}
+                            placeholder="e.g., 8"
+                            suffix="ZIPs"
+                          />
+                        ) : (
+                          <Input
+                            label="Radius"
+                            hint="2 of 10"
+                            value={radiusMiles}
+                            onChange={setRadiusMiles}
+                            placeholder="e.g., 10"
+                            suffix="miles"
+                          />
+                        )}
+
+                        <div className="grid2">
+                          <Input
+                            label="Min price"
+                            hint="3 of 10"
+                            value={priceMin}
+                            onChange={setPriceMin}
+                            placeholder="e.g., 300000"
+                            suffix="USD"
+                          />
+                          <Input
+                            label="Max price"
+                            hint="3 of 10"
+                            value={priceMax}
+                            onChange={setPriceMax}
+                            placeholder="e.g., 750000"
+                            suffix="USD"
+                          />
+                        </div>
+
+                        <div className="field">
+                          <span className="field-label">
+                            Property types <span className="field-hint">4 of 10</span>
+                          </span>
+                          <div className="chips">
+                            {(
+                              [
+                                ["single_family", "Single-family"],
+                                ["townhome", "Townhome"],
+                                ["condo", "Condo"],
+                                ["multi_family", "Multi-family"],
+                                ["land", "Land"],
+                                ["mixed", "Mixed"],
+                              ] as const
+                            ).map(([key, label]) => {
+                              const k = key as PropertyType;
+                              const on = propertyTypes[k];
+                              return (
+                                <button
+                                  key={k}
+                                  type="button"
+                                  className={cx("pill", on ? "pill-on" : "pill-off")}
+                                  onClick={() => setPropertyTypes((p) => ({ ...p, [k]: !p[k] }))}
+                                  aria-pressed={on}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <Input
+                          label="DOM threshold"
+                          hint="5 of 10"
+                          value={domThreshold}
+                          onChange={setDomThreshold}
+                          placeholder="e.g., 21"
+                          suffix="days"
+                        />
+
+                        <Toggle
+                          label="Distress keywords"
+                          hint="6 of 10"
+                          value={distressKeywords}
+                          onChange={setDistressKeywords}
+                        />
+                        <Toggle
+                          label="School zone priority"
+                          hint="7 of 10"
+                          value={schoolZonePriority}
+                          onChange={setSchoolZonePriority}
+                        />
+                        <Toggle
+                          label="Rehab indicator"
+                          hint="8 of 10"
+                          value={rehabIndicator}
+                          onChange={setRehabIndicator}
+                        />
+                        <Toggle
+                          label="Cash-buyer friendly tilt"
+                          hint="9 of 10"
+                          value={cashBuyerFriendly}
+                          onChange={setCashBuyerFriendly}
+                        />
+
+                        <Select
+                          label="Alert frequency preference"
+                          hint="10 of 10"
+                          value={alertFrequency}
+                          onChange={(v) => setAlertFrequency(v as AlertFrequency)}
+                          options={[
+                            { value: "daily", label: "Daily" },
+                            { value: "weekday", label: "Weekdays" },
+                            { value: "twice_week", label: "2x per week" },
+                            { value: "weekly", label: "Weekly" },
+                          ]}
+                        />
+
+                        <div className="note" style={{ marginTop: 0 }}>
+                          UI-only configuration. It helps define territory and tuning inputs; it
+                          does not imply guaranteed outcomes.
+                        </div>
+
+                        <div className="hero-cta" style={{ marginTop: 4 }}>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => pushToast("Configuration saved locally (UI-only).")}
+                          >
+                            Save config (UI)
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => {
+                              setPreset("investor");
+                              setTerritoryType("zip_cluster");
+                              setZipCount("8");
+                              setRadiusMiles("10");
+                              setPriceMin("300000");
+                              setPriceMax("750000");
+                              setPropertyTypes({
+                                single_family: true,
+                                condo: false,
+                                townhome: true,
+                                multi_family: false,
+                                land: false,
+                                mixed: false,
+                              });
+                              setDomThreshold("21");
+                              setDistressKeywords(true);
+                              setSchoolZonePriority(false);
+                              setRehabIndicator(true);
+                              setCashBuyerFriendly(true);
+                              setAlertFrequency("daily");
+                              pushToast("Reset to baseline.");
+                            }}
+                          >
+                            Reset
+                          </button>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    <button
-                      className={cx("btn", "btnGold")}
-                      onClick={() => showToast("Saved (demo)", "Config would persist + trigger provisioning workflow.", "ok")}
-                    >
-                      Save
-                    </button>
-                    <button className={cx("btn", "btnGhost")} onClick={() => showToast("Export (demo)", "Would export runbook + config JSON.", "ok")}>
-                      Export runbook
-                    </button>
-                  </div>
+                  <div style={{ height: 10 }} />
                 </div>
-              ) : null}
+              </div>
             </div>
+          </section>
 
-            {/* Drawer */}
-            {drawerOpen && selected ? (
-              <>
-                <div className="overlay" onClick={() => setDrawerOpen(false)} />
-                <div className="drawer" onClick={(e) => e.stopPropagation()}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                    <div>
-                      <div className="eyebrow">Workflow details</div>
-                      <div className="ct" style={{ marginTop: -2 }}>
-                        {selected.id} • {selected.name}
-                      </div>
-                      <div className="csub" style={{ marginTop: 6 }}>
-                        Trigger: <span className="mono">{selected.trigger}</span>
-                      </div>
-                      <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <Badge tone={selected.status === "Ready" ? "emerald" : selected.status === "Running" ? "gold" : "slate"}>
-                          {selected.status}
-                        </Badge>
-                        <Badge>Tier: {selected.tier}</Badge>
-                        <Badge tone="gold">Success {selected.successRate}%</Badge>
-                      </div>
-                    </div>
+          <section className="section">
+            <h2>Territory exclusivity (clear + enforceable)</h2>
+            <p className="lead">
+              Exclusivity is defined by a concrete territory boundary and an explicit scope. It is
+              enforceable without pretending we own public inventory.
+            </p>
 
-                    <button className={cx("btn", "btnGhost")} style={{ padding: "10px 12px" }} onClick={() => setDrawerOpen(false)}>
-                      Close
-                    </button>
+            <div className="grid2">
+              <div className="card">
+                <div className="card-pad">
+                  <div className="panel-title">
+                    <h3>How exclusivity works</h3>
+                    <span>ZIP cluster or radius</span>
                   </div>
 
-                  <div className="cardSoft" style={{ marginTop: 14 }}>
-                    <div className="ct">Notes</div>
-                    <p className="csub">{selected.notes}</p>
-                  </div>
-
-                  <div className="grid2" style={{ marginTop: 12 }}>
-                    <div className="cardSoft">
-                      <div className="ct">Runs</div>
-                      <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                        <div className="row">
-                          <div className="kvl">Last run</div>
-                          <div className="kvr">{formatDate(selected.lastRun)}</div>
-                        </div>
-                        <div className="row">
-                          <div className="kvl">Next run</div>
-                          <div className="kvr">{selected.nextRun ? formatDate(selected.nextRun) : "—"}</div>
-                        </div>
-                        <div className="row">
-                          <div className="kvl">Runs (7d)</div>
-                          <div className="kvr">{selected.runs7d}</div>
-                        </div>
-                      </div>
+                  <div className="list" style={{ gap: 10 }}>
+                    <div className="li">
+                      <span className="check" aria-hidden="true" />
+                      <span>
+                        <b>ZIP cluster exclusivity:</b> the ranked feed + hot alerts are reserved
+                        for your defined ZIP list (or ZIP count + named list).
+                      </span>
                     </div>
-
-                    <div className="cardSoft">
-                      <div className="ct">Actions</div>
-                      <div style={{ marginTop: 8, display: "grid", gap: 10 }}>
-                        <button
-                          className={cx("btn", "btnPrimary")}
-                          onClick={() => showToast("Run (demo)", "Would execute the workflow with a safe test payload.", "ok")}
-                        >
-                          Run test
-                        </button>
-                        <button
-                          className={cx("btn", "btnGhost")}
-                          onClick={() => showToast("Export (demo)", "Would export JSON + dependency manifest.", "ok")}
-                        >
-                          Export JSON
-                        </button>
-                        <button
-                          className={cx("btn", "btnGhost")}
-                          onClick={() => showToast("Audit (demo)", "Would open node-level logs + payload snapshots.", "ok")}
-                        >
-                          View logs
-                        </button>
-                      </div>
+                    <div className="li">
+                      <span className="check" aria-hidden="true" />
+                      <span>
+                        <b>Radius option:</b> define a center point and mile radius for coverage and
+                        enforcement.
+                      </span>
                     </div>
-                  </div>
-
-                  <div style={{ marginTop: 12, color: "rgba(203,213,225,.78)", fontSize: ".88rem", lineHeight: 1.45 }}>
-                    If you want this to feel even more “enterprise,” the next step is adding a **Runbook tab** (SOP + steps + failure handling)
-                    inside the drawer. That’s what makes buyers stop arguing about price.
+                    <div className="li">
+                      <span className="check" aria-hidden="true" />
+                      <span>
+                        <b>Optional category exclusivity:</b> scope can be full territory or a
+                        category carve-out when available.
+                      </span>
+                    </div>
+                    <div className="li">
+                      <span className="check" aria-hidden="true" />
+                      <span>
+                        <b>Important:</b> Exclusivity covers our ranked feed output and alerting in
+                        that boundary, not public inventory.
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </>
-            ) : null}
-          </section>
-        ) : null}
+              </div>
 
-        {/* Toast */}
-        {toast.on ? (
-          <div
-            className="toast"
-            style={{
-              borderColor:
-                toast.tone === "ok"
-                  ? "rgba(16,185,129,.35)"
-                  : toast.tone === "warn"
-                  ? "rgba(244,208,63,.35)"
-                  : "rgba(239,68,68,.35)",
+              <div className="card">
+                <div className="card-pad">
+                  <div className="panel-title">
+                    <h3>Agreement highlights (mini)</h3>
+                    <span>Plain language</span>
+                  </div>
+
+                  <div className="caps">
+                    <h4>Highlights</h4>
+                    <div className="caprow">
+                      <div>Territory definition</div>
+                      <span>ZIP list / radius boundary</span>
+                    </div>
+                    <div className="caprow">
+                      <div>Exclusivity scope</div>
+                      <span>Full vs category</span>
+                    </div>
+                    <div className="caprow">
+                      <div>Terms</div>
+                      <span>Month-to-month; ends if unpaid</span>
+                    </div>
+                    <div className="caprow">
+                      <div>Scope clarity</div>
+                      <span>Ranked feed output only</span>
+                    </div>
+                  </div>
+
+                  <p className="note">
+                    This reduces ambiguity: territory is explicitly defined; caps exist; tuning is
+                    tracked; and scope stays honest.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            className="section"
+            ref={(el) => {
+              pricingRef.current = el;
             }}
           >
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-              <div>
-                <div style={{ fontWeight: 950, color: "#F9FAFB", fontSize: ".96rem" }}>{toast.title}</div>
-                <div style={{ marginTop: 4, color: "rgba(203,213,225,.85)", fontSize: ".88rem", lineHeight: 1.35 }}>{toast.msg}</div>
+            <h2>Pricing (crystal clear + capped)</h2>
+            <p className="lead">
+              Simple comparison with hard caps. If caps are exceeded, overages or upgrades apply.
+            </p>
+
+            <div className="pricing" aria-label="Pricing comparison">
+              <div className="price-card">
+                <div className="price-top">
+                  <div>
+                    <h3>{PRICING.proof.name}</h3>
+                    <div className="price">
+                      {formatMoney(PRICING.proof.price)}
+                      <span className="cadence">one-time</span>
+                    </div>
+                    <div className="price-sub">
+                      A focused week to validate fit, tune signals, and prove digest quality.
+                    </div>
+                  </div>
+                  <Badge tone="gold">Best first step</Badge>
+                </div>
+
+                <ul className="list" aria-label="Proof Sprint features">
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>1 territory</b> (ZIP cluster or radius)
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>Daily Top {CAPS.proof.dailyTopSms} SMS</b> (capped)
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>Daily digest email</b> (ranked list + reasons)
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>Airtable-style queue view</b> (conceptual)
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>End-of-week tuning recommendations</b>
+                    </span>
+                  </li>
+                </ul>
+
+                <div className="caps">
+                  <h4>Hard caps (Proof Sprint)</h4>
+                  <div className="caprow">
+                    <div>{CAPS.proof.processedRawPerWeek.toLocaleString()}</div>
+                    <span>processed raw / week</span>
+                  </div>
+                  <div className="caprow">
+                    <div>{CAPS.proof.aiScoredPerWeek.toLocaleString()}</div>
+                    <span>AI-scored / week</span>
+                  </div>
+                  <div className="caprow">
+                    <div>{CAPS.proof.hotAlertsPerWeek.toLocaleString()}</div>
+                    <span>hot alerts / week</span>
+                  </div>
+                </div>
+
+                <div className="price-cta">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      pushToast("Proof Sprint selected. Next: confirm territory + buy box.");
+                      setRevealConfig(true);
+                    }}
+                  >
+                    Start Proof Sprint
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={scrollToExample}>
+                    See example digest
+                  </button>
+                </div>
               </div>
-              <button className={cx("btn", "btnGhost")} style={{ padding: "8px 10px", borderRadius: 14 }} onClick={() => setToast((t) => ({ ...t, on: false }))}>
-                ✕
-              </button>
+
+              <div className="price-card">
+                <div className="price-top">
+                  <div>
+                    <h3>
+                      {formatMoney(PRICING.solo.price)}
+                      <span className="cadence">{PRICING.solo.cadence}</span> - {PRICING.solo.name}
+                    </h3>
+                    <div className="price-sub">
+                      1 territory with disciplined throughput and a monthly tuning adjustment.
+                    </div>
+                  </div>
+                  <Badge tone="emerald">Most common</Badge>
+                </div>
+
+                <ul className="list" aria-label="Solo features">
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>1 territory</b> (up to ~{CAPS.solo.territoryZipMax} ZIPs OR ~
+                      {CAPS.solo.territoryRadiusMiles}-mile radius)
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>Up to ~{CAPS.solo.aiScoredPerDay} AI-scored / day</b> (cap)
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>Up to ~{CAPS.solo.hotAlertsPerWeek} hot SMS alerts / week</b> (cap)
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>{CAPS.solo.tuningChangesPerMonth} tuning change / month</b> included
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>Daily digest + queue</b>
+                    </span>
+                  </li>
+                </ul>
+
+                <div className="caps">
+                  <h4>Caps (Solo)</h4>
+                  <div className="caprow">
+                    <div>~{CAPS.solo.aiScoredPerDay.toLocaleString()}</div>
+                    <span>AI-scored / day</span>
+                  </div>
+                  <div className="caprow">
+                    <div>~{CAPS.solo.hotAlertsPerWeek.toLocaleString()}</div>
+                    <span>hot SMS alerts / week</span>
+                  </div>
+                  <div className="caprow">
+                    <div>1</div>
+                    <span>tuning change / month</span>
+                  </div>
+                </div>
+
+                <div className="price-cta">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() =>
+                      pushToast(
+                        "Solo Territory selected. Next: confirm territory + buy box + start date."
+                      )
+                    }
+                  >
+                    Choose {formatMoney(PRICING.solo.price)}/mo
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setRevealConfig(true)}
+                  >
+                    Customize buy box
+                  </button>
+                </div>
+              </div>
+
+              <div className="price-card">
+                <div className="price-top">
+                  <div>
+                    <h3>
+                      {formatMoney(PRICING.team.price)}
+                      <span className="cadence">{PRICING.team.cadence}</span> - {PRICING.team.name}
+                    </h3>
+                    <div className="price-sub">
+                      Higher throughput, more territories, and weekly tuning included. No
+                      minute-based promises.
+                    </div>
+                  </div>
+                  <Badge tone="gold">Highest volume</Badge>
+                </div>
+
+                <ul className="list" aria-label="Team features">
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>{CAPS.team.territories} territories</b> (or 1 large up to ~
+                      {CAPS.team.territoryZipLargeMax} ZIPs)
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>Up to ~{CAPS.team.aiScoredPerDay} AI-scored / day</b> (cap)
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>Up to ~{CAPS.team.hotAlertsPerWeek} hot SMS alerts / week</b> (cap)
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>Weekly tuning</b> included
+                    </span>
+                  </li>
+                  <li className="li">
+                    <span className="check" aria-hidden="true" />
+                    <span>
+                      <b>Monitoring + faster fixes</b> (no specific minute promise)
+                    </span>
+                  </li>
+                </ul>
+
+                <div className="caps">
+                  <h4>Caps (Team)</h4>
+                  <div className="caprow">
+                    <div>~{CAPS.team.aiScoredPerDay.toLocaleString()}</div>
+                    <span>AI-scored / day</span>
+                  </div>
+                  <div className="caprow">
+                    <div>~{CAPS.team.hotAlertsPerWeek.toLocaleString()}</div>
+                    <span>hot SMS alerts / week</span>
+                  </div>
+                  <div className="caprow">
+                    <div>Weekly</div>
+                    <span>tuning cadence</span>
+                  </div>
+                </div>
+
+                <div className="price-cta">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() =>
+                      pushToast(
+                        "Team plan selected. Next: confirm territory split + buy boxes per territory."
+                      )
+                    }
+                  >
+                    Choose {formatMoney(PRICING.team.price)}/mo
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={scrollToExample}>
+                    See example output
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        ) : null}
+
+            <p className="note">
+              Overages or upgrades apply if caps are exceeded. Caps exist to keep throughput
+              predictable and the output reviewable.
+            </p>
+          </section>
+
+          <section
+            className="section"
+            ref={(el) => {
+              exampleRef.current = el;
+            }}
+          >
+            <h2>Example output (visual)</h2>
+            <p className="lead">
+              Faux daily digest: 10 ranked rows with reason chips and a simple &quot;Pursue /
+              Ignore&quot; UI. UI-only, no backend.
+            </p>
+
+            <div className="grid2">
+              <div className="digest">
+                <div className="digest-head">
+                  <div className="left">
+                    <h3>Daily Digest - Ranked Opportunities</h3>
+                    <div className="sub">
+                      Territory: {configSummary.territory} · Preset: {presetObj.title} · Alerts:{" "}
+                      {configSummary.alertFreq}
+                    </div>
+                  </div>
+                  <div className="chips">
+                    <Badge tone="emerald">Reason chips</Badge>
+                    <Badge tone="gold">Capped alerts</Badge>
+                  </div>
+                </div>
+
+                <table className="table" aria-label="Example daily digest table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "56%" }}>Opportunity</th>
+                      <th style={{ width: "14%" }}>Score</th>
+                      <th style={{ width: "30%" }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {DIGEST_ROWS.map((r) => {
+                      const d = digestDecisions[r.id] ?? "unmarked";
+                      return (
+                        <tr key={r.id}>
+                          <td>
+                            <div className="row-title">
+                              <b>{r.title}</b>
+                              <div className="chips">
+                                {r.reasons.map((c) => (
+                                  <Badge key={c} tone={c.includes("Price") ? "gold" : "emerald"}>
+                                    {c}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <Badge
+                              tone={
+                                r.score >= 80 ? "emerald" : r.score >= 70 ? "gold" : "neutral"
+                              }
+                            >
+                              {r.score}
+                            </Badge>
+                          </td>
+                          <td>
+                            <div className="row-actions">
+                              <button
+                                type="button"
+                                className={cx(
+                                  "btn btn-mini",
+                                  d === "pursue" ? "btn-primary" : "btn-ghost"
+                                )}
+                                onClick={() => {
+                                  setDecision(r.id, d === "pursue" ? "unmarked" : "pursue");
+                                  pushToast(d === "pursue" ? "Cleared: Pursue" : "Marked: Pursue");
+                                }}
+                              >
+                                Mark: Pursue
+                              </button>
+                              <button
+                                type="button"
+                                className={cx(
+                                  "btn btn-mini",
+                                  d === "ignore" ? "btn-secondary" : "btn-ghost"
+                                )}
+                                onClick={() => {
+                                  setDecision(r.id, d === "ignore" ? "unmarked" : "ignore");
+                                  pushToast(d === "ignore" ? "Cleared: Ignore" : "Marked: Ignore");
+                                }}
+                              >
+                                Mark: Ignore
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+
+                <p className="note">
+                  Scores are illustrative UI only. A ranked feed is not a promise of outcomes.
+                </p>
+              </div>
+
+              <div className="card">
+                <div className="card-pad">
+                  <div className="panel-title">
+                    <h3>Proof Sprint (positioning)</h3>
+                    <span>Risk removal</span>
+                  </div>
+
+                  <ul className="list" style={{ marginBottom: 10 }}>
+                    <li className="li">
+                      <span className="check" aria-hidden="true" />
+                      <span>
+                        <b>Deliverables in ~48 hours:</b> territory + preset + buy box + first
+                        digest + Top {CAPS.proof.dailyTopSms} alerts.
+                      </span>
+                    </li>
+                    <li className="li">
+                      <span className="check" aria-hidden="true" />
+                      <span>
+                        <b>Midweek tuning check-in:</b> adjust weights/rules based on what you
+                        actually want.
+                      </span>
+                    </li>
+                    <li className="li">
+                      <span className="check" aria-hidden="true" />
+                      <span>
+                        <b>End-of-week recap:</b> what worked, what did not, and recommended
+                        plan/caps.
+                      </span>
+                    </li>
+                  </ul>
+
+                  <div className="no-promise" style={{ marginBottom: 12 }}>
+                    <span className="dot" aria-hidden="true" />
+                    <div>
+                      <b>Reminder:</b> We rank opportunities. We do not guarantee
+                      motivated/contract-ready sellers.
+                    </div>
+                  </div>
+
+                  <div className="hero-cta">
+                    <button type="button" className="btn btn-primary" onClick={onPrimaryCta}>
+                      Start Proof Sprint - {formatMoney(PRICING.proof.price)}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => setRevealConfig(true)}
+                    >
+                      Customize presets + buy box
+                    </button>
+                  </div>
+
+                  <p className="note">
+                    If you want &quot;guarantees&quot;, this is the wrong product. If you want a
+                    disciplined, reviewable ranked feed tuned to your buy box, start here.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="section">
+            <h2>FAQ</h2>
+            <p className="lead">Short and direct.</p>
+
+            <div className="faqwrap">
+              <Accordion
+                items={[
+                  {
+                    q: "Is this lead gen?",
+                    a: (
+                      <>
+                        It&apos;s a ranked opportunity feed and alerting layer. It helps you decide
+                        where to focus, but it is not a promise of results, contactability, or
+                        contract-ready situations.
+                      </>
+                    ),
+                  },
+                  {
+                    q: "Do you guarantee motivated sellers?",
+                    a: (
+                      <>
+                        No. We rank opportunities based on your buy box and signals. We do not
+                        guarantee motivated or contract-ready sellers.
+                      </>
+                    ),
+                  },
+                  {
+                    q: "How is exclusivity enforced?",
+                    a: (
+                      <>
+                        Exclusivity is enforced by an explicitly defined territory boundary (ZIP
+                        list/cluster or radius) and a clear scope. It applies to our ranked feed
+                        output in that boundary, not public inventory.
+                      </>
+                    ),
+                  },
+                  {
+                    q: "What do I need to start?",
+                    a: (
+                      <>
+                        A territory definition (ZIP cluster or radius), a starting preset, and a
+                        basic buy box (price band, property types, DOM threshold, toggles, and
+                        alert frequency). Proof Sprint is the recommended entry.
+                      </>
+                    ),
+                  },
+                  {
+                    q: "Can I switch presets later?",
+                    a: (
+                      <>
+                        Yes. Presets are starting profiles. You can switch presets and tune
+                        weights/rules; caps still apply so output remains reviewable.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+
+              <div className="card">
+                <div className="card-pad">
+                  <div className="panel-title">
+                    <h3>Ready to start?</h3>
+                    <span>Next step</span>
+                  </div>
+
+                  <div className="hero-cta">
+                    <button type="button" className="btn btn-primary" onClick={onPrimaryCta}>
+                      Start Proof Sprint - {formatMoney(PRICING.proof.price)}
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={scrollToExample}>
+                      See example feed
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => setRevealConfig(true)}
+                    >
+                      Configure buy box
+                    </button>
+                  </div>
+
+                  <p className="note">
+                    Overages or upgrades apply if caps are exceeded. This is a capped, tunable
+                    ranked feed - not a guarantee.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <footer className="footer">
+            © {new Date().getFullYear()} Exclusive Territory Opportunity Intelligence Feed. This
+            page describes a ranked feed and alerting concept with caps and tuning. It does not
+            imply guaranteed outcomes.
+          </footer>
+        </div>
+
+        <Toast open={toast.open} message={toast.message} onClose={closeToast} />
       </div>
-    </main>
+    </>
   );
 }
