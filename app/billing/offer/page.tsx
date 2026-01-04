@@ -1,4 +1,3 @@
-```tsx
 'use client';
 
 import { useState } from 'react';
@@ -227,15 +226,34 @@ export default function BillingOfferPage() {
         </div>
       </section>
 
-      {/* FIT QUIZ */}
+      {/* ROI CALCULATOR LINK */}
       <section style={{ padding: '60px 20px', background: 'rgba(15, 23, 42, 0.3)' }}>
+        <div style={{ maxWidth: 600, margin: '0 auto' }}>
+          <SectionHeader tag="ROI" title="Estimate Your Loss" subtitle="Use the ROI calculator on the overview page to quantify leakage, labor, and disputes." />
+          <Card>
+            <h3 style={{ color: BRAND.white, fontSize: '1.1rem', fontWeight: 600, marginBottom: 16 }}>The calculator estimates:</h3>
+            <div style={{ marginBottom: 24 }}>
+              <CheckItem>Leakage cost — revenue lost to billing gaps and overages</CheckItem>
+              <CheckItem>Admin labor cost — hours spent on manual billing tasks</CheckItem>
+              <CheckItem>Dispute handling cost — time lost resolving chargebacks and complaints</CheckItem>
+            </div>
+            <a href="/billing#roi" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 28px', background: 'linear-gradient(135deg, ' + BRAND.emerald + ', ' + BRAND.emeraldLight + ')', color: BRAND.white, fontWeight: 600, fontSize: '0.95rem', borderRadius: 12, border: 'none', cursor: 'pointer', textDecoration: 'none', boxShadow: '0 4px 20px rgba(4, 120, 87, 0.4)' }}>
+              Open ROI Calculator →
+            </a>
+            <p style={{ color: BRAND.muted, fontSize: '0.8rem', marginTop: 16, marginBottom: 0 }}>Calculator lives on /billing to avoid duplicating logic.</p>
+          </Card>
+        </div>
+      </section>
+
+      {/* FIT QUIZ */}
+      <section style={{ padding: '60px 20px' }}>
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
           <FitQuiz />
         </div>
       </section>
 
       {/* DIY PRICING */}
-      <section id="diy-details" style={{ padding: '80px 20px' }}>
+      <section id="diy-details" style={{ padding: '80px 20px', background: 'rgba(15, 23, 42, 0.3)' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <SectionHeader tag="DIY" title="DIY Blueprint" subtitle="For teams with technical resources who want to self-implement." />
 
@@ -355,14 +373,17 @@ export default function BillingOfferPage() {
       </section>
 
       {/* DFY PRICING */}
-      <section style={{ padding: '80px 20px', background: 'rgba(15, 23, 42, 0.3)' }}>
+      <section style={{ padding: '80px 20px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <SectionHeader tag="DFY" title="DFY Hosted Tiers" subtitle="We build and host your dedicated billing engine. Pricing includes setup + required monthly monitoring." />
+          <p style={{ color: BRAND.emeraldLight, fontSize: '0.9rem', fontWeight: 600, marginTop: -24, marginBottom: 32 }}>
+            Entry-level DFY starts at $12,500 + $1,250/mo monitoring.
+          </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
             <TierCard
               tier="Tier 1"
-              name="DFY Core"
+              name="Entry-Level DFY (Core)"
               setup="$12,500"
               monthly="$1,250"
               description="Single-tenant billing engine with essential automation and standard monitoring."
@@ -449,7 +470,7 @@ export default function BillingOfferPage() {
       </section>
 
       {/* ACCEPTANCE CRITERIA */}
-      <section style={{ padding: '80px 20px' }}>
+      <section style={{ padding: '80px 20px', background: 'rgba(15, 23, 42, 0.3)' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <SectionHeader tag="Acceptance" title="What 'Done' Means" subtitle="These are the testable conditions we verify before handoff. If any fail, we fix them before go-live." />
 
@@ -489,7 +510,7 @@ export default function BillingOfferPage() {
       </section>
 
       {/* SCOPE GUARDRAILS */}
-      <section style={{ padding: '80px 20px', background: 'rgba(15, 23, 42, 0.3)' }}>
+      <section style={{ padding: '80px 20px' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <SectionHeader tag="Scope" title="Scope Guardrails" subtitle="Hard boundaries to prevent misunderstandings. Read before you apply." />
 
@@ -549,7 +570,7 @@ export default function BillingOfferPage() {
       </section>
 
       {/* MONITORING */}
-      <section style={{ padding: '80px 20px' }}>
+      <section style={{ padding: '80px 20px', background: 'rgba(15, 23, 42, 0.3)' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <SectionHeader tag="Monitoring" title="What Monitoring Covers" subtitle="Explicit list of what is included, what is excluded, and what you actually receive." />
 
@@ -627,7 +648,7 @@ export default function BillingOfferPage() {
       </section>
 
       {/* IMPLEMENTATION TIMELINE */}
-      <section style={{ padding: '80px 20px', background: 'rgba(15, 23, 42, 0.3)' }}>
+      <section style={{ padding: '80px 20px' }}>
         <div style={{ maxWidth: 800, margin: '0 auto' }}>
           <SectionHeader tag="Timeline" title="Implementation Phases" subtitle="We do not promise specific dates. We commit to phases with defined exit criteria." />
 
@@ -672,4 +693,3 @@ export default function BillingOfferPage() {
     </main>
   );
 }
-```
