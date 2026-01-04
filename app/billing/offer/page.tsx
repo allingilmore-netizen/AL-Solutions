@@ -647,7 +647,7 @@ export default function BillingOfferPage() {
               Apply for DFY Setup
             </a>
             <a href="#diy-details" style={{ padding: '16px 32px', background: 'rgba(255,255,255,0.15)', color: BRAND.white, fontWeight: 700, borderRadius: 12, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.3)', fontSize: '1rem' }}>
-              Buy DIY Blueprint — $2,997
+              Buy DIY Blueprint — $2,996
             </a>
           </div>
         </div>
