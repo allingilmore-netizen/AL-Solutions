@@ -155,7 +155,7 @@ export default function BillingLandingPage() {
             </p>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <PrimaryButton href="#apply">Apply for DFY Setup →</PrimaryButton>
-              <SecondaryButton href="/billing/offer">Buy DIY Blueprint — $2,997</SecondaryButton>
+              <SecondaryButton href="/billing/offer">Buy DIY Blueprint — $2,996</SecondaryButton>
             </div>
           </div>
         </div>
