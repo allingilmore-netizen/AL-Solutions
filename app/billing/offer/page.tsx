@@ -370,7 +370,7 @@ export default function BillingOfferPage() {
               <Card style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
                   <div>
-                    <span style={{ fontSize: '2.5rem', fontWeight: 800, color: BRAND.white }}>$2,997</span>
+                    <span style={{ fontSize: '2.5rem', fontWeight: 800, color: BRAND.white }}>$2,996</span>
                     <p style={{ color: BRAND.muted, fontSize: '0.9rem', marginTop: 4 }}>one-time purchase</p>
                   </div>
                   <Badge variant="muted">No support included</Badge>
