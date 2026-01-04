@@ -252,7 +252,7 @@ export default function BillingLandingPage() {
               <Badge variant="muted">Self-Implement</Badge>
               <h3 style={{ color: BRAND.white, fontSize: '1.5rem', fontWeight: 700, marginTop: 16, marginBottom: 8 }}>DIY Blueprint</h3>
               <div style={{ marginBottom: 16 }}>
-                <span style={{ fontSize: '2.5rem', fontWeight: 800, color: BRAND.white }}>$2,997</span>
+                <span style={{ fontSize: '2.5rem', fontWeight: 800, color: BRAND.white }}>$2,996</span>
                 <span style={{ color: BRAND.muted, marginLeft: 8 }}>one-time</span>
               </div>
               <p style={{ color: BRAND.muted, fontSize: '0.9rem', marginBottom: 24, lineHeight: 1.6 }}>Complete technical specification. You build it on your own infrastructure.</p>
