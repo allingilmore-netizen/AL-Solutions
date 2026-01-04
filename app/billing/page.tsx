@@ -215,7 +215,11 @@ export default function BillingLandingPage() {
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <PrimaryButton href="#apply">Apply for DFY Setup →</PrimaryButton>
               <SecondaryButton href="/billing/offer">Buy DIY Blueprint — $2,997</SecondaryButton>
+              <SecondaryButton href="#roi">See ROI Calculator</SecondaryButton>
             </div>
+            <p style={{ color: BRAND.muted, fontSize: '0.85rem', marginTop: 16 }}>
+              Want the numbers first? <a href="#roi" style={{ color: BRAND.emeraldLight, textDecoration: 'underline' }}>Jump to the ROI calculator below.</a>
+            </p>
           </div>
         </div>
       </section>
@@ -318,7 +322,7 @@ export default function BillingLandingPage() {
       </section>
 
       {/* ROI CALCULATOR */}
-      <section style={{ padding: '80px 20px', background: 'rgba(15, 23, 42, 0.3)' }}>
+      <section id="roi" style={{ padding: '80px 20px', background: 'rgba(15, 23, 42, 0.3)' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <SectionHeader tag="ROI Calculator" title="What Is This Costing You?" subtitle="Adjust the sliders to estimate your current monthly loss from billing inefficiencies." />
           
